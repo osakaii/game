@@ -1,0 +1,76 @@
+import * as THREE from 'three';
+import {
+  PLAYER,
+  copyVec3,
+  groundHeightAt,
+  stepPlayer,
+  vec3,
+  type Aabb,
+  type MoveInput,
+  type PlayerPhysicsState,
+  type Vec3,
+} from '@mecha/shared';
+import { PlayerModel } from './player-model';
+
+const TURN_SPEED = 12; // рад/с — как быстро модель разворачивается по направлению движения
+
+/** Игрок, которым управляем на этом устройстве: физика (shared) + модель (three). */
+export class LocalPlayer {
+  readonly model = new PlayerModel();
+  readonly state: PlayerPhysicsState;
+  /** Позиция для отрисовки: интерполяция между двумя последними шагами физики. */
+  readonly renderPosition = new THREE.Vector3();
+
+  private readonly prevPosition: Vec3;
+  /** Начальный разворот — спиной к камере (камера по умолчанию смотрит на -Z). */
+  private facing = Math.PI;
+
+  constructor(
+    spawn: Vec3,
+    private readonly colliders: Aabb[],
+  ) {
+    this.state = { position: { ...spawn }, velocity: vec3(), grounded: true };
+    this.prevPosition = { ...spawn };
+    this.renderPosition.set(spawn.x, spawn.y, spawn.z);
+    this.model.root.rotation.y = this.facing;
+  }
+
+  fixedUpdate(input: MoveInput, dt: number): void {
+    copyVec3(this.prevPosition, this.state.position);
+    stepPlayer(this.state, input, this.colliders, dt);
+  }
+
+  render(alpha: number, frameDt: number): void {
+    const prev = this.prevPosition;
+    const curr = this.state.position;
+    this.renderPosition.set(
+      prev.x + (curr.x - prev.x) * alpha,
+      prev.y + (curr.y - prev.y) * alpha,
+      prev.z + (curr.z - prev.z) * alpha,
+    );
+
+    const root = this.model.root;
+    root.position.copy(this.renderPosition);
+
+    const { x: vx, z: vz } = this.state.velocity;
+    const speed = Math.hypot(vx, vz);
+    if (speed > 0.3) {
+      // Модель смотрит по +Z, поворот на atan2(x, z) разворачивает её в сторону движения.
+      const target = Math.atan2(vx, vz);
+      this.facing = rotateTowards(this.facing, target, TURN_SPEED * frameDt);
+      root.rotation.y = this.facing;
+    }
+
+    this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);
+    const p = this.renderPosition;
+    this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.colliders));
+  }
+}
+
+/** Поворот по кратчайшей дуге: из 170° в -170° — это 20°, а не 340°. */
+function rotateTowards(current: number, target: number, maxStep: number): number {
+  let delta = target - current;
+  delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+  if (Math.abs(delta) <= maxStep) return target;
+  return current + Math.sign(delta) * maxStep;
+}

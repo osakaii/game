@@ -192,3 +192,18 @@ export function groundHeightAt(x: number, z: number, maxY: number, colliders: Aa
   }
   return ground;
 }
+
+/**
+ * Стоит ли цилиндр игрока внутри какого-то блока глубже, чем на tolerance.
+ * Нужна серверу: честная физика клиента никогда не заводит игрока в стену.
+ */
+export function penetratesColliders(position: Vec3, colliders: Aabb[], tolerance: number): boolean {
+  const r = PLAYER.radius - tolerance;
+  const feet = position.y + tolerance;
+  const head = position.y + PLAYER.height - tolerance;
+  for (const b of colliders) {
+    if (head <= b.minY || feet >= b.maxY) continue;
+    if (circleOverlapsRect(position.x, position.z, r, b)) return true;
+  }
+  return false;
+}

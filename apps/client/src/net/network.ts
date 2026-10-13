@@ -4,12 +4,16 @@ import {
   type ClientToServerEvents,
   type CreateRoomPayload,
   type JoinRoomPayload,
+  type PlayerState,
   type RoomResult,
   type RoomSnapshot,
   type ServerToClientEvents,
+  type TeleportPayload,
   type WelcomePayload,
+  type WorldSnapshot,
 } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
+import { ServerClock } from './server-clock';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 export type ConnectionState = 'connecting' | 'online' | 'offline';
@@ -19,6 +23,8 @@ interface NetworkEvents {
   ping: number;
   welcome: WelcomePayload;
   roomState: RoomSnapshot;
+  snapshot: WorldSnapshot;
+  teleport: TeleportPayload;
 }
 
 const PING_INTERVAL_MS = 2000;
@@ -31,6 +37,7 @@ const REQUEST_TIMEOUT_MS = 5000;
 export class Network extends Emitter<NetworkEvents> {
   private readonly socket: GameSocket;
   private pingTimer: ReturnType<typeof setInterval> | undefined;
+  readonly clock = new ServerClock();
   playerId: string | null = null;
   state: ConnectionState = 'connecting';
 
@@ -44,6 +51,8 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('connect', () => this.setStatus('connecting', 'handshake…'));
     this.socket.on('net:welcome', (welcome) => this.onWelcome(welcome));
     this.socket.on('room:state', (room) => this.emit('roomState', room));
+    this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
+    this.socket.on('player:teleport', (position) => this.emit('teleport', position));
     this.socket.on('disconnect', () => {
       clearInterval(this.pingTimer);
       this.playerId = null;
@@ -64,6 +73,14 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.emit('room:leave');
   }
 
+  /**
+   * volatile: если соединения нет или буфер забит — пакет выбрасывается.
+   * Устаревшая позиция бесполезна, через 50 мс уйдёт свежая.
+   */
+  sendPlayerState(state: PlayerState): void {
+    this.socket.volatile.emit('player:state', state);
+  }
+
   private onWelcome(welcome: WelcomePayload) {
     if (welcome.protocolVersion !== PROTOCOL_VERSION) {
       this.setStatus('offline', 'version mismatch, reload page');
@@ -80,7 +97,9 @@ export class Network extends Emitter<NetworkEvents> {
 
   private measurePing() {
     this.socket.emit('net:ping', { clientTime: performance.now() }, (pong) => {
-      this.emit('ping', performance.now() - pong.clientTime);
+      const now = performance.now();
+      this.clock.addSample(pong.clientTime, pong.serverTime, now);
+      this.emit('ping', now - pong.clientTime);
     });
   }
 

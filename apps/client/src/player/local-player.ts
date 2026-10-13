@@ -23,7 +23,7 @@ export class LocalPlayer {
 
   private readonly prevPosition: Vec3;
   /** Начальный разворот — спиной к камере (камера по умолчанию смотрит на -Z). */
-  private facing = Math.PI;
+  private facingAngle = Math.PI;
 
   constructor(
     spawn: Vec3,
@@ -32,7 +32,19 @@ export class LocalPlayer {
     this.state = { position: { ...spawn }, velocity: vec3(), grounded: true };
     this.prevPosition = { ...spawn };
     this.renderPosition.set(spawn.x, spawn.y, spawn.z);
-    this.model.root.rotation.y = this.facing;
+    this.model.root.rotation.y = this.facingAngle;
+  }
+
+  /** Куда смотрит модель (рад) — отправляем на сервер, чтобы другие видели разворот. */
+  get facing(): number {
+    return this.facingAngle;
+  }
+
+  /** Сервер поставил нас в точку: спавн или откат. Без интерполяции — мгновенно. */
+  teleport(position: Vec3): void {
+    copyVec3(this.state.position, position);
+    copyVec3(this.prevPosition, position);
+    this.state.velocity.x = this.state.velocity.y = this.state.velocity.z = 0;
   }
 
   fixedUpdate(input: MoveInput, dt: number): void {
@@ -57,8 +69,8 @@ export class LocalPlayer {
     if (speed > 0.3) {
       // Модель смотрит по +Z, поворот на atan2(x, z) разворачивает её в сторону движения.
       const target = Math.atan2(vx, vz);
-      this.facing = rotateTowards(this.facing, target, TURN_SPEED * frameDt);
-      root.rotation.y = this.facing;
+      this.facingAngle = rotateTowards(this.facingAngle, target, TURN_SPEED * frameDt);
+      root.rotation.y = this.facingAngle;
     }
 
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);

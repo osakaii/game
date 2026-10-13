@@ -6,8 +6,9 @@
  * чтобы старый клиент не пытался говорить с новым сервером.
  */
 import type { CreateRoomPayload, JoinRoomPayload, RoomResult, RoomSnapshot } from './lobby.js';
+import type { PlayerState, TeleportPayload, WorldSnapshot } from './net-state.js';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Сервер -> клиент: сразу после подключения. */
 export interface WelcomePayload {
@@ -37,6 +38,8 @@ export interface ServerToClientEvents {
   'net:welcome': (payload: WelcomePayload) => void;
   /** Состояние комнаты изменилось (кто-то зашёл, вышел, сменился хост). */
   'room:state': (room: RoomSnapshot) => void;
+  'world:snapshot': (snapshot: WorldSnapshot) => void;
+  'player:teleport': (position: TeleportPayload) => void;
 }
 
 export interface ClientToServerEvents {
@@ -44,4 +47,5 @@ export interface ClientToServerEvents {
   'room:create': (payload: CreateRoomPayload, ack: (result: RoomResult) => void) => void;
   'room:join': (payload: JoinRoomPayload, ack: (result: RoomResult) => void) => void;
   'room:leave': () => void;
+  'player:state': (state: PlayerState) => void;
 }

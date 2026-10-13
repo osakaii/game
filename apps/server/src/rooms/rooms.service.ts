@@ -26,6 +26,10 @@ export class RoomsService {
     return this.rooms.size;
   }
 
+  allRooms(): IterableIterator<Room> {
+    return this.rooms.values();
+  }
+
   roomOf(playerId: string): Room | undefined {
     const code = this.playerRooms.get(playerId);
     return code ? this.rooms.get(code) : undefined;

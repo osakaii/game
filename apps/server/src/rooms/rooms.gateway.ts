@@ -72,6 +72,9 @@ export class RoomsGateway implements OnGatewayDisconnect {
     client.join(room.code);
     const snapshot = room.toSnapshot();
     this.server.to(room.code).emit('room:state', snapshot);
+    // Позицию на спавне выдаёт сервер — клиент не выбирает, где появиться.
+    const { x, y, z } = room.member(client.id)!.state;
+    client.emit('player:teleport', { x, y, z });
     return snapshot;
   }
 

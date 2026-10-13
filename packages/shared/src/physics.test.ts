@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { vec3, type Vec3 } from './math.js';
-import { PHYSICS_DT, PLAYER, stepPlayer, type PlayerPhysicsState } from './physics.js';
+import { PHYSICS_DT, PLAYER, penetratesColliders, stepPlayer, type PlayerPhysicsState } from './physics.js';
 import { buildColliders } from './world/map.js';
 import { PLAYROOM } from './world/playroom.js';
 
@@ -49,5 +49,16 @@ describe('stepPlayer on Playroom', () => {
     const s = simulate(vec3(0, 0, 6), 0, 0, 1);
     expect(s.position).toEqual(vec3(0, 0, 6));
     expect(s.grounded).toBe(true);
+  });
+});
+
+describe('penetratesColliders', () => {
+  it('detects a player standing inside the pillar', () => {
+    expect(penetratesColliders(vec3(0, 0, 0), colliders, 0.1)).toBe(true);
+  });
+
+  it('allows touching a wall and standing on top of a crate', () => {
+    expect(penetratesColliders(vec3(-0.5 - PLAYER.radius, 0, 0), colliders, 0.1)).toBe(false);
+    expect(penetratesColliders(vec3(-8.5, 1, -12), colliders, 0.1)).toBe(false);
   });
 });

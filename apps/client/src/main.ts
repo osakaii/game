@@ -6,6 +6,7 @@ import { Controls } from './input/controls';
 import { inviteToRoom, roomCodeFromUrl, setRoomInUrl } from './lobby/invite';
 import { Lobby } from './lobby/lobby';
 import { Network } from './net/network';
+import { StateSender } from './net/state-sender';
 import { LocalPlayer } from './player/local-player';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
@@ -13,6 +14,7 @@ import { Hud } from './ui/hud';
 import { MenuScreen } from './ui/menu-screen';
 import { RoomPanel } from './ui/room-panel';
 import { buildMap } from './world/map-builder';
+import { RemotePlayers } from './world/remote-players';
 import { createSceneContext } from './world/scene-setup';
 
 // ---------- 3D-мир ----------
@@ -61,6 +63,17 @@ network.on('status', ({ state, text }) => {
 });
 network.on('ping', (rtt) => hud.setPing(rtt));
 
+// ---------- Синхронизация игроков ----------
+
+const remotePlayers = new RemotePlayers(scene, colliders);
+const stateSender = new StateSender((state) => network.sendPlayerState(state));
+
+network.on('snapshot', (snapshot) => remotePlayers.applySnapshot(snapshot, network.playerId));
+network.on('teleport', (position) => {
+  player.teleport(position);
+  stateSender.reset();
+});
+
 async function runLobbyRequest(request: () => Promise<boolean>) {
   menu.setBusy(true);
   menu.showError('');
@@ -71,6 +84,7 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 // Единая точка реакции на «вошли/вышли/изменилась комната».
 lobby.on('room', (room) => {
   roomPanel.render(room, network.playerId);
+  remotePlayers.applyRoom(room);
   if (room) {
     menu.hide();
     setRoomInUrl(room.code);
@@ -99,13 +113,21 @@ startFixedStepLoop(PHYSICS_DT, {
     moveInput.dirZ = f.z * axis.y + f.x * axis.x;
     moveInput.jump = controls.consumeJump();
     player.fixedUpdate(moveInput, dt);
+    if (lobby.room) stateSender.update(dt, player);
   },
   render(alpha, frameDt) {
     const look = controls.consumeLook();
     followCamera.rotate(look.dx, look.dy);
     player.render(alpha, frameDt);
+    remotePlayers.render(network.clock.now(), frameDt);
     followCamera.update(player.renderPosition, frameDt);
     renderer.render(scene, camera);
     hud.tick(frameDt);
   },
 });
+
+// Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
+// В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
+if (import.meta.env.DEV) {
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network } });
+}

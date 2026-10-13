@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp } from '@mecha/shared';
+import type { WorldGeometry } from '../world/active-map';
 
 const PIVOT_HEIGHT = 1.35; // камера смотрит на уровень плеч, а не на ноги
 const DISTANCE = 4.5;
@@ -26,7 +27,7 @@ export class ThirdPersonCamera {
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
-    private readonly obstacles: THREE.Object3D[],
+    private readonly world: WorldGeometry,
   ) {}
 
   /** dx, dy — смещение пальца/мыши в радианах. */
@@ -54,7 +55,7 @@ export class ThirdPersonCamera {
     let desired = DISTANCE;
     this.raycaster.set(this.pivot, this.direction);
     this.raycaster.far = DISTANCE + WALL_PADDING;
-    const hit = this.raycaster.intersectObjects(this.obstacles, false)[0];
+    const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
     if (hit) desired = Math.max(hit.distance - WALL_PADDING, MIN_DISTANCE);
 
     if (desired < this.distance) {

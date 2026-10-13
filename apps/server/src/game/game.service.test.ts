@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GAME_RULES, type RoomPhase } from '@mecha/shared';
+import { DEFAULT_SETTINGS, GAME_RULES, type RoomPhase } from '@mecha/shared';
 import { GameError } from '../common/game-error';
 import { RoomEvents } from '../rooms/room-events';
 import { RoomsService } from '../rooms/rooms.service';
@@ -56,10 +56,10 @@ describe('GameService', () => {
     game.start(room, 'p0');
     expect(room.phase).toBe('hiding');
 
-    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
     expect(room.phase).toBe('seeking');
 
-    vi.advanceTimersByTime(GAME_RULES.seekSeconds * 1000);
+    vi.advanceTimersByTime(DEFAULT_SETTINGS.seekSeconds * 1000);
     expect(room.phase).toBe('results');
     expect(room.result).toEqual({ winner: 'hider', reason: 'time_up' });
 
@@ -77,7 +77,7 @@ describe('GameService', () => {
     expect(room.result).toEqual({ winner: 'hider', reason: 'seekers_left' });
 
     // «Старый» таймер конца пряток не должен перевести results в seeking.
-    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
     expect(room.phase).not.toBe('seeking');
   });
 
@@ -127,7 +127,7 @@ describe('GameService.paint', () => {
     expect(() => game.paint(room, seeker.id, ['head'], '#ffffff')).toThrowError(/PAINT_NOT_ALLOWED/);
     expect(() => game.paint(room, hider.id, ['head'], '#00ff00')).not.toThrow();
 
-    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
     expect(() => game.paint(room, hider.id, ['torso'], '#00ff00', Date.now() + 1000)).toThrowError(
       /PAINT_NOT_ALLOWED/,
     );
@@ -142,7 +142,7 @@ describe('GameService.shoot', () => {
   function seekingRound() {
     const ctx = setup(2);
     ctx.game.start(ctx.room, 'p0');
-    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
     const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
     const hider = ctx.room.allMembers().find((m) => m.role === 'hider')!;
     ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
@@ -186,5 +186,65 @@ describe('GameService.shoot', () => {
     game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 });
     expect(room.netPlayers().map((p) => p.id)).toEqual([seeker.id]);
     expect(hider.found).toBe(true);
+  });
+});
+
+describe('GameService settings, scoring and rotation', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('only the host changes settings, only in lobby; map change teleports everyone', () => {
+    const { game, room, teleports } = setup(2);
+    expect(() => game.updateSettings(room, 'p1', { mapId: 'garden' })).toThrowError(/NOT_HOST/);
+
+    game.updateSettings(room, 'p0', { mapId: 'garden', hideSeconds: 20 });
+    expect(room.map.id).toBe('garden');
+    expect(room.settings.hideSeconds).toBe(20);
+    expect(teleports).toHaveLength(2);
+
+    game.start(room, 'p0');
+    expect(() => game.updateSettings(room, 'p0', { mapId: 'kitchen' })).toThrowError(/GAME_IN_PROGRESS/);
+    // Длительность пряток взята из настроек.
+    vi.advanceTimersByTime(20_000);
+    expect(room.phase).toBe('seeking');
+  });
+
+  it('respects the seekers setting but always leaves a hider', () => {
+    const { game, room } = setup(3);
+    game.updateSettings(room, 'p0', { seekers: 3 });
+    game.start(room, 'p0');
+    expect(room.allMembers().filter((m) => m.role === 'seeker')).toHaveLength(2);
+  });
+
+  it('rotates seekers: everybody seeks before anyone seeks twice', () => {
+    const { game, room } = setup(4);
+    const seekersByRound: string[] = [];
+    for (let round = 0; round < 4; round++) {
+      game.start(room, 'p0');
+      seekersByRound.push(room.allMembers().find((m) => m.role === 'seeker')!.id);
+      vi.runOnlyPendingTimers(); // hiding -> seeking
+      vi.runOnlyPendingTimers(); // seeking -> results
+      vi.runOnlyPendingTimers(); // results -> lobby
+    }
+    expect(new Set(seekersByRound).size).toBe(4);
+  });
+
+  it('scores finds for seekers and survival for hiders', () => {
+    const { game, room } = setup(3);
+    game.start(room, 'p0');
+    vi.runOnlyPendingTimers(); // -> seeking
+    const seeker = room.allMembers().find((m) => m.role === 'seeker')!;
+    const [caught, survivor] = room.allMembers().filter((m) => m.role === 'hider');
+    room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    room.teleport(caught, { x: 0, y: 0, z: 4 });
+    room.teleport(survivor, { x: -12, y: 0, z: 12 });
+    game.shoot(room, seeker.id, { x: 0, y: 1.5, z: 13 }, { x: 0, y: 0, z: -1 });
+
+    vi.runOnlyPendingTimers(); // время вышло -> results
+    expect(room.phase).toBe('results');
+    expect(seeker.score).toBe(2);
+    expect(caught.score).toBe(0);
+    expect(survivor.score).toBe(3);
+    expect(room.toSnapshot().players.find((p) => p.id === survivor.id)?.roundPoints).toBe(3);
   });
 });

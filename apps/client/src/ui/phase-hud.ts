@@ -37,6 +37,7 @@ export class PhaseHud {
   private readonly resultsTitle = $('#results-title');
   private readonly resultsReason = $('#results-reason');
   private readonly resultsTimer = $('#results-timer');
+  private readonly resultsScores = $<HTMLOListElement>('#results-scores');
   private readonly cache = new Map<HTMLElement, string>();
 
   update(room: RoomSnapshot | null, myRole: Role | null, serverNow: number, found = false): void {
@@ -64,6 +65,27 @@ export class PhaseHud {
       this.setText(this.resultsReason, WIN_REASONS[room.result.reason]);
       this.setText(this.resultsTimer, `В лобби через ${left}`);
     }
+  }
+
+  /** Таблица очков на экране итогов. Вызывается при смене состояния комнаты, не каждый кадр. */
+  renderScores(room: RoomSnapshot | null, myId: string | null): void {
+    if (room?.phase !== 'results') return;
+    const sorted = [...room.players].sort((a, b) => b.score - a.score);
+    const rows = sorted.map((player) => {
+      const li = document.createElement('li');
+      if (player.id === myId) li.classList.add('me');
+      const name = document.createElement('span');
+      name.className = 'nickname';
+      name.textContent = player.nickname;
+      const delta = document.createElement('span');
+      delta.className = 'delta';
+      delta.textContent = player.roundPoints > 0 ? `+${player.roundPoints}` : '';
+      const total = document.createElement('span');
+      total.textContent = String(player.score);
+      li.append(name, delta, total);
+      return li;
+    });
+    this.resultsScores.replaceChildren(...rows);
   }
 
   private setText(el: HTMLElement, text: string) {

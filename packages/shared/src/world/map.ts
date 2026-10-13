@@ -15,7 +15,10 @@ export interface MapBox {
 }
 
 export interface MapDef {
+  id: string;
+  /** Название для игроков. */
   name: string;
+  skyColor?: string;
   /** Размер пола по X и Z, центр в (0, 0). */
   width: number;
   depth: number;

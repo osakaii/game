@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { NetPlayer } from '@mecha/shared';
 import { RemotePlayer } from './remote-player';
 
+const noWorld = { colliders: [], obstacles: [] };
 const state = (x: number, yaw = 0): NetPlayer => ({ id: 'b', x, y: 0, z: 0, yaw, grounded: true });
 
 describe('RemotePlayer interpolation', () => {
   it('interpolates between two snapshots around render time', () => {
-    const player = new RemotePlayer('b', []);
+    const player = new RemotePlayer('b', noWorld);
     player.addSample(1000, state(0));
     player.addSample(1050, state(1));
     player.render(1025, 0.016);
@@ -14,7 +15,7 @@ describe('RemotePlayer interpolation', () => {
   });
 
   it('holds the last known position when snapshots are late', () => {
-    const player = new RemotePlayer('b', []);
+    const player = new RemotePlayer('b', noWorld);
     player.addSample(1000, state(0));
     player.addSample(1050, state(1));
     player.render(1300, 0.016);
@@ -22,7 +23,7 @@ describe('RemotePlayer interpolation', () => {
   });
 
   it('ignores out-of-order snapshots', () => {
-    const player = new RemotePlayer('b', []);
+    const player = new RemotePlayer('b', noWorld);
     player.addSample(1050, state(1));
     player.addSample(1000, state(99));
     player.render(1000, 0.016);
@@ -30,7 +31,7 @@ describe('RemotePlayer interpolation', () => {
   });
 
   it('turns through the shortest arc', () => {
-    const player = new RemotePlayer('b', []);
+    const player = new RemotePlayer('b', noWorld);
     player.addSample(0, state(0, 3.1));
     player.addSample(100, state(0, -3.1));
     player.render(50, 0.016);

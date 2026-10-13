@@ -5,9 +5,10 @@ import {
   PLAYER,
   canPaint,
   canShoot,
-  seekerCount,
+  resolveSeekerCount,
   type BodyZone,
   type GameResult,
+  type RoomSettings,
   type ShotResult,
   type Vec3,
 } from '@mecha/shared';
@@ -65,12 +66,13 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     if (room.phase !== 'lobby') throw new GameError('GAME_IN_PROGRESS');
     if (room.size < GAME_RULES.minPlayers) throw new GameError('NOT_ENOUGH_PLAYERS');
 
-    const ids = shuffle(
-      room.allMembers().map((m) => m.id),
-      random,
-    );
-    const seekers = new Set(ids.slice(0, seekerCount(room.size)));
-    room.startRound(seekers, Date.now() + GAME_RULES.hideSeconds * 1000);
+    // Честная очередь: ищущими становятся те, кто водил реже всех.
+    // Сначала тасуем, потом стабильно сортируем по timesSeeker — среди равных порядок остаётся случайным.
+    const queue = shuffle(room.allMembers(), random).sort((a, b) => a.timesSeeker - b.timesSeeker);
+    const count = resolveSeekerCount(room.size, room.settings.seekers);
+    const seekers = new Set(queue.slice(0, count).map((m) => m.id));
+    const { hideSeconds } = room.settings;
+    room.startRound(seekers, Date.now() + hideSeconds * 1000);
 
     for (const member of room.allMembers()) {
       const points = member.role === 'seeker' ? room.map.seekerSpawns : room.map.spawns;
@@ -79,7 +81,19 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`room ${room.code}: round started, seekers: ${[...seekers].length}/${room.size}`);
     this.events.changed.next(room);
 
-    this.schedule(room, GAME_RULES.hideSeconds, () => this.startSeeking(room));
+    this.schedule(room, hideSeconds, () => this.startSeeking(room));
+  }
+
+  /** Хост меняет настройки в лобби. Смена карты переставляет всех на точки появления новой карты. */
+  updateSettings(room: Room, playerId: string, patch: Partial<RoomSettings>): void {
+    if (room.hostId !== playerId) throw new GameError('NOT_HOST');
+    if (room.phase !== 'lobby') throw new GameError('GAME_IN_PROGRESS');
+
+    const mapChanged = room.applySettings(patch);
+    if (mapChanged) {
+      for (const member of room.allMembers()) this.teleport(room, member, room.nextSpawn(room.map.spawns));
+    }
+    this.events.changed.next(room);
   }
 
   paint(room: Room, playerId: string, zones: readonly BodyZone[], color: string, now = Date.now()): void {
@@ -129,7 +143,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     if (hitPlayerId) {
       const hider = room.member(hitPlayerId)!;
-      room.markFound(hider);
+      room.markFound(hider, seeker);
       this.logger.log(`room ${room.code}: ${seeker.nickname} found ${hider.nickname}`);
       this.events.changed.next(room);
       this.checkWinConditions(room);
@@ -153,10 +167,11 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   }
 
   private startSeeking(room: Room) {
-    room.startSeeking(Date.now() + GAME_RULES.seekSeconds * 1000);
+    const { seekSeconds } = room.settings;
+    room.startSeeking(Date.now() + seekSeconds * 1000);
     this.events.changed.next(room);
     // Время вышло, а прячущиеся остались — они победили.
-    this.schedule(room, GAME_RULES.seekSeconds, () => this.finish(room, { winner: 'hider', reason: 'time_up' }));
+    this.schedule(room, seekSeconds, () => this.finish(room, { winner: 'hider', reason: 'time_up' }));
   }
 
   private finish(room: Room, result: GameResult) {

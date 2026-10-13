@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { WorldGeometry } from '../world/active-map';
 
 /**
  * Пипетка: луч из камеры через точку касания -> первый предмет -> цвет его материала.
@@ -14,7 +15,7 @@ export class Eyedropper {
   constructor(
     private readonly camera: THREE.Camera,
     private readonly canvas: HTMLCanvasElement,
-    private readonly targets: THREE.Object3D[],
+    private readonly world: Pick<WorldGeometry, 'obstacles'>,
   ) {}
 
   pick(clientX: number, clientY: number): string | null {
@@ -23,7 +24,7 @@ export class Eyedropper {
     this.ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.camera);
 
-    const hit = this.raycaster.intersectObjects(this.targets, false)[0];
+    const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
     if (!hit || !(hit.object instanceof THREE.Mesh)) return null;
     const material = hit.object.material;
     if (!(material instanceof THREE.MeshLambertMaterial)) return null;

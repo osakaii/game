@@ -1,36 +1,14 @@
 import { vec3 } from '../math.js';
-import { perimeterWalls, type MapBox, type MapDef } from './map.js';
-
-/** Стол: столешница + 4 ножки, каждая — отдельный коллайдер. Залезть можно прыжком. */
-function table(x: number, z: number, w: number, d: number, h: number, color: string): MapBox[] {
-  const top = 0.15;
-  const leg = 0.15;
-  const lx = w / 2 - leg / 2;
-  const lz = d / 2 - leg / 2;
-  return [
-    { x, z, y: h - top, w, h: top, d, color },
-    { x: x - lx, z: z - lz, w: leg, h: h - top, d: leg, color },
-    { x: x + lx, z: z - lz, w: leg, h: h - top, d: leg, color },
-    { x: x - lx, z: z + lz, w: leg, h: h - top, d: leg, color },
-    { x: x + lx, z: z + lz, w: leg, h: h - top, d: leg, color },
-  ];
-}
-
-/** Лестница из ступеней высотой 0.3 — по ним можно зайти без прыжка (step-up). */
-function stairs(x: number, z: number, steps: number, color: string): MapBox[] {
-  const result: MapBox[] = [];
-  for (let i = 0; i < steps; i++) {
-    result.push({ x: x + i, z, w: 1, h: 0.3 * (i + 1), d: 2, color });
-  }
-  return result;
-}
+import { stairs, table } from './builders.js';
+import { perimeterWalls, type MapDef } from './map.js';
 
 const WIDTH = 30;
 const DEPTH = 30;
 
 /** Первая карта: детская комната. Много разных цветов — будет из чего красить себя. */
 export const PLAYROOM: MapDef = {
-  name: 'Playroom',
+  id: 'playroom',
+  name: 'Детская',
   width: WIDTH,
   depth: DEPTH,
   floorColor: '#d9c3a0',

@@ -7,7 +7,14 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { PaintSchema, ShootSchema, type EmptyResult, type Result, type ShotResult } from '@mecha/shared';
+import {
+  PaintSchema,
+  ShootSchema,
+  UpdateSettingsSchema,
+  type EmptyResult,
+  type Result,
+  type ShotResult,
+} from '@mecha/shared';
 import { GameError, parseInput, respond } from '../common/game-error';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import { GATEWAY_OPTIONS, playerIdOf, type GameServer, type GameSocket } from '../common/socket-types';
@@ -49,6 +56,18 @@ export class GameGateway implements OnGatewayInit {
       const room = this.rooms.roomOf(playerIdOf(client));
       if (!room) throw new GameError('ROOM_NOT_FOUND');
       this.game.start(room, playerIdOf(client));
+      return null;
+    });
+  }
+
+  @SubscribeMessage('room:settings')
+  @RateLimit(4, 6)
+  settings(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): EmptyResult {
+    return respond(() => {
+      const patch = parseInput(UpdateSettingsSchema, body);
+      const room = this.rooms.roomOf(playerIdOf(client));
+      if (!room) throw new GameError('ROOM_NOT_FOUND');
+      this.game.updateSettings(room, playerIdOf(client), patch);
       return null;
     });
   }

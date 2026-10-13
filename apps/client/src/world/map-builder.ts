@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import type { MapDef } from '@mecha/shared';
 
 /**
- * Строит меши карты из MapDef. Возвращает список объектов, которые
- * загораживают камеру (стены, мебель, пол).
+ * Строит меши карты из MapDef: группу для сцены и список объектов,
+ * которые загораживают камеру и в которые попадает луч пипетки (стены, мебель, пол).
  */
-export function buildMap(scene: THREE.Scene, map: MapDef): THREE.Object3D[] {
+export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THREE.Object3D[] } {
   const obstacles: THREE.Object3D[] = [];
   const group = new THREE.Group();
   group.name = `map:${map.name}`;
@@ -42,12 +42,11 @@ export function buildMap(scene: THREE.Scene, map: MapDef): THREE.Object3D[] {
     obstacles.push(mesh);
   }
 
-  scene.add(group);
   // Карта статична — один раз считаем матрицы и выключаем пересчёт каждый кадр.
   group.updateMatrixWorld(true);
   group.traverse((object) => {
     object.matrixAutoUpdate = false;
   });
 
-  return obstacles;
+  return { group, obstacles };
 }

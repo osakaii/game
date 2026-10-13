@@ -1,4 +1,4 @@
-import type { ErrorCode, PlayerInfo, RoomResult, RoomSnapshot } from '@mecha/shared';
+import type { ErrorCode, PlayerInfo, RoomResult, RoomSnapshot, UpdateSettingsPayload } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
 import type { Network } from '../net/network';
 
@@ -64,6 +64,11 @@ export class Lobby extends Emitter<LobbyEvents> {
 
   async startGame(): Promise<void> {
     const result = await this.network.startGame();
+    if (!result.ok) this.emit('error', result.error);
+  }
+
+  async updateSettings(patch: UpdateSettingsPayload): Promise<void> {
+    const result = await this.network.updateSettings(patch);
     if (!result.ok) this.emit('error', result.error);
   }
 

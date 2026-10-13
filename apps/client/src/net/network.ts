@@ -14,6 +14,7 @@ import {
   type ShootPayload,
   type ShotEvent,
   type ShotResult,
+  type UpdateSettingsPayload,
   type TeleportPayload,
   type WelcomePayload,
   type WorldSnapshot,
@@ -86,6 +87,10 @@ export class Network extends Emitter<NetworkEvents> {
 
   startGame(): Promise<EmptyResult> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('game:start'));
+  }
+
+  updateSettings(payload: UpdateSettingsPayload): Promise<EmptyResult> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('room:settings', payload));
   }
 
   paint(payload: PaintPayload): Promise<EmptyResult> {

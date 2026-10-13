@@ -1,6 +1,8 @@
 import {
+  DEFAULT_SETTINGS,
+  MAPS,
   MAX_PLAYERS,
-  PLAYROOM,
+  SCORING,
   buildColliders,
   defaultBodyColors,
   seekerBodyColors,
@@ -13,6 +15,7 @@ import {
   type PlayerState,
   type Role,
   type RoomPhase,
+  type RoomSettings,
   type RoomSnapshot,
   type Vec3,
 } from '@mecha/shared';
@@ -26,6 +29,10 @@ export interface RoomMember extends PlayerInfo {
   paintedAt: number;
   /** Когда ищущий может проверять снова (серверное время, мс). */
   nextShotAt: number;
+  score: number;
+  roundPoints: number;
+  /** Сколько раундов был ищущим — для честной очереди ведущих. */
+  timesSeeker: number;
 }
 
 /**
@@ -41,14 +48,40 @@ export class Room {
   phase: RoomPhase = 'lobby';
   phaseEndsAt: number | null = null;
   result: GameResult | null = null;
-  readonly colliders: Aabb[];
+  round = 0;
+  private _settings: RoomSettings = { ...DEFAULT_SETTINGS };
+  private _map: MapDef;
+  private _colliders: Aabb[];
 
   constructor(
     readonly code: string,
-    readonly map: MapDef = PLAYROOM,
     readonly maxPlayers = MAX_PLAYERS,
   ) {
-    this.colliders = buildColliders(map);
+    this._map = MAPS[this._settings.mapId];
+    this._colliders = buildColliders(this._map);
+  }
+
+  get settings(): RoomSettings {
+    return this._settings;
+  }
+
+  get map(): MapDef {
+    return this._map;
+  }
+
+  get colliders(): Aabb[] {
+    return this._colliders;
+  }
+
+  /** Возвращает true, если сменилась карта — тогда всех нужно переставить на новые точки. */
+  applySettings(patch: Partial<RoomSettings>): boolean {
+    const mapChanged = patch.mapId !== undefined && patch.mapId !== this._settings.mapId;
+    this._settings = { ...this._settings, ...patch };
+    if (mapChanged) {
+      this._map = MAPS[this._settings.mapId];
+      this._colliders = buildColliders(this._map);
+    }
+    return mapChanged;
   }
 
   get hostId(): string {
@@ -103,6 +136,9 @@ export class Room {
       paintedAt: 0,
       nextShotAt: 0,
       connected: true,
+      score: 0,
+      roundPoints: 0,
+      timesSeeker: 0,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
       stateAt: now,
     };
@@ -123,10 +159,13 @@ export class Room {
   // ---------- Переходы между фазами ----------
 
   startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number): void {
+    this.round++;
     for (const m of this.members.values()) {
       m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
+      if (m.role === 'seeker') m.timesSeeker++;
       m.found = false;
       m.nextShotAt = 0;
+      m.roundPoints = 0;
       // Раскраска из лобби не переносится в раунд: все прячутся с нуля за отведённое время.
       m.colors = m.role === 'seeker' ? seekerBodyColors() : defaultBodyColors();
     }
@@ -138,7 +177,12 @@ export class Room {
     this.setPhase('seeking', endsAt);
   }
 
+  /** Конец раунда: дожившие прячущиеся получают очки, всё набранное за раунд идёт в общий счёт. */
   finishRound(result: GameResult, resultsEndAt: number): void {
+    for (const m of this.members.values()) {
+      if (m.role === 'hider' && !m.found) m.roundPoints += SCORING.hiderSurvived;
+      m.score += m.roundPoints;
+    }
     this.result = result;
     this.setPhase('results', resultsEndAt);
   }
@@ -157,8 +201,9 @@ export class Room {
     member.connected = connected;
   }
 
-  markFound(member: RoomMember): void {
+  markFound(member: RoomMember, by: RoomMember): void {
     member.found = true;
+    by.roundPoints += SCORING.seekerFind;
   }
 
   /** Прячущиеся, которых ещё не нашли, — по ним проверяются выстрелы. */
@@ -195,13 +240,17 @@ export class Room {
       phase: this.phase,
       phaseEndsAt: this.phaseEndsAt,
       result: this.result,
-      players: this.allMembers().map(({ id, nickname, role, found, colors, connected }) => ({
+      settings: { ...this._settings },
+      round: this.round,
+      players: this.allMembers().map(({ id, nickname, role, found, colors, connected, score, roundPoints }) => ({
         id,
         nickname,
         role,
         found,
         colors: { ...colors },
         connected,
+        score,
+        roundPoints,
       })),
     };
   }

@@ -4,9 +4,8 @@
  */
 export const GAME_RULES = {
   minPlayers: 2,
-  hideSeconds: 40,
-  seekSeconds: 150,
-  resultsSeconds: 8,
+  // Длительности пряток и поиска — в настройках комнаты (settings.ts), их выбирает хост.
+  resultsSeconds: 10,
   /** Насколько далеко от ищущего (м) засчитывается проверка. */
   shotRange: 14,
   /** Задержка после попадания и после промаха (мс). Промах дороже — иначе выгодно тыкать во всё подряд. */
@@ -34,6 +33,12 @@ export interface GameResult {
 /** 2–5 игроков — 1 ищущий, 6–8 — 2. */
 export function seekerCount(players: number): number {
   return Math.max(1, Math.round(players / 4));
+}
+
+/** Сколько ищущих в раунде с учётом настройки. Хотя бы один прячущийся должен остаться. */
+export function resolveSeekerCount(players: number, setting: 'auto' | number): number {
+  const wanted = setting === 'auto' ? seekerCount(players) : setting;
+  return Math.max(1, Math.min(wanted, players - 1));
 }
 
 /**

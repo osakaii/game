@@ -5,11 +5,11 @@ import {
   groundHeightAt,
   stepPlayer,
   vec3,
-  type Aabb,
   type MoveInput,
   type PlayerPhysicsState,
   type Vec3,
 } from '@mecha/shared';
+import type { WorldGeometry } from '../world/active-map';
 import { PlayerModel } from './player-model';
 
 const TURN_SPEED = 12; // рад/с — как быстро модель разворачивается по направлению движения
@@ -27,7 +27,7 @@ export class LocalPlayer {
 
   constructor(
     spawn: Vec3,
-    private readonly colliders: Aabb[],
+    private readonly world: WorldGeometry,
   ) {
     this.state = { position: { ...spawn }, velocity: vec3(), grounded: true };
     this.prevPosition = { ...spawn };
@@ -49,7 +49,7 @@ export class LocalPlayer {
 
   fixedUpdate(input: MoveInput, dt: number): void {
     copyVec3(this.prevPosition, this.state.position);
-    stepPlayer(this.state, input, this.colliders, dt);
+    stepPlayer(this.state, input, this.world.colliders, dt);
   }
 
   render(alpha: number, frameDt: number): void {
@@ -75,7 +75,7 @@ export class LocalPlayer {
 
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);
     const p = this.renderPosition;
-    this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.colliders));
+    this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));
   }
 }
 

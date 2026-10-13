@@ -2,7 +2,7 @@ import './style.css';
 import {
   PHYSICS_DT,
   PLAYROOM,
-  buildColliders,
+  MAPS,
   canMove,
   defaultBodyColors,
   type MoveInput,
@@ -28,8 +28,9 @@ import { MenuScreen } from './ui/menu-screen';
 import { PaintPanel } from './ui/paint-panel';
 import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
+import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
-import { buildMap } from './world/map-builder';
+import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { Splats } from './world/splats';
 import { createSceneContext } from './world/scene-setup';
@@ -39,14 +40,14 @@ import { createSceneContext } from './world/scene-setup';
 const canvas = $<HTMLCanvasElement>('#scene');
 const { renderer, scene, camera } = createSceneContext(canvas);
 
-const map = PLAYROOM;
-const colliders = buildColliders(map);
-const obstacles = buildMap(scene, map);
+// Карта по умолчанию, пока не вошли в комнату. Потом — та, что выбрал хост.
+const activeMap = new ActiveMap(scene);
+activeMap.load(PLAYROOM);
 
-const player = new LocalPlayer(map.spawns[0], colliders);
+const player = new LocalPlayer(PLAYROOM.spawns[0], activeMap);
 scene.add(player.model.root);
 
-const followCamera = new ThirdPersonCamera(camera, obstacles);
+const followCamera = new ThirdPersonCamera(camera, activeMap);
 const controls = new Controls({
   surface: canvas,
   joystickBase: $('#joystick'),
@@ -72,13 +73,15 @@ const roomPanel = new RoomPanel({
   onLeave: () => lobby.leave(),
   onInvite: () => lobby.room && void inviteToRoom(lobby.room.code),
   onStart: () => void lobby.startGame(),
+  onSettings: () => settingsDialog.open(),
 });
+const settingsDialog = new SettingsDialog((patch) => void lobby.updateSettings(patch));
 const phaseHud = new PhaseHud();
 
 // ---------- Покраска ----------
 
 const painter = new Painter(
-  new Eyedropper(camera, canvas, obstacles),
+  new Eyedropper(camera, canvas, activeMap),
   controls,
   network,
   lobby,
@@ -133,7 +136,7 @@ network.on('ping', (rtt) => hud.setPing(rtt));
 
 // ---------- Синхронизация игроков ----------
 
-const remotePlayers = new RemotePlayers(scene, colliders);
+const remotePlayers = new RemotePlayers(scene, activeMap);
 const stateSender = new StateSender((state) => network.sendPlayerState(state));
 
 network.on('snapshot', (snapshot) => remotePlayers.applySnapshot(snapshot, network.playerId));
@@ -151,7 +154,11 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 
 // Единая точка реакции на «вошли/вышли/изменилась комната».
 lobby.on('room', (room) => {
+  // Хост сменил карту — перестраиваем мир. Новую позицию на ней пришлёт сервер (player:teleport).
+  if (room) activeMap.load(MAPS[room.settings.mapId]);
   roomPanel.render(room, network.playerId);
+  settingsDialog.render(room, lobby.isHost);
+  phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
   player.model.setColors(lobby.me?.colors ?? defaultBodyColors());

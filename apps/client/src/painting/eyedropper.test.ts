@@ -13,7 +13,7 @@ function setup() {
 
   const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: '#e63946' }));
   box.updateMatrixWorld();
-  return new Eyedropper(camera, fakeCanvas, [box]);
+  return new Eyedropper(camera, fakeCanvas, { obstacles: [box] });
 }
 
 describe('Eyedropper', () => {

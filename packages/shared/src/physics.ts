@@ -42,7 +42,7 @@ export interface MoveInput {
 const EPS = 1e-4;
 
 /** Один шаг симуляции. Мутирует state — без новых объектов на каждый тик (меньше работы GC на телефоне). */
-export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, colliders: Aabb[], dt: number): void {
+export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[], dt: number): void {
   const v = state.velocity;
 
   // 1. Горизонтальная скорость плавно стремится к желаемой.
@@ -83,7 +83,7 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   resolveVertical(state, prevY, colliders);
 }
 
-function resolveHorizontal(state: PlayerPhysicsState, colliders: Aabb[]): void {
+function resolveHorizontal(state: PlayerPhysicsState, colliders: readonly Aabb[]): void {
   const p = state.position;
   const v = state.velocity;
   const r = PLAYER.radius;
@@ -147,7 +147,7 @@ function resolveHorizontal(state: PlayerPhysicsState, colliders: Aabb[]): void {
   }
 }
 
-function resolveVertical(state: PlayerPhysicsState, prevY: number, colliders: Aabb[]): void {
+function resolveVertical(state: PlayerPhysicsState, prevY: number, colliders: readonly Aabb[]): void {
   const p = state.position;
   const v = state.velocity;
   // Чуть меньший радиус — чтобы не «зацепиться» за верх стены, вдоль которой скользим.
@@ -184,7 +184,7 @@ function circleOverlapsRect(x: number, z: number, r: number, b: Aabb): boolean {
 }
 
 /** Высота опоры под точкой (для тени под персонажем): самый высокий блок не выше maxY. */
-export function groundHeightAt(x: number, z: number, maxY: number, colliders: Aabb[]): number {
+export function groundHeightAt(x: number, z: number, maxY: number, colliders: readonly Aabb[]): number {
   let ground = 0;
   for (const b of colliders) {
     if (x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
@@ -197,7 +197,7 @@ export function groundHeightAt(x: number, z: number, maxY: number, colliders: Aa
  * Стоит ли цилиндр игрока внутри какого-то блока глубже, чем на tolerance.
  * Нужна серверу: честная физика клиента никогда не заводит игрока в стену.
  */
-export function penetratesColliders(position: Vec3, colliders: Aabb[], tolerance: number): boolean {
+export function penetratesColliders(position: Vec3, colliders: readonly Aabb[], tolerance: number): boolean {
   const r = PLAYER.radius - tolerance;
   const feet = position.y + tolerance;
   const head = position.y + PLAYER.height - tolerance;

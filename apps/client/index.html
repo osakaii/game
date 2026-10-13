@@ -34,6 +34,7 @@
         <span>Комната <b id="room-panel-code"></b></span>
         <span id="room-panel-count"></span>
       </summary>
+      <button type="button" id="room-settings-summary" class="settings-summary"></button>
       <ul id="player-list"></ul>
       <button type="button" id="start-game" class="primary" hidden>Начать игру</button>
       <div class="room-actions">
@@ -80,8 +81,33 @@
       <div class="card results-card">
         <h2 id="results-title"></h2>
         <p id="results-reason"></p>
+        <ol id="results-scores"></ol>
         <p id="results-timer"></p>
       </div>
+    </div>
+
+    <div id="settings" class="overlay" hidden>
+      <form id="settings-form" class="card" novalidate>
+        <h2>Настройки комнаты</h2>
+        <label class="field">
+          <span>Карта</span>
+          <select name="mapId"></select>
+        </label>
+        <label class="field">
+          <span>Время на прятки</span>
+          <select name="hideSeconds"></select>
+        </label>
+        <label class="field">
+          <span>Время на поиск</span>
+          <select name="seekSeconds"></select>
+        </label>
+        <label class="field">
+          <span>Ищущих</span>
+          <select name="seekers"></select>
+        </label>
+        <p class="settings-note" id="settings-note"></p>
+        <button type="button" id="settings-close" class="primary">Готово</button>
+      </form>
     </div>
 
     <div id="menu" class="overlay">

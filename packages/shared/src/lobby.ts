@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { BodyColors } from './body.js';
 import type { GameResult, Role, RoomPhase } from './game.js';
+import type { RoomSettings } from './settings.js';
 
 export const MAX_PLAYERS = 8;
 export const NICKNAME_MAX_LENGTH = 16;
@@ -45,6 +46,10 @@ export interface PlayerInfo {
   colors: BodyColors;
   /** false — связь пропала, ждём переподключения. */
   connected: boolean;
+  /** Очки за все раунды в этой комнате. */
+  score: number;
+  /** Очки за текущий (последний) раунд — показываем «+3» на экране итогов. */
+  roundPoints: number;
 }
 
 /** Снимок комнаты, который сервер рассылает всем её участникам при любом изменении. */
@@ -57,6 +62,9 @@ export interface RoomSnapshot {
   phaseEndsAt: number | null;
   /** Итог последнего раунда — заполнен в фазе results. */
   result: GameResult | null;
+  settings: RoomSettings;
+  /** Номер раунда, 0 — ещё не играли. */
+  round: number;
   players: PlayerInfo[];
 }
 

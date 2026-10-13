@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import {
   INTERPOLATION_DELAY_MS,
-  type Aabb,
   type PlayerInfo,
   type RoomSnapshot,
   type WorldSnapshot,
 } from '@mecha/shared';
 import { RemotePlayer } from '../player/remote-player';
+import type { WorldGeometry } from './active-map';
 
 /** Все чужие игроки комнаты: создаёт, обновляет и удаляет их модели по снимкам сервера. */
 export class RemotePlayers {
@@ -17,7 +17,7 @@ export class RemotePlayers {
 
   constructor(
     private readonly scene: THREE.Scene,
-    private readonly colliders: Aabb[],
+    private readonly world: WorldGeometry,
   ) {}
 
   applySnapshot(snapshot: WorldSnapshot, myId: string | null): void {
@@ -28,7 +28,7 @@ export class RemotePlayers {
 
       let player = this.players.get(state.id);
       if (!player) {
-        player = new RemotePlayer(state.id, this.colliders);
+        player = new RemotePlayer(state.id, this.world);
         this.applyInfo(player);
         this.players.set(state.id, player);
         this.scene.add(player.model.root);

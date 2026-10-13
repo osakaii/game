@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { PLAYER, groundHeightAt, type Aabb, type BodyColors, type NetPlayer } from '@mecha/shared';
+import { PLAYER, groundHeightAt, type BodyColors, type NetPlayer } from '@mecha/shared';
+import type { WorldGeometry } from '../world/active-map';
 import { createNameLabel, disposeNameLabel } from './name-label';
 import { PlayerModel } from './player-model';
 
@@ -27,7 +28,7 @@ export class RemotePlayer {
 
   constructor(
     readonly id: string,
-    private readonly colliders: Aabb[],
+    private readonly world: WorldGeometry,
   ) {}
 
   setNickname(nickname: string): void {
@@ -92,7 +93,7 @@ export class RemotePlayer {
     const speed = span > 0 ? Math.hypot(b.x - a.x, b.z - a.z) / (span / 1000) : 0;
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), b.grounded);
     const p = root.position;
-    this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.colliders));
+    this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));
   }
 
   dispose(): void {

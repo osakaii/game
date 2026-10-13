@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 import type { PaintPayload } from './body.js';
+import type { UpdateSettingsPayload } from './settings.js';
 import type {
   CreateRoomPayload,
   EmptyResult,
@@ -24,7 +25,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -76,6 +77,8 @@ export interface ClientToServerEvents {
   'player:state': (state: PlayerState) => void;
   /** Только хост, только в лобби. */
   'game:start': (ack: (result: EmptyResult) => void) => void;
+  /** Только хост, только в лобби. */
+  'room:settings': (payload: UpdateSettingsPayload, ack: (result: EmptyResult) => void) => void;
   'player:paint': (payload: PaintPayload, ack: (result: EmptyResult) => void) => void;
   'seek:shoot': (payload: ShootPayload, ack: (result: Result<ShotResult>) => void) => void;
 }

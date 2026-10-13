@@ -1,6 +1,7 @@
 export * from './protocol.js';
 export * from './lobby.js';
 export * from './game.js';
+export * from './settings.js';
 export * from './net-state.js';
 export * from './math.js';
 export * from './body.js';
@@ -8,3 +9,7 @@ export * from './physics.js';
 export * from './raycast.js';
 export * from './world/map.js';
 export * from './world/playroom.js';
+export * from './world/kitchen.js';
+export * from './world/garden.js';
+export * from './world/maps.js';
+export * from './world/builders.js';

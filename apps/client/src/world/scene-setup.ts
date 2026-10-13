@@ -32,7 +32,7 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   renderer.setPixelRatio(dpr);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#9ad1ff');
+  // Цвет неба задаёт карта (ActiveMap.load).
 
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 120);
 

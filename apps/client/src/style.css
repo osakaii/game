@@ -304,7 +304,7 @@ input:focus {
   color: #ff6b9a;
 }
 
-#player-list li.host::after {
+#player-list li.host .nickname::after {
   content: ' ★';
   color: #f5c542;
 }
@@ -708,4 +708,100 @@ input:focus {
   margin-top: 6px;
   padding: 6px;
   font-size: 12px;
+}
+
+/* ---------- Настройки и счёт ---------- */
+
+.settings-summary {
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  text-align: left;
+  color: rgb(255 255 255 / 0.75);
+  background: rgb(255 255 255 / 0.06);
+}
+
+.settings-summary:disabled {
+  opacity: 1;
+}
+
+#player-list li {
+  display: flex;
+  gap: 6px;
+}
+
+#player-list .nickname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#player-list .score {
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.7);
+}
+
+select {
+  font: 16px system-ui, sans-serif;
+  color: #fff;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+select option {
+  color: #000;
+}
+
+#settings {
+  z-index: 4;
+}
+
+#settings h2 {
+  margin: 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.settings-note {
+  margin: 0;
+  min-height: 1em;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.6);
+  text-align: center;
+}
+
+#results-scores {
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+#results-scores li {
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+#results-scores li.me {
+  background: rgb(255 107 154 / 0.25);
+}
+
+#results-scores .nickname {
+  flex: 1;
+}
+
+#results-scores .delta {
+  color: #4ade80;
+  min-width: 2.5em;
+  text-align: right;
 }

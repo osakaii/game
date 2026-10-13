@@ -3,7 +3,7 @@ import type { NetPlayer } from '@mecha/shared';
 import { RemotePlayer } from './remote-player';
 
 const noWorld = { colliders: [], obstacles: [] };
-const state = (x: number, yaw = 0): NetPlayer => ({ id: 'b', x, y: 0, z: 0, yaw, grounded: true });
+const state = (x: number, yaw = 0): NetPlayer => ({ id: 'b', x, y: 0, z: 0, yaw, grounded: true, crouching: false });
 
 describe('RemotePlayer interpolation', () => {
   it('interpolates between two snapshots around render time', () => {

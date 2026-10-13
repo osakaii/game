@@ -25,7 +25,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).

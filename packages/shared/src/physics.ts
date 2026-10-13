@@ -24,19 +24,28 @@ export const PLAYER = {
   maxFallSpeed: 30,
   /** Ступеньки ниже этой высоты персонаж перешагивает без прыжка. */
   stepHeight: 0.35,
+  /** Присед: пролезаем под столом (зазор под столешницей ~0.95 м). */
+  crouchHeight: 0.9,
+  crouchSpeed: 2.5,
 } as const;
+
+export function playerHeight(crouching: boolean): number {
+  return crouching ? PLAYER.crouchHeight : PLAYER.height;
+}
 
 export interface PlayerPhysicsState {
   position: Vec3;
   velocity: Vec3;
   grounded: boolean;
+  crouching: boolean;
 }
 
-/** Желаемое направление в мировых координатах (длина 0..1) и прыжок. */
+/** Желаемое направление в мировых координатах (длина 0..1), прыжок и желание присесть. */
 export interface MoveInput {
   dirX: number;
   dirZ: number;
   jump: boolean;
+  crouch: boolean;
 }
 
 const EPS = 1e-4;
@@ -44,6 +53,15 @@ const EPS = 1e-4;
 /** Один шаг симуляции. Мутирует state — без новых объектов на каждый тик (меньше работы GC на телефоне). */
 export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[], dt: number): void {
   const v = state.velocity;
+
+  // 0. Присед. Встать можно, только если над головой свободно — иначе под столом
+  //    персонаж «вырос» бы сквозь столешницу.
+  if (input.crouch) {
+    state.crouching = true;
+  } else if (state.crouching && !penetratesColliders(state.position, colliders, EPS, PLAYER.height)) {
+    state.crouching = false;
+  }
+  const speed = state.crouching ? PLAYER.crouchSpeed : PLAYER.walkSpeed;
 
   // 1. Горизонтальная скорость плавно стремится к желаемой.
   let dirX = input.dirX;
@@ -53,8 +71,8 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
     dirX /= len;
     dirZ /= len;
   }
-  const diffX = dirX * PLAYER.walkSpeed - v.x;
-  const diffZ = dirZ * PLAYER.walkSpeed - v.z;
+  const diffX = dirX * speed - v.x;
+  const diffZ = dirZ * speed - v.z;
   const diffLen = Math.hypot(diffX, diffZ);
   const maxDelta = PLAYER.acceleration * (state.grounded ? 1 : PLAYER.airControl) * dt;
   if (diffLen <= maxDelta) {
@@ -65,8 +83,8 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
     v.z += (diffZ / diffLen) * maxDelta;
   }
 
-  // 2. Прыжок и гравитация.
-  if (input.jump && state.grounded) {
+  // 2. Прыжок (не из приседа) и гравитация.
+  if (input.jump && state.grounded && !state.crouching) {
     v.y = PLAYER.jumpSpeed;
     state.grounded = false;
   }
@@ -90,7 +108,7 @@ function resolveHorizontal(state: PlayerPhysicsState, colliders: readonly Aabb[]
 
   for (const b of colliders) {
     const feet = p.y;
-    const head = feet + PLAYER.height;
+    const head = feet + playerHeight(state.crouching);
     // Нет пересечения по высоте (блок над головой или мы стоим на нём) — не мешает.
     if (head <= b.minY || feet >= b.maxY - EPS) continue;
 
@@ -152,6 +170,7 @@ function resolveVertical(state: PlayerPhysicsState, prevY: number, colliders: re
   const v = state.velocity;
   // Чуть меньший радиус — чтобы не «зацепиться» за верх стены, вдоль которой скользим.
   const r = PLAYER.radius * 0.95;
+  const height = playerHeight(state.crouching);
   state.grounded = false;
 
   if (p.y <= 0) {
@@ -169,9 +188,9 @@ function resolveVertical(state: PlayerPhysicsState, prevY: number, colliders: re
       p.y = b.maxY;
       v.y = 0;
       state.grounded = true;
-    } else if (v.y > 0 && prevY + PLAYER.height <= b.minY + EPS && p.y + PLAYER.height > b.minY) {
+    } else if (v.y > 0 && prevY + height <= b.minY + EPS && p.y + height > b.minY) {
       // Ударились головой.
-      p.y = b.minY - PLAYER.height;
+      p.y = b.minY - height;
       v.y = 0;
     }
   }
@@ -197,10 +216,15 @@ export function groundHeightAt(x: number, z: number, maxY: number, colliders: re
  * Стоит ли цилиндр игрока внутри какого-то блока глубже, чем на tolerance.
  * Нужна серверу: честная физика клиента никогда не заводит игрока в стену.
  */
-export function penetratesColliders(position: Vec3, colliders: readonly Aabb[], tolerance: number): boolean {
+export function penetratesColliders(
+  position: Vec3,
+  colliders: readonly Aabb[],
+  tolerance: number,
+  height: number = PLAYER.height,
+): boolean {
   const r = PLAYER.radius - tolerance;
   const feet = position.y + tolerance;
-  const head = position.y + PLAYER.height - tolerance;
+  const head = position.y + height - tolerance;
   for (const b of colliders) {
     if (head <= b.minY || feet >= b.maxY) continue;
     if (circleOverlapsRect(position.x, position.z, r, b)) return true;

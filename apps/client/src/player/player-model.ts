@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { BODY_ZONES, DEFAULT_BODY_COLOR, type BodyColors, type BodyZone } from '@mecha/shared';
+import { BODY_ZONES, DEFAULT_BODY_COLOR, PLAYER, type BodyColors, type BodyZone } from '@mecha/shared';
+
+const CROUCH_SCALE = PLAYER.crouchHeight / PLAYER.height;
+const CROUCH_SPEED = 10; // как быстро модель приседает/встаёт (1/с)
 
 /**
  * Визуальная модель персонажа из примитивов. Логики и физики здесь нет — только меши и анимация.
@@ -9,6 +12,9 @@ import { BODY_ZONES, DEFAULT_BODY_COLOR, type BodyColors, type BodyZone } from '
  */
 export class PlayerModel {
   readonly root = new THREE.Group();
+  /** Всё тело, кроме тени. Присед — сжатие этой группы по высоте: стилизованно, зато точно совпадает с хитбоксом. */
+  private readonly body = new THREE.Group();
+  private crouchAmount = 0;
   readonly zones = {} as Record<BodyZone, THREE.Mesh>;
 
   private readonly legLeft = new THREE.Group();
@@ -29,11 +35,11 @@ export class PlayerModel {
 
     const torso = this.createZone('torso', box(0.56, 0.56, 0.32));
     torso.position.y = 0.88;
-    this.root.add(torso);
+    this.body.add(torso);
 
     const head = this.createZone('head', box(0.42, 0.42, 0.42));
     head.position.y = 1.39;
-    this.root.add(head);
+    this.body.add(head);
 
     // Глаза показывают, куда смотрит персонаж (+Z — «вперёд» модели). Они не красятся.
     const eyeMaterial = new THREE.MeshBasicMaterial({ color: '#1b1f2a' });
@@ -49,7 +55,7 @@ export class PlayerModel {
       new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.25, depthWrite: false }),
     );
     this.shadow.rotation.x = -Math.PI / 2;
-    this.root.add(this.shadow);
+    this.root.add(this.body, this.shadow);
   }
 
   setZoneColor(zone: BodyZone, color: string): void {
@@ -92,6 +98,13 @@ export class PlayerModel {
   }
 
   /** speed01 — горизонтальная скорость 0..1 от максимальной. */
+  /** Плавный переход в присед и обратно. Вызывается каждый кадр. */
+  setCrouch(crouching: boolean, dt: number): void {
+    const target = crouching ? 1 : 0;
+    this.crouchAmount += (target - this.crouchAmount) * (1 - Math.exp(-CROUCH_SPEED * dt));
+    this.body.scale.y = 1 + (CROUCH_SCALE - 1) * this.crouchAmount;
+  }
+
   animate(dt: number, speed01: number, grounded: boolean): void {
     if (!grounded) {
       // В прыжке поджимаем ноги и поднимаем руки.
@@ -121,6 +134,6 @@ export class PlayerModel {
     mesh.position.y = -length / 2;
     pivot.position.set(x, jointY, 0);
     pivot.add(mesh);
-    this.root.add(pivot);
+    this.body.add(pivot);
   }
 }

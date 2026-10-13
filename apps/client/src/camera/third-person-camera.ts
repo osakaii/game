@@ -3,6 +3,7 @@ import { clamp } from '@mecha/shared';
 import type { WorldGeometry } from '../world/active-map';
 
 const PIVOT_HEIGHT = 1.35; // камера смотрит на уровень плеч, а не на ноги
+const PIVOT_HEIGHT_CROUCHED = 0.75;
 const DISTANCE = 4.5;
 const MIN_DISTANCE = 0.6;
 const WALL_PADDING = 0.25;
@@ -21,6 +22,7 @@ export class ThirdPersonCamera {
   pitch = 0.35;
 
   private distance = DISTANCE;
+  private pivotHeight = PIVOT_HEIGHT;
   private readonly pivot = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
   private readonly raycaster = new THREE.Raycaster();
@@ -41,8 +43,11 @@ export class ThirdPersonCamera {
     return { x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) };
   }
 
-  update(target: THREE.Vector3, frameDt: number): void {
-    this.pivot.set(target.x, target.y + PIVOT_HEIGHT, target.z);
+  update(target: THREE.Vector3, frameDt: number, crouching = false): void {
+    // В приседе камера плавно опускается вместе с персонажем — видно, что под столом.
+    const wantedHeight = crouching ? PIVOT_HEIGHT_CROUCHED : PIVOT_HEIGHT;
+    this.pivotHeight += (wantedHeight - this.pivotHeight) * (1 - Math.exp(-10 * frameDt));
+    this.pivot.set(target.x, target.y + this.pivotHeight, target.z);
 
     // Сферические координаты -> направление от игрока к камере.
     const cosPitch = Math.cos(this.pitch);

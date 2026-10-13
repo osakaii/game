@@ -1,5 +1,5 @@
 import type { Vec3 } from './math.js';
-import { PLAYER } from './physics.js';
+import { PLAYER, playerHeight } from './physics.js';
 import type { Aabb } from './world/map.js';
 
 /**
@@ -43,13 +43,13 @@ const AXES = ['x', 'y', 'z'] as const;
  * Коробка игрока для попаданий. Чуть шире модели: ищущий видит прячущегося
  * с задержкой интерполяции, а палец на телефоне — не снайперский прицел.
  */
-export function playerHitbox(position: Vec3, inflate = 0.08): Aabb {
+export function playerHitbox(position: Vec3, crouching = false, inflate = 0.08): Aabb {
   const r = PLAYER.radius + inflate;
   return {
     minX: position.x - r,
     maxX: position.x + r,
     minY: position.y,
-    maxY: position.y + PLAYER.height + inflate,
+    maxY: position.y + playerHeight(crouching) + inflate,
     minZ: position.z - r,
     maxZ: position.z + r,
   };

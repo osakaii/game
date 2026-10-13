@@ -1,4 +1,4 @@
-import { PLAYER, penetratesColliders, type MapDef, type PlayerState, type Aabb } from '@mecha/shared';
+import { PLAYER, penetratesColliders, playerHeight, type MapDef, type PlayerState, type Aabb } from '@mecha/shared';
 
 /**
  * Насколько щедро прощаем расхождения. Сеть неровная: пакеты приходят пачками,
@@ -44,7 +44,8 @@ export function validateMove(
     return { ok: false, reason: `vertical speed: ${up.toFixed(2)} m` };
   }
 
-  if (penetratesColliders(next, colliders, WALL_TOLERANCE)) {
+  // Высота — по заявленному состоянию: «стою» внутри столешницы — отказ, «сижу» под ней — можно.
+  if (penetratesColliders(next, colliders, WALL_TOLERANCE, playerHeight(next.crouching))) {
     return { ok: false, reason: 'inside wall' };
   }
 

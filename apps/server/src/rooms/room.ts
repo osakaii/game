@@ -116,11 +116,16 @@ export class Room {
     return [...this.members.values()];
   }
 
-  /** Сколько игроков роли ещё «в игре»: ищущие — все, прячущиеся — не найденные. */
+  /**
+   * Сколько игроков роли ещё «в игре». Прячущиеся — только не найденные.
+   * Ищущие — все, включая помощников (найденных, перешедших в команду ищущих).
+   */
   countActive(role: Role): number {
     let count = 0;
     for (const m of this.members.values()) {
-      if (m.role === role && !m.found) count++;
+      if (m.role !== role) continue;
+      if (role === 'hider' && m.found) continue;
+      count++;
     }
     return count;
   }
@@ -139,7 +144,7 @@ export class Room {
       score: 0,
       roundPoints: 0,
       timesSeeker: 0,
-      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
+      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false },
       stateAt: now,
     };
     this.members.set(id, member);
@@ -201,9 +206,22 @@ export class Room {
     member.connected = connected;
   }
 
+  /**
+   * Прячущегося нашли. В режиме helper он переходит в команду ищущих (форма, право проверять),
+   * в режиме ghost — становится невидимым наблюдателем.
+   */
   markFound(member: RoomMember, by: RoomMember): void {
     member.found = true;
     by.roundPoints += SCORING.seekerFind;
+    if (this._settings.foundMode === 'helper') {
+      member.role = 'seeker';
+      member.colors = seekerBodyColors();
+    }
+  }
+
+  /** Призрак — найденный в режиме ghost. Его не видно другим. */
+  isGhost(member: RoomMember): boolean {
+    return member.found && member.role === 'hider';
   }
 
   /** Прячущиеся, которых ещё не нашли, — по ним проверяются выстрелы. */
@@ -255,10 +273,10 @@ export class Room {
     };
   }
 
-  /** Найденные — призраки: другим их не видно, поэтому в снимки не попадают. */
+  /** Призраки другим не видны, поэтому в снимки не попадают. Помощники ищущих — видны. */
   netPlayers(): NetPlayer[] {
     return this.allMembers()
-      .filter((m) => !m.found)
+      .filter((m) => !this.isGhost(m))
       .map(({ id, state }) => ({ id, ...state }));
   }
 

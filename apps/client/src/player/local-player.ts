@@ -29,7 +29,7 @@ export class LocalPlayer {
     spawn: Vec3,
     private readonly world: WorldGeometry,
   ) {
-    this.state = { position: { ...spawn }, velocity: vec3(), grounded: true };
+    this.state = { position: { ...spawn }, velocity: vec3(), grounded: true, crouching: false };
     this.prevPosition = { ...spawn };
     this.renderPosition.set(spawn.x, spawn.y, spawn.z);
     this.model.root.rotation.y = this.facingAngle;
@@ -73,6 +73,7 @@ export class LocalPlayer {
       root.rotation.y = this.facingAngle;
     }
 
+    this.model.setCrouch(this.state.crouching, frameDt);
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);
     const p = this.renderPosition;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));

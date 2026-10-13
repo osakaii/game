@@ -3,7 +3,14 @@ import { PLAYER, PLAYROOM, buildColliders, type PlayerState } from '@mecha/share
 import { validateMove } from './move-validator';
 
 const colliders = buildColliders(PLAYROOM);
-const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: true });
+const at = (x: number, y: number, z: number, crouching = false): PlayerState => ({
+  x,
+  y,
+  z,
+  yaw: 0,
+  grounded: true,
+  crouching,
+});
 const check = (prev: PlayerState, next: PlayerState, ms: number) =>
   validateMove(prev, next, ms, PLAYROOM, colliders).ok;
 
@@ -35,5 +42,10 @@ describe('validateMove', () => {
 
   it('rejects flying straight up', () => {
     expect(check(at(0, 0, 6), at(0, 5, 6), 100)).toBe(false);
+  });
+
+  it('allows crouching under the table but not standing inside it', () => {
+    expect(check(at(3, 0, -9.4, true), at(3, 0, -9, true), 200)).toBe(true);
+    expect(check(at(3, 0, -9.4, true), at(3, 0, -9, false), 200)).toBe(false);
   });
 });

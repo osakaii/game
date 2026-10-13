@@ -181,11 +181,47 @@ describe('GameService.shoot', () => {
     expect(() => game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: 0 })).toThrowError(/normalized/);
   });
 
-  it('hides found players from snapshots', () => {
+  it('ghost mode: found players disappear from snapshots', () => {
     const { game, room, seeker, hider, origin } = seekingRound();
+    room.applySettings({ foundMode: 'ghost' });
     game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 });
     expect(room.netPlayers().map((p) => p.id)).toEqual([seeker.id]);
     expect(hider.found).toBe(true);
+    expect(hider.role).toBe('hider');
+  });
+
+  it('helper mode: found hider joins the seekers and keeps the round alive', () => {
+    const ctx = setup(3);
+    ctx.game.start(ctx.room, 'p0');
+    vi.runOnlyPendingTimers(); // -> seeking
+    const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
+    const [caught, other] = ctx.room.allMembers().filter((m) => m.role === 'hider');
+    ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    ctx.room.teleport(caught, { x: 0, y: 0, z: 4 });
+    ctx.room.teleport(other, { x: -12, y: 0, z: 12 });
+
+    ctx.game.shoot(ctx.room, seeker.id, { x: 0, y: 1.5, z: 13 }, { x: 0, y: 0, z: -1 });
+    expect(caught.role).toBe('seeker');
+    expect(caught.colors.head).toBe('#d62828');
+    expect(ctx.room.netPlayers().some((p) => p.id === caught.id)).toBe(true);
+
+    // Основной ищущий ушёл — помощник остаётся, раунд продолжается.
+    ctx.leave(seeker.id);
+    expect(ctx.room.phase).toBe('seeking');
+
+    // Помощник сам находит последнего — победа ищущих «всех нашли».
+    ctx.room.teleport(caught, { x: -12, y: 0, z: 6 });
+    ctx.game.shoot(ctx.room, caught.id, { x: -12, y: 1.5, z: 3 }, { x: 0, y: 0, z: 1 });
+    expect(ctx.room.result).toEqual({ winner: 'seeker', reason: 'all_found' });
+    expect(caught.score).toBe(2);
+  });
+
+  it('crouching hider is harder to hit: a shot over the head misses', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    hider.state = { ...hider.state, crouching: true };
+    // Луч на высоте 1.3 м: стоящего задел бы, присевшего (0.9 м) — нет.
+    const result = game.shoot(room, seeker.id, { ...origin, y: 1.3 }, { x: 0, y: 0, z: -1 });
+    expect(result.hitPlayerId).toBeNull();
   });
 });
 

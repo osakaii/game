@@ -11,6 +11,7 @@ interface Sample {
   z: number;
   yaw: number;
   grounded: boolean;
+  crouching: boolean;
 }
 
 const MAX_SAMPLES = 20;
@@ -61,7 +62,15 @@ export class RemotePlayer {
   addSample(t: number, state: NetPlayer): void {
     const last = this.samples.at(-1);
     if (last && t <= last.t) return; // дубль или опоздавший пакет
-    this.samples.push({ t, x: state.x, y: state.y, z: state.z, yaw: state.yaw, grounded: state.grounded });
+    this.samples.push({
+      t,
+      x: state.x,
+      y: state.y,
+      z: state.z,
+      yaw: state.yaw,
+      grounded: state.grounded,
+      crouching: state.crouching,
+    });
     if (this.samples.length > MAX_SAMPLES) this.samples.shift();
   }
 
@@ -91,6 +100,7 @@ export class RemotePlayer {
     root.rotation.y = lerpAngle(a.yaw, b.yaw, alpha);
 
     const speed = span > 0 ? Math.hypot(b.x - a.x, b.z - a.z) / (span / 1000) : 0;
+    this.model.setCrouch(b.crouching, frameDt);
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), b.grounded);
     const p = root.position;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));

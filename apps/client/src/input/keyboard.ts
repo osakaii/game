@@ -2,6 +2,7 @@
 export class Keyboard {
   private readonly pressed = new Set<string>();
   onJump?: () => void;
+  onCrouch?: () => void;
 
   constructor() {
     window.addEventListener('keydown', (e) => {
@@ -9,6 +10,7 @@ export class Keyboard {
       if (e.repeat || isTyping(e)) return;
       this.pressed.add(e.code);
       if (e.code === 'Space') this.onJump?.();
+      if (e.code === 'KeyC') this.onCrouch?.();
     });
     window.addEventListener('keyup', (e) => this.pressed.delete(e.code));
     // Окно потеряло фокус — keyup уже не придёт, иначе персонаж «залипнет» в движении.

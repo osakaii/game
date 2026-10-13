@@ -53,6 +53,7 @@ const controls = new Controls({
   joystickBase: $('#joystick'),
   joystickKnob: $('#joystick-knob'),
   jumpButton: $('#jump-button'),
+  crouchButton: $('#crouch-button'),
 });
 
 // ---------- Сеть и лобби ----------
@@ -120,7 +121,8 @@ network.on('shot', (shot) => {
   if (shot.point) splats.add(shot.point, !!shot.hitPlayerId);
   if (!shot.hitPlayerId) return;
   if (shot.hitPlayerId === network.playerId) {
-    toast('Тебя нашли! Теперь ты призрак — наблюдай');
+    const helper = lobby.room?.settings.foundMode === 'helper';
+    toast(helper ? 'Тебя нашли! Теперь ты помогаешь искать' : 'Тебя нашли! Теперь ты призрак — наблюдай');
   } else {
     const nickname = lobby.room?.players.find((p) => p.id === shot.hitPlayerId)?.nickname ?? 'Игрок';
     toast(`${nickname} найден!`);
@@ -162,7 +164,8 @@ lobby.on('room', (room) => {
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
   player.model.setColors(lobby.me?.colors ?? defaultBodyColors());
-  player.model.setGhost(!!lobby.me?.found);
+  // Призрак — только в режиме ghost. Помощник ищущих остаётся обычным, в форме ищущего.
+  player.model.setGhost(!!lobby.me?.found && lobby.me.role === 'hider');
   paintPanel.render();
   gameSounds.onRoom(room, lobby.myRole);
   // Пока в комнате, экран не гаснет — иначе неподвижный прячущийся «уснёт» и отвалится.
@@ -191,7 +194,7 @@ updateControlsEnabled();
 // ---------- Игровой цикл ----------
 
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
-const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false };
+const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false };
 
 startFixedStepLoop(PHYSICS_DT, {
   fixedUpdate(dt) {
@@ -202,6 +205,7 @@ startFixedStepLoop(PHYSICS_DT, {
     moveInput.dirX = f.x * axis.y - f.z * axis.x;
     moveInput.dirZ = f.z * axis.y + f.x * axis.x;
     moveInput.jump = controls.consumeJump();
+    moveInput.crouch = controls.enabled && controls.crouch;
     player.fixedUpdate(moveInput, dt);
     if (lobby.room) stateSender.update(dt, player);
   },
@@ -210,11 +214,11 @@ startFixedStepLoop(PHYSICS_DT, {
     followCamera.rotate(look.dx, look.dy);
     player.render(alpha, frameDt);
     remotePlayers.render(network.clock.now(), frameDt);
-    followCamera.update(player.renderPosition, frameDt);
+    followCamera.update(player.renderPosition, frameDt, player.state.crouching);
     renderer.render(scene, camera);
     hud.tick(frameDt);
     const serverNow = network.clock.now();
-    phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found);
+    phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found && lobby.myRole === 'hider');
     seekerControls.update(serverNow);
     gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);

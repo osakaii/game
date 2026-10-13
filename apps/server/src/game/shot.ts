@@ -3,6 +3,8 @@ import { playerHitbox, rayAabb, type Aabb, type Vec3 } from '@mecha/shared';
 export interface ShotTarget {
   id: string;
   position: Vec3;
+  /** Присевший ниже — и попасть в него труднее. */
+  crouching?: boolean;
 }
 
 export interface ShotHit {
@@ -35,7 +37,7 @@ export function resolveShot(
     if (t !== null && (!best || t < best.t)) best = { t, playerId: null };
   }
   for (const target of targets) {
-    const t = rayAabb(origin, dir, playerHitbox(target.position), maxT);
+    const t = rayAabb(origin, dir, playerHitbox(target.position, target.crouching), maxT);
     if (t !== null && (!best || t < best.t)) best = { t, playerId: target.id };
   }
   return best;

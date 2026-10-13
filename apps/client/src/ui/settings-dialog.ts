@@ -1,4 +1,5 @@
 import {
+  FOUND_MODE_OPTIONS,
   HIDE_SECONDS_OPTIONS,
   MAPS,
   MAP_IDS,
@@ -35,17 +36,23 @@ export class SettingsDialog {
       hideSeconds: select('hideSeconds'),
       seekSeconds: select('seekSeconds'),
       seekers: select('seekers'),
+      foundMode: select('foundMode'),
     };
     fill(this.selects.mapId, MAP_IDS.map((id) => [id, MAPS[id].name]));
     fill(this.selects.hideSeconds, HIDE_SECONDS_OPTIONS.map((s) => [String(s), `${s} с`]));
     fill(this.selects.seekSeconds, SEEK_SECONDS_OPTIONS.map((s) => [`${s}`, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`]));
     fill(this.selects.seekers, SEEKER_OPTIONS.map((s) => [String(s), s === 'auto' ? 'Авто (по числу игроков)' : String(s)]));
+    fill(
+      this.selects.foundMode,
+      FOUND_MODE_OPTIONS.map((m) => [m, m === 'helper' ? 'Помогают искать' : 'Становятся призраками']),
+    );
 
     // <select> всегда отдаёт строку. Приводим к типам схемы и проверяем той же схемой, что сервер.
     this.form.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       const raw = target.value;
-      const value = target.name === 'mapId' || raw === 'auto' ? raw : Number(raw);
+      const isText = target.name === 'mapId' || target.name === 'foundMode' || raw === 'auto';
+      const value = isText ? raw : Number(raw);
       const parsed = UpdateSettingsSchema.safeParse({ [target.name]: value });
       if (parsed.success) onChange(parsed.data);
     });

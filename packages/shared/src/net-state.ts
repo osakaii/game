@@ -17,6 +17,7 @@ export const PlayerStateSchema = z.object({
   z: z.number(),
   yaw: z.number(),
   grounded: z.boolean(),
+  crouching: z.boolean(),
 });
 export type PlayerState = z.output<typeof PlayerStateSchema>;
 

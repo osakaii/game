@@ -13,6 +13,7 @@ interface ControlsElements {
   joystickBase: HTMLElement;
   joystickKnob: HTMLElement;
   jumpButton: HTMLElement;
+  crouchButton: HTMLElement;
 }
 
 /**
@@ -24,6 +25,12 @@ interface ControlsElements {
 export class Controls {
   /** false — ввод игнорируется (открыто меню). */
   enabled = true;
+  /**
+   * Присед — переключатель, а не «держать»: на телефоне держать кнопку и одновременно
+   * водить джойстиком и камерой неудобно, пальцев не хватает.
+   */
+  crouch = false;
+  private readonly crouchButton: HTMLElement;
 
   private readonly joystick: VirtualJoystick;
   private readonly keyboard = new Keyboard();
@@ -47,6 +54,12 @@ export class Controls {
   constructor(el: ControlsElements) {
     this.joystick = new VirtualJoystick(el.joystickBase, el.joystickKnob);
     this.keyboard.onJump = () => (this.jumpQueued = true);
+    this.keyboard.onCrouch = () => this.toggleCrouch();
+    this.crouchButton = el.crouchButton;
+    el.crouchButton.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.toggleCrouch();
+    });
 
     const surface = el.surface;
     surface.addEventListener('pointerdown', (e) => this.onDown(e));
@@ -85,6 +98,11 @@ export class Controls {
     const jump = this.jumpQueued && this.enabled;
     this.jumpQueued = false;
     return jump;
+  }
+
+  toggleCrouch(): void {
+    this.crouch = !this.crouch;
+    this.crouchButton.classList.toggle('active', this.crouch);
   }
 
   /** Следующее касание экрана уйдёт в handler, а не в джойстик или камеру. */

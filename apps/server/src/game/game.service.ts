@@ -126,7 +126,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       throw new GameError('INVALID_INPUT', 'shot origin too far from seeker');
     }
 
-    const targets = room.activeHiders().map((m) => ({ id: m.id, position: m.state }));
+    const targets = room.activeHiders().map((m) => ({ id: m.id, position: m.state, crouching: m.state.crouching }));
     const hit = resolveShot(origin, dir, room.colliders, targets, SHOT_RAY_LENGTH);
 
     let point = hit
@@ -161,7 +161,8 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       this.finish(room, { winner: 'hider', reason: 'seekers_left' });
     } else if (room.countActive('hider') === 0) {
       // Прячущихся не осталось: либо всех нашли, либо они вышли из игры.
-      const anyFound = room.allMembers().some((m) => m.role === 'hider' && m.found);
+      // found остаётся true и у помощников, которые уже переоделись в ищущих.
+      const anyFound = room.allMembers().some((m) => m.found);
       this.finish(room, { winner: 'seeker', reason: anyFound ? 'all_found' : 'hiders_left' });
     }
   }

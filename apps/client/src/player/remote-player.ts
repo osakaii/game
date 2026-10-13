@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, groundHeightAt, type Aabb, type NetPlayer } from '@mecha/shared';
+import { PLAYER, groundHeightAt, type Aabb, type BodyColors, type NetPlayer } from '@mecha/shared';
 import { createNameLabel, disposeNameLabel } from './name-label';
 import { PlayerModel } from './player-model';
 
@@ -40,6 +40,16 @@ export class RemotePlayer {
     this.label = createNameLabel(nickname);
     this.label.position.y = PLAYER.height + 0.3;
     this.model.root.add(this.label);
+  }
+
+  /** Сравниваем строкой, чтобы не трогать материалы, если цвета не менялись. */
+  private colorsKey = '';
+
+  setColors(colors: BodyColors): void {
+    const key = JSON.stringify(colors);
+    if (key === this.colorsKey) return;
+    this.colorsKey = key;
+    this.model.setColors(colors);
   }
 
   /** В прятках ники соперников скрыты: табличка над головой выдала бы спрятавшегося. */

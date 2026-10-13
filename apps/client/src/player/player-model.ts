@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DEFAULT_BODY_COLOR, type BodyZone } from '@mecha/shared';
+import { BODY_ZONES, DEFAULT_BODY_COLOR, type BodyColors, type BodyZone } from '@mecha/shared';
 
 /**
  * Визуальная модель персонажа из примитивов. Логики и физики здесь нет — только меши и анимация.
@@ -53,7 +53,20 @@ export class PlayerModel {
   }
 
   setZoneColor(zone: BodyZone, color: string): void {
-    (this.zones[zone].material as THREE.MeshLambertMaterial).color.set(color);
+    this.material(zone).color.set(color);
+  }
+
+  setColors(colors: BodyColors): void {
+    for (const zone of BODY_ZONES) this.setZoneColor(zone, colors[zone]);
+  }
+
+  /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
+  colorOf(zone: BodyZone): string {
+    return `#${this.material(zone).color.getHexString()}`;
+  }
+
+  private material(zone: BodyZone): THREE.MeshLambertMaterial {
+    return this.zones[zone].material as THREE.MeshLambertMaterial;
   }
 
   /** Тень лежит на опоре под персонажем, а не у ног (в прыжке она остаётся внизу). */

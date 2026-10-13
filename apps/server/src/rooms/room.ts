@@ -2,6 +2,9 @@ import {
   MAX_PLAYERS,
   PLAYROOM,
   buildColliders,
+  defaultBodyColors,
+  seekerBodyColors,
+  type BodyZone,
   type Aabb,
   type GameResult,
   type MapDef,
@@ -19,6 +22,8 @@ export interface RoomMember extends PlayerInfo {
   state: PlayerState;
   /** Серверное время (мс), когда state последний раз был принят. */
   stateAt: number;
+  /** Когда игрок последний раз красился — для ограничения частоты. */
+  paintedAt: number;
 }
 
 /**
@@ -92,6 +97,8 @@ export class Room {
       nickname: this.uniqueNickname(nickname),
       role: null,
       found: false,
+      colors: defaultBodyColors(),
+      paintedAt: 0,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
       stateAt: now,
     };
@@ -115,6 +122,8 @@ export class Room {
     for (const m of this.members.values()) {
       m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
       m.found = false;
+      // Раскраска из лобби не переносится в раунд: все прячутся с нуля за отведённое время.
+      m.colors = m.role === 'seeker' ? seekerBodyColors() : defaultBodyColors();
     }
     this.result = null;
     this.setPhase('hiding', hidingEndsAt);
@@ -133,9 +142,15 @@ export class Room {
     for (const m of this.members.values()) {
       m.role = null;
       m.found = false;
+      m.colors = defaultBodyColors();
     }
     this.result = null;
     this.setPhase('lobby', null);
+  }
+
+  paint(member: RoomMember, zones: readonly BodyZone[], color: string, now = Date.now()): void {
+    for (const zone of zones) member.colors[zone] = color;
+    member.paintedAt = now;
   }
 
   /**
@@ -162,7 +177,13 @@ export class Room {
       phase: this.phase,
       phaseEndsAt: this.phaseEndsAt,
       result: this.result,
-      players: this.allMembers().map(({ id, nickname, role, found }) => ({ id, nickname, role, found })),
+      players: this.allMembers().map(({ id, nickname, role, found, colors }) => ({
+        id,
+        nickname,
+        role,
+        found,
+        colors: { ...colors },
+      })),
     };
   }
 

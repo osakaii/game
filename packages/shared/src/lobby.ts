@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { BodyColors } from './body.js';
 import type { GameResult, Role, RoomPhase } from './game.js';
 
 export const MAX_PLAYERS = 8;
@@ -41,6 +42,7 @@ export interface PlayerInfo {
   role: Role | null;
   /** Прячущегося нашли (этап 6). */
   found: boolean;
+  colors: BodyColors;
 }
 
 /** Снимок комнаты, который сервер рассылает всем её участникам при любом изменении. */
@@ -64,6 +66,9 @@ export const ERROR_CODES = [
   'ALREADY_IN_ROOM',
   'NOT_HOST',
   'NOT_ENOUGH_PLAYERS',
+  'PAINT_NOT_ALLOWED',
+  /** Слишком частые запросы — сервер их отбрасывает. */
+  'RATE_LIMITED',
   'INTERNAL',
   /** Клиентская ошибка: сервер не ответил вовремя. */
   'TIMEOUT',

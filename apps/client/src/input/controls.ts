@@ -31,6 +31,8 @@ export class Controls {
   private lookDx = 0;
   private lookDy = 0;
   private jumpQueued = false;
+  /** Одноразовый перехватчик касания (режим пипетки). */
+  private tapHandler: ((x: number, y: number) => void) | null = null;
 
   constructor(el: ControlsElements) {
     this.joystick = new VirtualJoystick(el.joystickBase, el.joystickKnob);
@@ -75,7 +77,22 @@ export class Controls {
     return jump;
   }
 
+  /** Следующее касание экрана уйдёт в handler, а не в джойстик или камеру. */
+  captureNextTap(handler: (x: number, y: number) => void): void {
+    this.tapHandler = handler;
+  }
+
+  cancelTapCapture(): void {
+    this.tapHandler = null;
+  }
+
   private onDown(e: PointerEvent) {
+    if (this.tapHandler) {
+      const handler = this.tapHandler;
+      this.tapHandler = null;
+      handler(e.clientX, e.clientY);
+      return;
+    }
     const isTouch = e.pointerType !== 'mouse';
     if (isTouch && this.joystick.pointerId === null && e.clientX < window.innerWidth * JOYSTICK_ZONE) {
       this.joystick.start(e);

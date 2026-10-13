@@ -7,8 +7,9 @@
  */
 import type { CreateRoomPayload, EmptyResult, JoinRoomPayload, RoomResult, RoomSnapshot } from './lobby.js';
 import type { PlayerState, TeleportPayload, WorldSnapshot } from './net-state.js';
+import type { PaintPayload } from './body.js';
 
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Сервер -> клиент: сразу после подключения. */
 export interface WelcomePayload {
@@ -50,4 +51,5 @@ export interface ClientToServerEvents {
   'player:state': (state: PlayerState) => void;
   /** Только хост, только в лобби. */
   'game:start': (ack: (result: EmptyResult) => void) => void;
+  'player:paint': (payload: PaintPayload, ack: (result: EmptyResult) => void) => void;
 }

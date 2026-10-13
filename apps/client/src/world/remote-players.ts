@@ -1,11 +1,18 @@
 import * as THREE from 'three';
-import { INTERPOLATION_DELAY_MS, type Aabb, type RoomSnapshot, type WorldSnapshot } from '@mecha/shared';
+import {
+  INTERPOLATION_DELAY_MS,
+  type Aabb,
+  type PlayerInfo,
+  type RoomSnapshot,
+  type WorldSnapshot,
+} from '@mecha/shared';
 import { RemotePlayer } from '../player/remote-player';
 
 /** Все чужие игроки комнаты: создаёт, обновляет и удаляет их модели по снимкам сервера. */
 export class RemotePlayers {
   private readonly players = new Map<string, RemotePlayer>();
-  private nicknames = new Map<string, string>();
+  /** Ники, роли и цвета из room:state. Позиции приходят отдельно, в world:snapshot. */
+  private infos = new Map<string, PlayerInfo>();
   private isLabelVisible: (id: string) => boolean = () => true;
 
   constructor(
@@ -22,8 +29,7 @@ export class RemotePlayers {
       let player = this.players.get(state.id);
       if (!player) {
         player = new RemotePlayer(state.id, this.colliders);
-        player.setNickname(this.nicknames.get(state.id) ?? '…');
-        player.setLabelVisible(this.isLabelVisible(state.id));
+        this.applyInfo(player);
         this.players.set(state.id, player);
         this.scene.add(player.model.root);
       }
@@ -42,11 +48,11 @@ export class RemotePlayers {
   /** Ники и роли приходят в room:state, позиции — в world:snapshot. Склеиваем по id. */
   applyRoom(room: RoomSnapshot | null, myId: string | null): void {
     if (!room) {
-      this.nicknames.clear();
+      this.infos.clear();
       this.clear();
       return;
     }
-    this.nicknames = new Map(room.players.map((p) => [p.id, p.nickname]));
+    this.infos = new Map(room.players.map((p) => [p.id, p]));
 
     // Во время раунда видим ники только своей команды.
     const roles = new Map(room.players.map((p) => [p.id, p.role]));
@@ -54,11 +60,14 @@ export class RemotePlayers {
     const inGame = room.phase === 'hiding' || room.phase === 'seeking';
     this.isLabelVisible = (id) => !inGame || roles.get(id) === myRole;
 
-    for (const [id, player] of this.players) {
-      const nickname = this.nicknames.get(id);
-      if (nickname) player.setNickname(nickname);
-      player.setLabelVisible(this.isLabelVisible(id));
-    }
+    for (const player of this.players.values()) this.applyInfo(player);
+  }
+
+  private applyInfo(player: RemotePlayer) {
+    const info = this.infos.get(player.id);
+    player.setNickname(info?.nickname ?? '…');
+    if (info) player.setColors(info.colors);
+    player.setLabelVisible(this.isLabelVisible(player.id));
   }
 
   render(serverNow: number, frameDt: number): void {

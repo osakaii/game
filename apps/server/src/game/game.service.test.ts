@@ -97,3 +97,39 @@ describe('GameService', () => {
     expect(() => vi.runAllTimers()).not.toThrow();
   });
 });
+
+describe('GameService.paint', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('paints in lobby and broadcasts the change', () => {
+    const { game, room, phases } = setup(2);
+    game.paint(room, 'p0', ['head', 'torso'], '#123456');
+    expect(room.member('p0')!.colors.head).toBe('#123456');
+    expect(room.member('p0')!.colors.legLeft).toBe('#f2f2f2');
+    expect(phases).toEqual(['lobby']);
+  });
+
+  it('rate-limits paint spam', () => {
+    const { game, room } = setup(2);
+    game.paint(room, 'p0', ['head'], '#111111', 1000);
+    expect(() => game.paint(room, 'p0', ['head'], '#222222', 1010)).toThrowError(/RATE_LIMITED/);
+    expect(() => game.paint(room, 'p0', ['head'], '#222222', 1100)).not.toThrow();
+  });
+
+  it('lets only hiders paint while hiding, nobody while seeking', () => {
+    const { game, room } = setup(2);
+    game.start(room, 'p0');
+    const seeker = room.allMembers().find((m) => m.role === 'seeker')!;
+    const hider = room.allMembers().find((m) => m.role === 'hider')!;
+    expect(seeker.colors.head).toBe('#d62828');
+
+    expect(() => game.paint(room, seeker.id, ['head'], '#ffffff')).toThrowError(/PAINT_NOT_ALLOWED/);
+    expect(() => game.paint(room, hider.id, ['head'], '#00ff00')).not.toThrow();
+
+    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    expect(() => game.paint(room, hider.id, ['torso'], '#00ff00', Date.now() + 1000)).toThrowError(
+      /PAINT_NOT_ALLOWED/,
+    );
+  });
+});

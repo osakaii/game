@@ -5,6 +5,7 @@ import {
   type CreateRoomPayload,
   type EmptyResult,
   type JoinRoomPayload,
+  type PaintPayload,
   type PlayerState,
   type Result,
   type RoomResult,
@@ -73,6 +74,10 @@ export class Network extends Emitter<NetworkEvents> {
 
   startGame(): Promise<EmptyResult> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('game:start'));
+  }
+
+  paint(payload: PaintPayload): Promise<EmptyResult> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('player:paint', payload));
   }
 
   leaveRoom(): void {

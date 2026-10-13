@@ -34,6 +34,29 @@
       </div>
     </details>
 
+    <button type="button" id="paint-toggle" hidden>Краска</button>
+    <div id="paint-panel" hidden>
+      <div class="paint-tools">
+        <span id="paint-current" title="Текущий цвет"></span>
+        <button type="button" id="paint-pick">Пипетка</button>
+      </div>
+      <div id="paint-recent"></div>
+      <div class="body-figure" aria-label="Зоны тела">
+        <button type="button" data-zone="head" class="zone zone-head" aria-label="Голова"></button>
+        <div class="figure-row">
+          <button type="button" data-zone="armRight" class="zone zone-arm" aria-label="Правая рука"></button>
+          <button type="button" data-zone="torso" class="zone zone-torso" aria-label="Туловище"></button>
+          <button type="button" data-zone="armLeft" class="zone zone-arm" aria-label="Левая рука"></button>
+        </div>
+        <div class="figure-row">
+          <button type="button" data-zone="legRight" class="zone zone-leg" aria-label="Правая нога"></button>
+          <button type="button" data-zone="legLeft" class="zone zone-leg" aria-label="Левая нога"></button>
+        </div>
+      </div>
+      <button type="button" id="paint-all">Покрасить всё</button>
+    </div>
+    <div id="pick-hint" hidden>Коснись предмета, чтобы взять его цвет</div>
+
     <div id="phase-banner" hidden></div>
 
     <div id="blind" class="overlay" hidden>

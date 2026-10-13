@@ -1,5 +1,12 @@
 import './style.css';
-import { PHYSICS_DT, PLAYROOM, buildColliders, canMove, type MoveInput } from '@mecha/shared';
+import {
+  PHYSICS_DT,
+  PLAYROOM,
+  buildColliders,
+  canMove,
+  defaultBodyColors,
+  type MoveInput,
+} from '@mecha/shared';
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
 import { Controls } from './input/controls';
@@ -7,11 +14,14 @@ import { inviteToRoom, roomCodeFromUrl, setRoomInUrl } from './lobby/invite';
 import { Lobby } from './lobby/lobby';
 import { Network } from './net/network';
 import { StateSender } from './net/state-sender';
+import { Eyedropper } from './painting/eyedropper';
+import { Painter } from './painting/painter';
 import { LocalPlayer } from './player/local-player';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
 import { MenuScreen } from './ui/menu-screen';
+import { PaintPanel } from './ui/paint-panel';
 import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
 import { toast } from './ui/toast';
@@ -60,6 +70,17 @@ const roomPanel = new RoomPanel({
 });
 const phaseHud = new PhaseHud();
 
+// ---------- Покраска ----------
+
+const painter = new Painter(
+  new Eyedropper(camera, canvas, obstacles),
+  controls,
+  network,
+  lobby,
+  player.model,
+);
+const paintPanel = new PaintPanel(painter);
+
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
   menu.setOnline(state === 'online');
@@ -89,6 +110,9 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 lobby.on('room', (room) => {
   roomPanel.render(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);
+  // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
+  player.model.setColors(lobby.me?.colors ?? defaultBodyColors());
+  paintPanel.render();
   if (room) {
     menu.hide();
     setRoomInUrl(room.code);
@@ -142,5 +166,5 @@ startFixedStepLoop(PHYSICS_DT, {
 // Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
 // В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter } });
 }

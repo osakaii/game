@@ -1,11 +1,17 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { Subscription } from 'rxjs';
-import { GAME_RULES, seekerCount, type GameResult, type Vec3 } from '@mecha/shared';
+import { GAME_RULES, canPaint, seekerCount, type BodyZone, type GameResult, type Vec3 } from '@mecha/shared';
 import { GameError } from '../common/game-error';
 import type { Room, RoomMember } from '../rooms/room';
 import { RoomEvents } from '../rooms/room-events';
 import { RoomsService } from '../rooms/rooms.service';
 import { shuffle } from './shuffle';
+
+/**
+ * Минимальный интервал между покрасками (мс). Каждая покраска — рассылка room:state всей комнате,
+ * без лимита один клиент в цикле мог бы завалить сервер и всех игроков.
+ */
+const PAINT_INTERVAL_MS = 50;
 
 /**
  * Ведёт раунд: раздаёт роли, переключает фазы по таймерам, проверяет условия победы.
@@ -55,6 +61,16 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.events.changed.next(room);
 
     this.schedule(room, GAME_RULES.hideSeconds, () => this.startSeeking(room));
+  }
+
+  paint(room: Room, playerId: string, zones: readonly BodyZone[], color: string, now = Date.now()): void {
+    const member = room.member(playerId);
+    if (!member) throw new GameError('ROOM_NOT_FOUND');
+    if (!canPaint(room.phase, member.role)) throw new GameError('PAINT_NOT_ALLOWED');
+    if (now - member.paintedAt < PAINT_INTERVAL_MS) throw new GameError('RATE_LIMITED');
+
+    room.paint(member, zones, color, now);
+    this.events.changed.next(room);
   }
 
   /**

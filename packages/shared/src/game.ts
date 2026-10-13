@@ -31,6 +31,14 @@ export function seekerCount(players: number): number {
   return Math.max(1, Math.round(players / 4));
 }
 
+/**
+ * Можно ли краситься. В лобби — всем (потренироваться), в прятках — только прячущимся.
+ * Во время поиска нельзя: перекрашивание на глазах у ищущего было бы слишком сильным.
+ */
+export function canPaint(phase: RoomPhase, role: Role | null): boolean {
+  return phase === 'lobby' || (phase === 'hiding' && role === 'hider');
+}
+
 /** Может ли игрок двигаться в этой фазе. Ищущие ждут с закрытыми глазами, пока все прячутся. */
 export function canMove(phase: RoomPhase, role: Role | null): boolean {
   return !(phase === 'hiding' && role === 'seeker');

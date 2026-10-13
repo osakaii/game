@@ -1,6 +1,6 @@
-import { ConnectedSocket, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
-import type { EmptyResult } from '@mecha/shared';
-import { GameError, respond } from '../common/game-error';
+import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
+import { PaintSchema, type EmptyResult } from '@mecha/shared';
+import { GameError, parseInput, respond } from '../common/game-error';
 import { GATEWAY_OPTIONS, type GameSocket } from '../common/socket-types';
 import { RoomsService } from '../rooms/rooms.service';
 import { GameService } from './game.service';
@@ -18,6 +18,17 @@ export class GameGateway {
       const room = this.rooms.roomOf(client.id);
       if (!room) throw new GameError('ROOM_NOT_FOUND');
       this.game.start(room, client.id);
+      return null;
+    });
+  }
+
+  @SubscribeMessage('player:paint')
+  paint(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): EmptyResult {
+    return respond(() => {
+      const { zones, color } = parseInput(PaintSchema, body);
+      const room = this.rooms.roomOf(client.id);
+      if (!room) throw new GameError('ROOM_NOT_FOUND');
+      this.game.paint(room, client.id, zones, color);
       return null;
     });
   }

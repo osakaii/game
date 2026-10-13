@@ -9,6 +9,8 @@ const MESSAGES: Record<ErrorCode, string> = {
   ALREADY_IN_ROOM: 'Вы уже в комнате',
   NOT_HOST: 'Начать игру может только хост',
   NOT_ENOUGH_PLAYERS: 'Нужно минимум 2 игрока',
+  PAINT_NOT_ALLOWED: 'Сейчас краситься нельзя',
+  RATE_LIMITED: 'Слишком часто, помедленнее',
   INTERNAL: 'Ошибка сервера, попробуйте ещё раз',
   TIMEOUT: 'Сервер не отвечает',
 };

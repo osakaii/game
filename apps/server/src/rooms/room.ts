@@ -24,6 +24,8 @@ export interface RoomMember extends PlayerInfo {
   stateAt: number;
   /** Когда игрок последний раз красился — для ограничения частоты. */
   paintedAt: number;
+  /** Когда ищущий может проверять снова (серверное время, мс). */
+  nextShotAt: number;
 }
 
 /**
@@ -99,6 +101,7 @@ export class Room {
       found: false,
       colors: defaultBodyColors(),
       paintedAt: 0,
+      nextShotAt: 0,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
       stateAt: now,
     };
@@ -122,6 +125,7 @@ export class Room {
     for (const m of this.members.values()) {
       m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
       m.found = false;
+      m.nextShotAt = 0;
       // Раскраска из лобби не переносится в раунд: все прячутся с нуля за отведённое время.
       m.colors = m.role === 'seeker' ? seekerBodyColors() : defaultBodyColors();
     }
@@ -146,6 +150,15 @@ export class Room {
     }
     this.result = null;
     this.setPhase('lobby', null);
+  }
+
+  markFound(member: RoomMember): void {
+    member.found = true;
+  }
+
+  /** Прячущиеся, которых ещё не нашли, — по ним проверяются выстрелы. */
+  activeHiders(): RoomMember[] {
+    return this.allMembers().filter((m) => m.role === 'hider' && !m.found);
   }
 
   paint(member: RoomMember, zones: readonly BodyZone[], color: string, now = Date.now()): void {
@@ -187,8 +200,11 @@ export class Room {
     };
   }
 
+  /** Найденные — призраки: другим их не видно, поэтому в снимки не попадают. */
   netPlayers(): NetPlayer[] {
-    return this.allMembers().map(({ id, state }) => ({ id, ...state }));
+    return this.allMembers()
+      .filter((m) => !m.found)
+      .map(({ id, state }) => ({ id, ...state }));
   }
 
   private setPhase(phase: RoomPhase, endsAt: number | null) {

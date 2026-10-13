@@ -39,14 +39,14 @@ export class PhaseHud {
   private readonly resultsTimer = $('#results-timer');
   private readonly cache = new Map<HTMLElement, string>();
 
-  update(room: RoomSnapshot | null, myRole: Role | null, serverNow: number): void {
+  update(room: RoomSnapshot | null, myRole: Role | null, serverNow: number, found = false): void {
     const phase = room?.phase ?? 'lobby';
     const left = room?.phaseEndsAt ? formatSeconds(room.phaseEndsAt - serverNow) : '';
 
     const inGame = phase === 'hiding' || phase === 'seeking';
     this.toggle(this.banner, inGame);
     if (inGame) {
-      const role = myRole ? ` · ${ROLE_HINTS[myRole]}` : '';
+      const role = found ? ' · тебя нашли, наблюдай' : myRole ? ` · ${ROLE_HINTS[myRole]}` : '';
       this.setText(this.banner, `${PHASE_TITLES[phase]} ${left}${role}`);
       this.banner.dataset.role = myRole ?? '';
     }

@@ -11,6 +11,9 @@ import {
   type RoomResult,
   type RoomSnapshot,
   type ServerToClientEvents,
+  type ShootPayload,
+  type ShotEvent,
+  type ShotResult,
   type TeleportPayload,
   type WelcomePayload,
   type WorldSnapshot,
@@ -28,6 +31,7 @@ interface NetworkEvents {
   roomState: RoomSnapshot;
   snapshot: WorldSnapshot;
   teleport: TeleportPayload;
+  shot: ShotEvent;
 }
 
 const PING_INTERVAL_MS = 2000;
@@ -56,6 +60,7 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('room:state', (room) => this.emit('roomState', room));
     this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
     this.socket.on('player:teleport', (position) => this.emit('teleport', position));
+    this.socket.on('seek:shot', (shot) => this.emit('shot', shot));
     this.socket.on('disconnect', () => {
       clearInterval(this.pingTimer);
       this.playerId = null;
@@ -78,6 +83,10 @@ export class Network extends Emitter<NetworkEvents> {
 
   paint(payload: PaintPayload): Promise<EmptyResult> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('player:paint', payload));
+  }
+
+  shoot(payload: ShootPayload): Promise<Result<ShotResult>> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('seek:shoot', payload));
   }
 
   leaveRoom(): void {

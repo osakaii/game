@@ -7,6 +7,11 @@ export const GAME_RULES = {
   hideSeconds: 40,
   seekSeconds: 150,
   resultsSeconds: 8,
+  /** Насколько далеко от ищущего (м) засчитывается проверка. */
+  shotRange: 14,
+  /** Задержка после попадания и после промаха (мс). Промах дороже — иначе выгодно тыкать во всё подряд. */
+  shotCooldownHitMs: 500,
+  shotCooldownMissMs: 1500,
 } as const;
 
 /**
@@ -37,6 +42,10 @@ export function seekerCount(players: number): number {
  */
 export function canPaint(phase: RoomPhase, role: Role | null): boolean {
   return phase === 'lobby' || (phase === 'hiding' && role === 'hider');
+}
+
+export function canShoot(phase: RoomPhase, role: Role | null): boolean {
+  return phase === 'seeking' && role === 'seeker';
 }
 
 /** Может ли игрок двигаться в этой фазе. Ищущие ждут с закрытыми глазами, пока все прячутся. */

@@ -41,3 +41,24 @@ export interface TeleportPayload {
 export function roundCm(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+const Vec3Schema = z.object({ x: z.number(), y: z.number(), z: z.number() });
+
+/** Ищущий проверяет место: луч из камеры через точку касания. */
+export const ShootSchema = z.object({ origin: Vec3Schema, dir: Vec3Schema });
+export type ShootPayload = z.input<typeof ShootSchema>;
+
+export interface ShotResult {
+  hitPlayerId: string | null;
+  /** Куда попал луч (стена, пол, игрок). null — слишком далеко. */
+  point: { x: number; y: number; z: number } | null;
+  /** Когда можно проверять снова (серверное время, мс). */
+  nextShotAt: number;
+}
+
+/** Рассылается всей комнате: прячущиеся видят, куда тыкают ищущие. */
+export interface ShotEvent {
+  seekerId: string;
+  hitPlayerId: string | null;
+  point: { x: number; y: number; z: number } | null;
+}

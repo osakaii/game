@@ -17,6 +17,7 @@ import { StateSender } from './net/state-sender';
 import { Eyedropper } from './painting/eyedropper';
 import { Painter } from './painting/painter';
 import { LocalPlayer } from './player/local-player';
+import { SeekerControls } from './seek/seeker-controls';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
@@ -27,6 +28,7 @@ import { RoomPanel } from './ui/room-panel';
 import { toast } from './ui/toast';
 import { buildMap } from './world/map-builder';
 import { RemotePlayers } from './world/remote-players';
+import { Splats } from './world/splats';
 import { createSceneContext } from './world/scene-setup';
 
 // ---------- 3D-мир ----------
@@ -81,6 +83,23 @@ const painter = new Painter(
 );
 const paintPanel = new PaintPanel(painter);
 
+// ---------- Поиск ----------
+
+const seekerControls = new SeekerControls(camera, canvas, network, lobby);
+const splats = new Splats(scene);
+controls.onTap = (x, y) => void seekerControls.tap(x, y);
+
+network.on('shot', (shot) => {
+  if (shot.point) splats.add(shot.point, !!shot.hitPlayerId);
+  if (!shot.hitPlayerId) return;
+  if (shot.hitPlayerId === network.playerId) {
+    toast('Тебя нашли! Теперь ты призрак — наблюдай');
+  } else {
+    const nickname = lobby.room?.players.find((p) => p.id === shot.hitPlayerId)?.nickname ?? 'Игрок';
+    toast(`${nickname} найден!`);
+  }
+});
+
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
   menu.setOnline(state === 'online');
@@ -112,6 +131,7 @@ lobby.on('room', (room) => {
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
   player.model.setColors(lobby.me?.colors ?? defaultBodyColors());
+  player.model.setGhost(!!lobby.me?.found);
   paintPanel.render();
   if (room) {
     menu.hide();
@@ -159,12 +179,15 @@ startFixedStepLoop(PHYSICS_DT, {
     followCamera.update(player.renderPosition, frameDt);
     renderer.render(scene, camera);
     hud.tick(frameDt);
-    phaseHud.update(lobby.room, lobby.myRole, network.clock.now());
+    const serverNow = network.clock.now();
+    phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found);
+    seekerControls.update(serverNow);
+    splats.update(frameDt);
   },
 });
 
 // Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
 // В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter, seekerControls, controls } });
 }

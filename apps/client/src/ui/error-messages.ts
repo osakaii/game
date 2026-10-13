@@ -10,6 +10,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   NOT_HOST: 'Начать игру может только хост',
   NOT_ENOUGH_PLAYERS: 'Нужно минимум 2 игрока',
   PAINT_NOT_ALLOWED: 'Сейчас краситься нельзя',
+  SHOT_NOT_ALLOWED: 'Сейчас проверять нельзя',
   RATE_LIMITED: 'Слишком часто, помедленнее',
   INTERNAL: 'Ошибка сервера, попробуйте ещё раз',
   TIMEOUT: 'Сервер не отвечает',

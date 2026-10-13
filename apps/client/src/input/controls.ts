@@ -4,6 +4,9 @@ import { VirtualJoystick } from './virtual-joystick';
 const TOUCH_LOOK_SENSITIVITY = 0.006; // рад на пиксель
 const MOUSE_LOOK_SENSITIVITY = 0.004;
 const JOYSTICK_ZONE = 0.45; // левые 45% экрана — зона джойстика
+/** Тап = палец сдвинулся меньше чем на TAP_SLOP пикселей и отпущен быстрее TAP_MAX_MS. Иначе это поворот камеры. */
+const TAP_SLOP = 10;
+const TAP_MAX_MS = 300;
 
 interface ControlsElements {
   surface: HTMLElement;
@@ -31,6 +34,13 @@ export class Controls {
   private lookDx = 0;
   private lookDy = 0;
   private jumpQueued = false;
+  /** Короткий тап по экрану (не по джойстику). Ищущий так проверяет места. */
+  onTap: ((x: number, y: number) => void) | null = null;
+  private lookStartX = 0;
+  private lookStartY = 0;
+  private lookStartTime = 0;
+  private lookIsTap = false;
+
   /** Одноразовый перехватчик касания (режим пипетки). */
   private tapHandler: ((x: number, y: number) => void) | null = null;
 
@@ -98,14 +108,21 @@ export class Controls {
       this.joystick.start(e);
     } else if (this.lookPointerId === null) {
       this.lookPointerId = e.pointerId;
-      this.lastLookX = e.clientX;
-      this.lastLookY = e.clientY;
+      this.lastLookX = this.lookStartX = e.clientX;
+      this.lastLookY = this.lookStartY = e.clientY;
+      this.lookStartTime = performance.now();
+      this.lookIsTap = true;
       this.lookSensitivity = isTouch ? TOUCH_LOOK_SENSITIVITY : MOUSE_LOOK_SENSITIVITY;
     } else {
       return;
     }
     // Capture: события этого пальца продолжают приходить, даже если он ушёл за пределы элемента.
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // Если палец уже отпущен (очень быстрый тап), браузер бросит исключение — захват тогда и не нужен.
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* без захвата обойдёмся */
+    }
   }
 
   private onMove(e: PointerEvent) {
@@ -116,11 +133,18 @@ export class Controls {
       this.lookDy += (e.clientY - this.lastLookY) * this.lookSensitivity;
       this.lastLookX = e.clientX;
       this.lastLookY = e.clientY;
+      if (Math.hypot(e.clientX - this.lookStartX, e.clientY - this.lookStartY) > TAP_SLOP) {
+        this.lookIsTap = false;
+      }
     }
   }
 
   private onUp(e: PointerEvent) {
     if (e.pointerId === this.joystick.pointerId) this.joystick.end();
-    if (e.pointerId === this.lookPointerId) this.lookPointerId = null;
+    if (e.pointerId === this.lookPointerId) {
+      this.lookPointerId = null;
+      const quick = performance.now() - this.lookStartTime < TAP_MAX_MS;
+      if (this.lookIsTap && quick && this.enabled) this.onTap?.(e.clientX, e.clientY);
+    }
   }
 }

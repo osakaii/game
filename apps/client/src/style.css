@@ -607,3 +607,49 @@ input:focus {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* ---------- Поиск ---------- */
+
+#seek-hint {
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgb(214 40 40 / 0.85);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#seek-hint.cooldown {
+  background: rgb(15 18 26 / 0.7);
+}
+
+#seek-hint[hidden] {
+  display: none;
+}
+
+.tap-ripple {
+  position: fixed;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  pointer-events: none;
+  animation: ripple 0.4s ease-out forwards;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0.3);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}

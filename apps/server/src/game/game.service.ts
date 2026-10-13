@@ -1,10 +1,21 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import type { Subscription } from 'rxjs';
-import { GAME_RULES, canPaint, seekerCount, type BodyZone, type GameResult, type Vec3 } from '@mecha/shared';
+import {
+  GAME_RULES,
+  PLAYER,
+  canPaint,
+  canShoot,
+  seekerCount,
+  type BodyZone,
+  type GameResult,
+  type ShotResult,
+  type Vec3,
+} from '@mecha/shared';
 import { GameError } from '../common/game-error';
 import type { Room, RoomMember } from '../rooms/room';
 import { RoomEvents } from '../rooms/room-events';
 import { RoomsService } from '../rooms/rooms.service';
+import { resolveShot } from './shot';
 import { shuffle } from './shuffle';
 
 /**
@@ -12,6 +23,14 @@ import { shuffle } from './shuffle';
  * без лимита один клиент в цикле мог бы завалить сервер и всех игроков.
  */
 const PAINT_INTERVAL_MS = 50;
+
+/**
+ * Луч приходит из камеры клиента, а камера висит за спиной игрока (до ~4.5 м + высота плеч).
+ * Дальше этого от игрока луч начинаться не может — иначе «стреляли» бы из другого конца карты.
+ */
+const SHOT_ORIGIN_MAX_OFFSET = 6;
+/** Длина луча от камеры. Дальность от самого ищущего проверяется отдельно (shotRange). */
+const SHOT_RAY_LENGTH = 40;
 
 /**
  * Ведёт раунд: раздаёт роли, переключает фазы по таймерам, проверяет условия победы.
@@ -71,6 +90,51 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
     room.paint(member, zones, color, now);
     this.events.changed.next(room);
+  }
+
+  /**
+   * Проверка места ищущим. Клиент присылает только луч — что в него попало, решает сервер
+   * по своим позициям и своей карте.
+   */
+  shoot(room: Room, playerId: string, origin: Vec3, rawDir: Vec3, now = Date.now()): ShotResult {
+    const seeker = room.member(playerId);
+    if (!seeker) throw new GameError('ROOM_NOT_FOUND');
+    if (!canShoot(room.phase, seeker.role)) throw new GameError('SHOT_NOT_ALLOWED');
+    if (now < seeker.nextShotAt) throw new GameError('RATE_LIMITED');
+
+    const length = Math.hypot(rawDir.x, rawDir.y, rawDir.z);
+    if (length < 0.5 || length > 1.5) throw new GameError('INVALID_INPUT', 'direction must be normalized');
+    const dir = { x: rawDir.x / length, y: rawDir.y / length, z: rawDir.z / length };
+
+    const p = seeker.state;
+    const eyeY = p.y + PLAYER.height * 0.8;
+    if (Math.hypot(origin.x - p.x, origin.y - eyeY, origin.z - p.z) > SHOT_ORIGIN_MAX_OFFSET) {
+      throw new GameError('INVALID_INPUT', 'shot origin too far from seeker');
+    }
+
+    const targets = room.activeHiders().map((m) => ({ id: m.id, position: m.state }));
+    const hit = resolveShot(origin, dir, room.colliders, targets, SHOT_RAY_LENGTH);
+
+    let point = hit
+      ? { x: origin.x + dir.x * hit.t, y: origin.y + dir.y * hit.t, z: origin.z + dir.z * hit.t }
+      : null;
+    let hitPlayerId = hit?.playerId ?? null;
+    if (point && Math.hypot(point.x - p.x, point.y - p.y, point.z - p.z) > GAME_RULES.shotRange) {
+      point = null; // слишком далеко — проверка не засчитывается, но задержка за промах есть
+      hitPlayerId = null;
+    }
+
+    seeker.nextShotAt = now + (hitPlayerId ? GAME_RULES.shotCooldownHitMs : GAME_RULES.shotCooldownMissMs);
+    this.events.shot.next({ room, shot: { seekerId: seeker.id, hitPlayerId, point } });
+
+    if (hitPlayerId) {
+      const hider = room.member(hitPlayerId)!;
+      room.markFound(hider);
+      this.logger.log(`room ${room.code}: ${seeker.nickname} found ${hider.nickname}`);
+      this.events.changed.next(room);
+      this.checkWinConditions(room);
+    }
+    return { hitPlayerId, point, nextShotAt: seeker.nextShotAt };
   }
 
   /**

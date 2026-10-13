@@ -6,10 +6,18 @@
  * чтобы старый клиент не пытался говорить с новым сервером.
  */
 import type { CreateRoomPayload, EmptyResult, JoinRoomPayload, RoomResult, RoomSnapshot } from './lobby.js';
-import type { PlayerState, TeleportPayload, WorldSnapshot } from './net-state.js';
+import type {
+  PlayerState,
+  ShootPayload,
+  ShotEvent,
+  ShotResult,
+  TeleportPayload,
+  WorldSnapshot,
+} from './net-state.js';
+import type { Result } from './lobby.js';
 import type { PaintPayload } from './body.js';
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Сервер -> клиент: сразу после подключения. */
 export interface WelcomePayload {
@@ -41,6 +49,7 @@ export interface ServerToClientEvents {
   'room:state': (room: RoomSnapshot) => void;
   'world:snapshot': (snapshot: WorldSnapshot) => void;
   'player:teleport': (position: TeleportPayload) => void;
+  'seek:shot': (shot: ShotEvent) => void;
 }
 
 export interface ClientToServerEvents {
@@ -52,4 +61,5 @@ export interface ClientToServerEvents {
   /** Только хост, только в лобби. */
   'game:start': (ack: (result: EmptyResult) => void) => void;
   'player:paint': (payload: PaintPayload, ack: (result: EmptyResult) => void) => void;
+  'seek:shoot': (payload: ShootPayload, ack: (result: Result<ShotResult>) => void) => void;
 }

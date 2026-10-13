@@ -67,6 +67,7 @@ export const ERROR_CODES = [
   'NOT_HOST',
   'NOT_ENOUGH_PLAYERS',
   'PAINT_NOT_ALLOWED',
+  'SHOT_NOT_ALLOWED',
   /** Слишком частые запросы — сервер их отбрасывает. */
   'RATE_LIMITED',
   'INTERNAL',

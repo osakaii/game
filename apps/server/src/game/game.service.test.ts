@@ -133,3 +133,58 @@ describe('GameService.paint', () => {
     );
   });
 });
+
+describe('GameService.shoot', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** Раунд из 2 игроков в фазе поиска, ищущий и прячущийся стоят в известных местах. */
+  function seekingRound() {
+    const ctx = setup(2);
+    ctx.game.start(ctx.room, 'p0');
+    vi.advanceTimersByTime(GAME_RULES.hideSeconds * 1000);
+    const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
+    const hider = ctx.room.allMembers().find((m) => m.role === 'hider')!;
+    ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    ctx.room.teleport(hider, { x: 0, y: 0, z: 4 });
+    // Камера за спиной ищущего, смотрит на прячущегося.
+    const origin = { x: 0, y: 1.5, z: 13 };
+    const shots: unknown[] = [];
+    ctx.events.shot.subscribe((e) => shots.push(e.shot));
+    return { ...ctx, seeker, hider, origin, shots };
+  }
+
+  it('finds a visible hider and ends the round when nobody is left', () => {
+    const { game, room, seeker, hider, origin, shots } = seekingRound();
+    const result = game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 });
+    expect(result.hitPlayerId).toBe(hider.id);
+    expect(hider.found).toBe(true);
+    expect(room.result).toEqual({ winner: 'seeker', reason: 'all_found' });
+    expect(shots).toHaveLength(1);
+  });
+
+  it('misses into the floor and applies the miss cooldown', () => {
+    const { game, room, seeker, origin } = seekingRound();
+    const now = Date.now();
+    const result = game.shoot(room, seeker.id, origin, { x: 0, y: -1, z: 0 }, now);
+    expect(result.hitPlayerId).toBeNull();
+    expect(result.nextShotAt).toBe(now + GAME_RULES.shotCooldownMissMs);
+    expect(() => game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 }, now + 100)).toThrowError(/RATE_LIMITED/);
+  });
+
+  it('rejects shots from a hider, from far away, or with a junk direction', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    expect(() => game.shoot(room, hider.id, origin, { x: 0, y: 0, z: -1 })).toThrowError(/SHOT_NOT_ALLOWED/);
+    expect(() => game.shoot(room, seeker.id, { x: 0, y: 1.5, z: -10 }, { x: 0, y: 0, z: 1 })).toThrowError(
+      /too far/,
+    );
+    expect(() => game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: 0 })).toThrowError(/normalized/);
+  });
+
+  it('hides found players from snapshots', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 });
+    expect(room.netPlayers().map((p) => p.id)).toEqual([seeker.id]);
+    expect(hider.found).toBe(true);
+  });
+});

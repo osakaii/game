@@ -60,6 +60,23 @@ export class PlayerModel {
     for (const zone of BODY_ZONES) this.setZoneColor(zone, colors[zone]);
   }
 
+  /**
+   * Призрак — найденный прячущийся: полупрозрачный, наблюдает за раундом.
+   * Смена transparent требует needsUpdate: three.js пересоберёт шейдер материала.
+   */
+  setGhost(ghost: boolean): void {
+    this.root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh) || object === this.shadow) return;
+      const material = object.material as THREE.Material;
+      if (material.transparent === ghost) return;
+      material.transparent = ghost;
+      material.opacity = ghost ? 0.3 : 1;
+      material.depthWrite = !ghost;
+      material.needsUpdate = true;
+    });
+    this.shadow.visible = !ghost;
+  }
+
   /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
   colorOf(zone: BodyZone): string {
     return `#${this.material(zone).color.getHexString()}`;

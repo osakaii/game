@@ -1,4 +1,4 @@
-import { Logger, OnModuleDestroy } from '@nestjs/common';
+import { Logger, OnModuleDestroy, UseGuards } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -8,7 +8,14 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { PlayerStateSchema, SNAPSHOT_RATE, canMove } from '@mecha/shared';
-import { GATEWAY_OPTIONS, type GameServer, type GameSocket } from '../common/socket-types';
+import { RateLimit, RateLimitGuard } from '../common/rate-limit';
+import {
+  GATEWAY_OPTIONS,
+  playerIdOf,
+  playerRoom,
+  type GameServer,
+  type GameSocket,
+} from '../common/socket-types';
 import { RoomsService } from '../rooms/rooms.service';
 import { validateMove } from './move-validator';
 
@@ -22,6 +29,7 @@ const FROZEN_SLACK = 0.05;
  * (никакой задержки управления), сервер принимает только правдоподобные позиции.
  */
 @WebSocketGateway(GATEWAY_OPTIONS)
+@UseGuards(RateLimitGuard)
 export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
   private readonly logger = new Logger(MovementGateway.name);
   private tickTimer: ReturnType<typeof setInterval> | undefined;
@@ -42,12 +50,15 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
   }
 
   @SubscribeMessage('player:state')
+  // Клиент шлёт 20/с. Запас на джиттер: пакеты приходят пачками после подтормаживания сети.
+  @RateLimit(30, 40)
   onState(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): void {
     const parsed = PlayerStateSchema.safeParse(body);
     if (!parsed.success) return; // мусор молча игнорируем: отвечать на каждый — подарок для спама
 
-    const room = this.rooms.roomOf(client.id);
-    const member = room?.member(client.id);
+    const playerId = playerIdOf(client);
+    const room = this.rooms.roomOf(playerId);
+    const member = room?.member(playerId);
     if (!room || !member) return;
 
     const now = Date.now();
@@ -86,9 +97,10 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
       // Чёрный экран на клиенте можно убрать в DevTools, а данные, которых нет, — не подсмотришь.
       const seekerIds = room.allMembers().filter((m) => m.role === 'seeker').map((m) => m.id);
       const seekerSet = new Set(seekerIds);
-      this.server.volatile.to(room.code).except(seekerIds).emit('world:snapshot', { t, players });
+      const seekerRooms = seekerIds.map(playerRoom);
+      this.server.volatile.to(room.code).except(seekerRooms).emit('world:snapshot', { t, players });
       this.server.volatile
-        .to(seekerIds)
+        .to(seekerRooms)
         .emit('world:snapshot', { t, players: players.filter((p) => seekerSet.has(p.id)) });
     }
   }

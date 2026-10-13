@@ -20,6 +20,7 @@ import {
 } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
 import { ServerClock } from './server-clock';
+import { getSessionId } from './session-id';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 export type ConnectionState = 'connecting' | 'online' | 'offline';
@@ -52,7 +53,8 @@ export class Network extends Emitter<NetworkEvents> {
     super();
     // Без URL socket.io подключится к текущему origin (в dev его проксирует Vite).
     const url = import.meta.env.VITE_SERVER_URL as string | undefined;
-    const options = { transports: ['websocket'] };
+    // auth уходит в handshake — сервер проверяет его middleware ещё до подключения.
+    const options = { transports: ['websocket'], auth: { sessionId: getSessionId() } };
     this.socket = url ? io(url, options) : io(options);
 
     this.socket.on('connect', () => this.setStatus('connecting', 'handshake…'));
@@ -61,10 +63,15 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
     this.socket.on('player:teleport', (position) => this.emit('teleport', position));
     this.socket.on('seek:shot', (shot) => this.emit('shot', shot));
-    this.socket.on('disconnect', () => {
+    this.socket.on('disconnect', (reason) => {
       clearInterval(this.pingTimer);
-      this.playerId = null;
-      this.setStatus('offline', 'offline, reconnecting…');
+      // Сервер отключил нас сам — значит, эта же сессия открылась в другой вкладке.
+      // socket.io в этом случае не переподключается автоматически, и это правильно.
+      if (reason === 'io server disconnect') {
+        this.setStatus('offline', 'opened in another tab');
+      } else {
+        this.setStatus('offline', 'offline, reconnecting…');
+      }
     });
     this.socket.on('connect_error', () => this.setStatus('offline', 'server unreachable'));
   }

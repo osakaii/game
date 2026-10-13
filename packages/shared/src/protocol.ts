@@ -5,7 +5,16 @@
  * Меняешь формат сообщений — увеличивай PROTOCOL_VERSION,
  * чтобы старый клиент не пытался говорить с новым сервером.
  */
-import type { CreateRoomPayload, EmptyResult, JoinRoomPayload, RoomResult, RoomSnapshot } from './lobby.js';
+import { z } from 'zod';
+import type { PaintPayload } from './body.js';
+import type {
+  CreateRoomPayload,
+  EmptyResult,
+  JoinRoomPayload,
+  Result,
+  RoomResult,
+  RoomSnapshot,
+} from './lobby.js';
 import type {
   PlayerState,
   ShootPayload,
@@ -14,16 +23,23 @@ import type {
   TeleportPayload,
   WorldSnapshot,
 } from './net-state.js';
-import type { Result } from './lobby.js';
-import type { PaintPayload } from './body.js';
 
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
+
+/**
+ * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
+ * Знает только этот клиент и сервер — по нему сервер узнаёт игрока после переподключения.
+ */
+export const SessionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 
 /** Сервер -> клиент: сразу после подключения. */
 export interface WelcomePayload {
+  /** Публичный постоянный id игрока (не меняется при переподключении). */
   playerId: string;
   protocolVersion: number;
   serverTime: number;
+  /** Комната, в которой игрок всё ещё состоит после переподключения. null — ни в какой. */
+  roomCode: string | null;
 }
 
 /** Клиент -> сервер: замер задержки. */

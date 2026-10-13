@@ -18,23 +18,21 @@ export class Lobby extends Emitter<LobbyEvents> {
   /** Код комнаты, которой мы «принадлежим». Состояния чужих комнат игнорируем. */
   private currentCode: string | null = null;
   private requestPending = false;
-  /** Что повторить после переподключения: сервер при разрыве уже выкинул нас из комнаты. */
-  private rejoin: { code: string; nickname: string } | null = null;
-  private lastNickname = '';
 
   constructor(private readonly network: Network) {
     super();
     network.on('roomState', (room) => this.onRoomState(room));
-    network.on('status', ({ state }) => {
-      if (state === 'offline' && this.room) {
-        this.rejoin = { code: this.room.code, nickname: this.lastNickname };
+    // При разрыве связи комнату НЕ сбрасываем: сервер держит наше место RECONNECT_GRACE_MS.
+    // После переподключения он сам скажет, где мы (welcome.roomCode), и пришлёт room:state.
+    network.on('welcome', (welcome) => {
+      if (this.room && welcome.roomCode !== this.room.code) {
         this.reset();
+        this.emit('error', 'SESSION_EXPIRED');
+      } else if (!this.room && welcome.roomCode) {
+        // Перезагрузили страницу посреди игры: сессия та же, сервер помнит комнату.
+        // Следом придёт room:state — разрешаем его принять.
+        this.currentCode = welcome.roomCode;
       }
-    });
-    network.on('welcome', () => {
-      const rejoin = this.rejoin;
-      this.rejoin = null;
-      if (rejoin) void this.join(rejoin.nickname, rejoin.code);
     });
   }
 
@@ -46,16 +44,17 @@ export class Lobby extends Emitter<LobbyEvents> {
     return !!this.room && this.room.hostId === this.network.playerId;
   }
 
+  /** В комнате, но связь пропала — ждём переподключения. */
   get isReconnecting(): boolean {
-    return this.rejoin !== null;
+    return !!this.room && this.network.state !== 'online';
   }
 
   create(nickname: string): Promise<boolean> {
-    return this.request(nickname, () => this.network.createRoom({ nickname }));
+    return this.request(() => this.network.createRoom({ nickname }));
   }
 
   join(nickname: string, code: string): Promise<boolean> {
-    return this.request(nickname, () => this.network.joinRoom({ nickname, code }));
+    return this.request(() => this.network.joinRoom({ nickname, code }));
   }
 
   /** Игрок этого клиента в текущей комнате. */
@@ -73,10 +72,9 @@ export class Lobby extends Emitter<LobbyEvents> {
     this.reset();
   }
 
-  private async request(nickname: string, send: () => Promise<RoomResult>): Promise<boolean> {
+  private async request(send: () => Promise<RoomResult>): Promise<boolean> {
     if (this.requestPending) return false; // защита от двойного тапа
     this.requestPending = true;
-    this.lastNickname = nickname;
     try {
       const result = await send();
       if (!result.ok) {

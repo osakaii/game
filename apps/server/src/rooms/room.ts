@@ -102,6 +102,7 @@ export class Room {
       colors: defaultBodyColors(),
       paintedAt: 0,
       nextShotAt: 0,
+      connected: true,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
       stateAt: now,
     };
@@ -152,6 +153,10 @@ export class Room {
     this.setPhase('lobby', null);
   }
 
+  setConnected(member: RoomMember, connected: boolean): void {
+    member.connected = connected;
+  }
+
   markFound(member: RoomMember): void {
     member.found = true;
   }
@@ -190,12 +195,13 @@ export class Room {
       phase: this.phase,
       phaseEndsAt: this.phaseEndsAt,
       result: this.result,
-      players: this.allMembers().map(({ id, nickname, role, found, colors }) => ({
+      players: this.allMembers().map(({ id, nickname, role, found, colors, connected }) => ({
         id,
         nickname,
         role,
         found,
         colors: { ...colors },
+        connected,
       })),
     };
   }

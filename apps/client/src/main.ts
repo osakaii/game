@@ -103,7 +103,7 @@ network.on('shot', (shot) => {
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
   menu.setOnline(state === 'online');
-  if (state !== 'online' && lobby.isReconnecting) menu.showError('Связь потеряна, переподключаемся…');
+  if (state === 'offline' && lobby.room) toast('Связь потеряна, переподключаемся…');
 });
 network.on('ping', (rtt) => hud.setPing(rtt));
 
@@ -138,7 +138,7 @@ lobby.on('room', (room) => {
     setRoomInUrl(room.code);
   } else {
     menu.show();
-    if (!lobby.isReconnecting) setRoomInUrl(null);
+    setRoomInUrl(null);
   }
   updateControlsEnabled();
 });

@@ -653,3 +653,7 @@ input:focus {
     opacity: 0;
   }
 }
+
+#player-list li.offline {
+  opacity: 0.45;
+}

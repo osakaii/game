@@ -38,11 +38,12 @@ export class RoomPanel {
     // ник вида <img src=x onerror=...> иначе выполнится у всех в комнате (XSS).
     const items = room.players.map((player) => {
       const li = document.createElement('li');
-      li.textContent = player.nickname;
+      li.textContent = player.connected ? player.nickname : `${player.nickname} · нет связи`;
       if (player.id === room.hostId) li.classList.add('host');
       if (player.id === myId) li.classList.add('me');
       if (player.role) li.dataset.role = player.role;
       if (player.found) li.classList.add('found');
+      if (!player.connected) li.classList.add('offline');
       return li;
     });
     this.list.replaceChildren(...items);

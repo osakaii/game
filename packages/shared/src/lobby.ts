@@ -43,6 +43,8 @@ export interface PlayerInfo {
   /** Прячущегося нашли (этап 6). */
   found: boolean;
   colors: BodyColors;
+  /** false — связь пропала, ждём переподключения. */
+  connected: boolean;
 }
 
 /** Снимок комнаты, который сервер рассылает всем её участникам при любом изменении. */
@@ -73,6 +75,8 @@ export const ERROR_CODES = [
   'INTERNAL',
   /** Клиентская ошибка: сервер не ответил вовремя. */
   'TIMEOUT',
+  /** Клиентская ошибка: не успели переподключиться, сервер убрал нас из комнаты. */
+  'SESSION_EXPIRED',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 

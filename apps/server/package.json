@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch --preserveWatchOutput",
     "build": "nest build",
-    "start": "node dist/main",
+    "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "@nestjs/platform-express": "^12",
     "@nestjs/platform-socket.io": "^12",
     "@nestjs/websockets": "^12",
+    "compression": "^1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "socket.io": "^4.8.4",
@@ -23,7 +24,11 @@
   "devDependencies": {
     "@nestjs/cli": "^12",
     "@nestjs/schematics": "^12",
+    "@types/compression": "^1.8.1",
     "@types/node": "^24",
     "typescript": "~6.0.2"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

@@ -19,6 +19,9 @@ interface ControlsElements {
  * различать пальцы: левый палец водит джойстик, правый — крутит камеру, одновременно.
  */
 export class Controls {
+  /** false — ввод игнорируется (открыто меню). */
+  enabled = true;
+
   private readonly joystick: VirtualJoystick;
   private readonly keyboard = new Keyboard();
   private lookPointerId: number | null = null;
@@ -48,6 +51,7 @@ export class Controls {
 
   /** Движение: x — вправо, y — вперёд. Тач важнее клавиатуры. */
   moveAxis(): { x: number; y: number } {
+    if (!this.enabled) return { x: 0, y: 0 };
     if (this.joystick.pointerId !== null) return this.joystick.value;
     const axis = this.keyboard.axis();
     const len = Math.hypot(axis.x, axis.y);
@@ -66,7 +70,7 @@ export class Controls {
    * Иначе короткий тап между двумя шагами физики потерялся бы.
    */
   consumeJump(): boolean {
-    const jump = this.jumpQueued;
+    const jump = this.jumpQueued && this.enabled;
     this.jumpQueued = false;
     return jump;
   }

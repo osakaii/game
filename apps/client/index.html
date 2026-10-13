@@ -20,6 +20,51 @@
     <div id="joystick" hidden><div id="joystick-knob"></div></div>
     <button id="jump-button" type="button" aria-label="Прыжок">JUMP</button>
     <div id="desktop-hint">WASD — ходить · тянуть мышью — камера · Space — прыжок</div>
+
+    <details id="room-panel" open hidden>
+      <summary>
+        <span>Комната <b id="room-panel-code"></b></span>
+        <span id="room-panel-count"></span>
+      </summary>
+      <ul id="player-list"></ul>
+      <div class="room-actions">
+        <button type="button" id="invite">Пригласить</button>
+        <button type="button" id="leave-room" class="danger">Выйти</button>
+      </div>
+    </details>
+
+    <div id="menu" class="overlay">
+      <form id="menu-form" class="card" novalidate>
+        <h1>MECHA</h1>
+        <p class="subtitle">прятки с красками</p>
+
+        <label class="field">
+          <span>Ник</span>
+          <input id="nickname" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Как тебя зовут?" />
+        </label>
+
+        <button type="button" id="create-room" class="primary" disabled>Создать комнату</button>
+
+        <div class="divider"><span>или</span></div>
+
+        <div class="join-row">
+          <input
+            id="room-code"
+            placeholder="КОД"
+            autocapitalize="characters"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="go"
+          />
+          <button type="submit" id="join-room" disabled>Войти</button>
+        </div>
+
+        <p id="menu-error" role="alert"></p>
+      </form>
+    </div>
+
+    <div id="toast" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

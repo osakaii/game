@@ -1,14 +1,15 @@
-type Status = 'connecting' | 'online' | 'offline';
+import type { ConnectionState } from '../net/network';
+import { $ } from './dom';
 
 /** Верхняя панель: статус соединения, пинг, FPS. */
 export class Hud {
-  private readonly statusEl = document.querySelector<HTMLElement>('#status')!;
-  private readonly pingEl = document.querySelector<HTMLElement>('#ping')!;
-  private readonly fpsEl = document.querySelector<HTMLElement>('#fps')!;
+  private readonly statusEl = $('#status');
+  private readonly pingEl = $('#ping');
+  private readonly fpsEl = $('#fps');
   private frames = 0;
   private elapsed = 0;
 
-  setStatus(state: Status, text: string): void {
+  setStatus(state: ConnectionState, text: string): void {
     this.statusEl.dataset.state = state;
     this.statusEl.textContent = text;
   }

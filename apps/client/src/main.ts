@@ -3,13 +3,19 @@ import { PHYSICS_DT, PLAYROOM, buildColliders, type MoveInput } from '@mecha/sha
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
 import { Controls } from './input/controls';
+import { inviteToRoom, roomCodeFromUrl, setRoomInUrl } from './lobby/invite';
+import { Lobby } from './lobby/lobby';
+import { Network } from './net/network';
 import { LocalPlayer } from './player/local-player';
+import { $ } from './ui/dom';
+import { errorMessage } from './ui/error-messages';
+import { Hud } from './ui/hud';
+import { MenuScreen } from './ui/menu-screen';
+import { RoomPanel } from './ui/room-panel';
 import { buildMap } from './world/map-builder';
 import { createSceneContext } from './world/scene-setup';
-import { Hud } from './ui/hud';
-import { connect } from './network';
 
-const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+// ---------- 3D-мир ----------
 
 const canvas = $<HTMLCanvasElement>('#scene');
 const { renderer, scene, camera } = createSceneContext(canvas);
@@ -29,7 +35,57 @@ const controls = new Controls({
   jumpButton: $('#jump-button'),
 });
 
+// ---------- Сеть и лобби ----------
+
 const hud = new Hud();
+const network = new Network();
+const lobby = new Lobby(network);
+
+const menu = new MenuScreen(
+  {
+    onCreate: (nickname) => runLobbyRequest(() => lobby.create(nickname)),
+    onJoin: (nickname, code) => runLobbyRequest(() => lobby.join(nickname, code)),
+  },
+  roomCodeFromUrl(),
+);
+
+const roomPanel = new RoomPanel({
+  onLeave: () => lobby.leave(),
+  onInvite: () => lobby.room && void inviteToRoom(lobby.room.code),
+});
+
+network.on('status', ({ state, text }) => {
+  hud.setStatus(state, text);
+  menu.setOnline(state === 'online');
+  if (state !== 'online' && lobby.isReconnecting) menu.showError('Связь потеряна, переподключаемся…');
+});
+network.on('ping', (rtt) => hud.setPing(rtt));
+
+async function runLobbyRequest(request: () => Promise<boolean>) {
+  menu.setBusy(true);
+  menu.showError('');
+  await request();
+  menu.setBusy(false);
+}
+
+// Единая точка реакции на «вошли/вышли/изменилась комната».
+lobby.on('room', (room) => {
+  roomPanel.render(room, network.playerId);
+  if (room) {
+    menu.hide();
+    setRoomInUrl(room.code);
+  } else {
+    menu.show();
+    if (!lobby.isReconnecting) setRoomInUrl(null);
+  }
+  controls.enabled = !menu.visible;
+});
+lobby.on('error', (code) => menu.showError(errorMessage(code)));
+
+controls.enabled = !menu.visible;
+
+// ---------- Игровой цикл ----------
+
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
 const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false };
 
@@ -52,9 +108,4 @@ startFixedStepLoop(PHYSICS_DT, {
     renderer.render(scene, camera);
     hud.tick(frameDt);
   },
-});
-
-connect({
-  onStatus: (state, text) => hud.setStatus(state, text),
-  onPing: (rttMs) => hud.setPing(rttMs),
 });

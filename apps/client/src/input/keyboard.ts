@@ -5,7 +5,8 @@ export class Keyboard {
 
   constructor() {
     window.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
+      // Пользователь печатает ник — WASD и пробел не должны двигать персонажа.
+      if (e.repeat || isTyping(e)) return;
       this.pressed.add(e.code);
       if (e.code === 'Space') this.onJump?.();
     });
@@ -21,4 +22,9 @@ export class Keyboard {
       y: (has('KeyW', 'ArrowUp') ? 1 : 0) - (has('KeyS', 'ArrowDown') ? 1 : 0),
     };
   }
+}
+
+function isTyping(e: KeyboardEvent): boolean {
+  const target = e.target as HTMLElement | null;
+  return !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
 }

@@ -7,25 +7,16 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { Server, Socket } from 'socket.io';
-import {
-  PROTOCOL_VERSION,
-  type ClientToServerEvents,
-  type PingPayload,
-  type PongPayload,
-  type ServerToClientEvents,
-} from '@mecha/shared';
-
-type GameServer = Server<ClientToServerEvents, ServerToClientEvents>;
-type GameSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+import { PROTOCOL_VERSION, type PingPayload, type PongPayload } from '@mecha/shared';
+import { GATEWAY_OPTIONS, type GameServer, type GameSocket } from '../common/socket-types';
 
 /**
  * Gateway — аналог контроллера, только для WebSocket.
  * Без порта в декораторе socket.io цепляется к тому же HTTP-серверу, что и Nest.
  */
-@WebSocketGateway({ cors: { origin: true } })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly logger = new Logger(GameGateway.name);
+@WebSocketGateway(GATEWAY_OPTIONS)
+export class NetGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  private readonly logger = new Logger(NetGateway.name);
 
   @WebSocketServer()
   server: GameServer;

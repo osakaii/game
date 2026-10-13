@@ -20,4 +20,4 @@ pnpm dev
 - клиент: http://localhost:5173 (с телефона — `Network`-адрес из лога Vite, та же Wi-Fi сеть)
 - сервер: http://localhost:3000/health
 
-Другие команды: `pnpm build`, `pnpm typecheck`.
+Другие команды: `pnpm test` (vitest), `pnpm build`, `pnpm typecheck`.

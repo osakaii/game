@@ -1,0 +1,100 @@
+import { io, type Socket } from 'socket.io-client';
+import {
+  PROTOCOL_VERSION,
+  type ClientToServerEvents,
+  type CreateRoomPayload,
+  type JoinRoomPayload,
+  type RoomResult,
+  type RoomSnapshot,
+  type ServerToClientEvents,
+  type WelcomePayload,
+} from '@mecha/shared';
+import { Emitter } from '../core/emitter';
+
+type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+export type ConnectionState = 'connecting' | 'online' | 'offline';
+
+interface NetworkEvents {
+  status: { state: ConnectionState; text: string };
+  ping: number;
+  welcome: WelcomePayload;
+  roomState: RoomSnapshot;
+}
+
+const PING_INTERVAL_MS = 2000;
+const REQUEST_TIMEOUT_MS = 5000;
+
+/**
+ * Обёртка над socket.io: соединение, пинг и запросы.
+ * Остальной код не знает про сокеты — только про методы и события Network.
+ */
+export class Network extends Emitter<NetworkEvents> {
+  private readonly socket: GameSocket;
+  private pingTimer: ReturnType<typeof setInterval> | undefined;
+  playerId: string | null = null;
+  state: ConnectionState = 'connecting';
+
+  constructor() {
+    super();
+    // Без URL socket.io подключится к текущему origin (в dev его проксирует Vite).
+    const url = import.meta.env.VITE_SERVER_URL as string | undefined;
+    const options = { transports: ['websocket'] };
+    this.socket = url ? io(url, options) : io(options);
+
+    this.socket.on('connect', () => this.setStatus('connecting', 'handshake…'));
+    this.socket.on('net:welcome', (welcome) => this.onWelcome(welcome));
+    this.socket.on('room:state', (room) => this.emit('roomState', room));
+    this.socket.on('disconnect', () => {
+      clearInterval(this.pingTimer);
+      this.playerId = null;
+      this.setStatus('offline', 'offline, reconnecting…');
+    });
+    this.socket.on('connect_error', () => this.setStatus('offline', 'server unreachable'));
+  }
+
+  createRoom(payload: CreateRoomPayload): Promise<RoomResult> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('room:create', payload));
+  }
+
+  joinRoom(payload: JoinRoomPayload): Promise<RoomResult> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('room:join', payload));
+  }
+
+  leaveRoom(): void {
+    this.socket.emit('room:leave');
+  }
+
+  private onWelcome(welcome: WelcomePayload) {
+    if (welcome.protocolVersion !== PROTOCOL_VERSION) {
+      this.setStatus('offline', 'version mismatch, reload page');
+      this.socket.disconnect();
+      return;
+    }
+    this.playerId = welcome.playerId;
+    this.setStatus('online', `online · ${welcome.playerId.slice(0, 6)}`);
+    this.measurePing();
+    clearInterval(this.pingTimer);
+    this.pingTimer = setInterval(() => this.measurePing(), PING_INTERVAL_MS);
+    this.emit('welcome', welcome);
+  }
+
+  private measurePing() {
+    this.socket.emit('net:ping', { clientTime: performance.now() }, (pong) => {
+      this.emit('ping', performance.now() - pong.clientTime);
+    });
+  }
+
+  private setStatus(state: ConnectionState, text: string) {
+    this.state = state;
+    this.emit('status', { state, text });
+  }
+}
+
+/** emitWithAck с timeout бросает ошибку, если сервер молчит. Превращаем её в обычный Result. */
+async function withTimeoutFallback(request: Promise<RoomResult>): Promise<RoomResult> {
+  try {
+    return await request;
+  } catch {
+    return { ok: false, error: 'TIMEOUT' };
+  }
+}

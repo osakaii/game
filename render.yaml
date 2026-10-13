@@ -1,0 +1,18 @@
+# Render Blueprint — инфраструктура как код. Render читает этот файл при создании сервиса
+# (Dashboard -> New -> Blueprint) и при каждом пуше в ветку.
+services:
+  - type: web
+    name: mecha
+    runtime: docker
+    # Франкфурт — ближайший к Средней Азии регион Render.
+    region: frankfurt
+    plan: free
+    branch: main
+    dockerfilePath: ./Dockerfile
+    # Render не пускает трафик на новую версию, пока /health не ответит 200 (деплой без простоя).
+    healthCheckPath: /health
+    # Комнаты живут в памяти процесса — второй экземпляр видел бы другие комнаты.
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production

@@ -32,5 +32,6 @@ COPY --from=build /app/apps/client/dist ./client
 # Не запускаем под root: если в приложении найдут дыру, у атакующего будет меньше прав.
 USER node
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/health || exit 1
+# Shell-форма команды — чтобы подставился $PORT (Render задаёт свой порт через переменную).
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- "http://localhost:${PORT}/health" || exit 1
 CMD ["node", "server/dist/main.js"]

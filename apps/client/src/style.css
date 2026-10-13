@@ -657,3 +657,55 @@ input:focus {
 #player-list li.offline {
   opacity: 0.45;
 }
+
+/* ---------- Мобильное окружение ---------- */
+
+.menu-footer {
+  display: flex;
+  gap: 8px;
+}
+
+.menu-footer button {
+  flex: 1;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.menu-footer button[hidden] {
+  display: none;
+}
+
+#rotate-hint {
+  display: none;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  padding: 10px 40px 10px 14px;
+  border-radius: 12px;
+  background: rgb(15 18 26 / 0.9);
+  font-size: 14px;
+}
+
+#rotate-hint button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 6px 10px;
+  background: transparent;
+}
+
+/* Только телефон в портрете. Класс dismissed ставит скрипт, когда подсказку закрыли. */
+@media (orientation: portrait) and (pointer: coarse) {
+  #rotate-hint:not(.dismissed) {
+    display: block;
+  }
+}
+
+.sound-room {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  font-size: 12px;
+}

@@ -11,4 +11,21 @@ export default defineConfig({
       '/socket.io': { target: 'http://localhost:3000', ws: true },
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Библиотеки — в отдельные файлы. Они меняются редко, а наш код — при каждом деплое.
+        // После обновления игры браузер перекачает только маленький чанк приложения,
+        // а three.js (~600 KB) возьмёт из кэша.
+        codeSplitting: {
+          groups: [
+            { name: 'three', test: /node_modules[\\/]three[\\/]/ },
+            { name: 'vendor', test: /node_modules[\\/]/ },
+          ],
+        },
+      },
+    },
+    // three.js сам по себе больше 500 KB — это ожидаемо, предупреждение не информативно.
+    chunkSizeWarningLimit: 700,
+  },
 });

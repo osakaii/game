@@ -7,6 +7,8 @@ import {
   defaultBodyColors,
   type MoveInput,
 } from '@mecha/shared';
+import { GameSounds } from './audio/game-sounds';
+import { Sfx } from './audio/sfx';
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
 import { Controls } from './input/controls';
@@ -17,6 +19,7 @@ import { StateSender } from './net/state-sender';
 import { Eyedropper } from './painting/eyedropper';
 import { Painter } from './painting/painter';
 import { LocalPlayer } from './player/local-player';
+import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
 import { SeekerControls } from './seek/seeker-controls';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
@@ -89,7 +92,28 @@ const seekerControls = new SeekerControls(camera, canvas, network, lobby);
 const splats = new Splats(scene);
 controls.onTap = (x, y) => void seekerControls.tap(x, y);
 
+// ---------- Звук и устройство ----------
+
+const sfx = new Sfx();
+const gameSounds = new GameSounds(sfx);
+const wakeLock = new ScreenWakeLock();
+setupFullscreenButton();
+setupRotateHint();
+
+const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-room')];
+function renderSoundButtons() {
+  for (const button of soundButtons) button.textContent = sfx.muted ? 'Звук: выкл' : 'Звук: вкл';
+}
+for (const button of soundButtons) {
+  button.addEventListener('click', () => {
+    sfx.setMuted(!sfx.muted);
+    renderSoundButtons();
+  });
+}
+renderSoundButtons();
+
 network.on('shot', (shot) => {
+  gameSounds.onShot(shot, player.state.position);
   if (shot.point) splats.add(shot.point, !!shot.hitPlayerId);
   if (!shot.hitPlayerId) return;
   if (shot.hitPlayerId === network.playerId) {
@@ -133,6 +157,9 @@ lobby.on('room', (room) => {
   player.model.setColors(lobby.me?.colors ?? defaultBodyColors());
   player.model.setGhost(!!lobby.me?.found);
   paintPanel.render();
+  gameSounds.onRoom(room, lobby.myRole);
+  // Пока в комнате, экран не гаснет — иначе неподвижный прячущийся «уснёт» и отвалится.
+  wakeLock.enabled = !!room;
   if (room) {
     menu.hide();
     setRoomInUrl(room.code);
@@ -182,6 +209,7 @@ startFixedStepLoop(PHYSICS_DT, {
     const serverNow = network.clock.now();
     phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found);
     seekerControls.update(serverNow);
+    gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);
   },
 });

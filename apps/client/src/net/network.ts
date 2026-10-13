@@ -3,8 +3,10 @@ import {
   PROTOCOL_VERSION,
   type ClientToServerEvents,
   type CreateRoomPayload,
+  type EmptyResult,
   type JoinRoomPayload,
   type PlayerState,
+  type Result,
   type RoomResult,
   type RoomSnapshot,
   type ServerToClientEvents,
@@ -69,6 +71,10 @@ export class Network extends Emitter<NetworkEvents> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('room:join', payload));
   }
 
+  startGame(): Promise<EmptyResult> {
+    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('game:start'));
+  }
+
   leaveRoom(): void {
     this.socket.emit('room:leave');
   }
@@ -110,7 +116,7 @@ export class Network extends Emitter<NetworkEvents> {
 }
 
 /** emitWithAck с timeout бросает ошибку, если сервер молчит. Превращаем её в обычный Result. */
-async function withTimeoutFallback(request: Promise<RoomResult>): Promise<RoomResult> {
+async function withTimeoutFallback<T>(request: Promise<Result<T>>): Promise<Result<T>> {
   try {
     return await request;
   } catch {

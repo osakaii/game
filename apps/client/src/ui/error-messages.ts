@@ -7,6 +7,8 @@ const MESSAGES: Record<ErrorCode, string> = {
   ROOM_FULL: 'Комната заполнена',
   GAME_IN_PROGRESS: 'Игра уже идёт, дождитесь конца раунда',
   ALREADY_IN_ROOM: 'Вы уже в комнате',
+  NOT_HOST: 'Начать игру может только хост',
+  NOT_ENOUGH_PLAYERS: 'Нужно минимум 2 игрока',
   INTERNAL: 'Ошибка сервера, попробуйте ещё раз',
   TIMEOUT: 'Сервер не отвечает',
 };

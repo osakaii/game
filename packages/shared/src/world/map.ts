@@ -21,7 +21,10 @@ export interface MapDef {
   depth: number;
   floorColor: string;
   boxes: MapBox[];
+  /** Точки появления в лобби и для прячущихся. */
   spawns: Vec3[];
+  /** Где ищущие ждут фазу пряток. */
+  seekerSpawns: Vec3[];
 }
 
 /** AABB (axis-aligned bounding box) — то, с чем работает физика. */

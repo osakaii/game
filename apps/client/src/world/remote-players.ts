@@ -6,6 +6,7 @@ import { RemotePlayer } from '../player/remote-player';
 export class RemotePlayers {
   private readonly players = new Map<string, RemotePlayer>();
   private nicknames = new Map<string, string>();
+  private isLabelVisible: (id: string) => boolean = () => true;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -22,6 +23,7 @@ export class RemotePlayers {
       if (!player) {
         player = new RemotePlayer(state.id, this.colliders);
         player.setNickname(this.nicknames.get(state.id) ?? '…');
+        player.setLabelVisible(this.isLabelVisible(state.id));
         this.players.set(state.id, player);
         this.scene.add(player.model.root);
       }
@@ -37,16 +39,25 @@ export class RemotePlayers {
     }
   }
 
-  /** Ники приходят в room:state, позиции — в world:snapshot. Склеиваем по id. */
-  applyRoom(room: RoomSnapshot | null): void {
-    this.nicknames = new Map(room?.players.map((p) => [p.id, p.nickname]) ?? []);
+  /** Ники и роли приходят в room:state, позиции — в world:snapshot. Склеиваем по id. */
+  applyRoom(room: RoomSnapshot | null, myId: string | null): void {
     if (!room) {
+      this.nicknames.clear();
       this.clear();
       return;
     }
+    this.nicknames = new Map(room.players.map((p) => [p.id, p.nickname]));
+
+    // Во время раунда видим ники только своей команды.
+    const roles = new Map(room.players.map((p) => [p.id, p.role]));
+    const myRole = myId ? roles.get(myId) : null;
+    const inGame = room.phase === 'hiding' || room.phase === 'seeking';
+    this.isLabelVisible = (id) => !inGame || roles.get(id) === myRole;
+
     for (const [id, player] of this.players) {
       const nickname = this.nicknames.get(id);
       if (nickname) player.setNickname(nickname);
+      player.setLabelVisible(this.isLabelVisible(id));
     }
   }
 

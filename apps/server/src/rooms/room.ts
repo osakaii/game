@@ -3,31 +3,37 @@ import {
   PLAYROOM,
   buildColliders,
   type Aabb,
-  type LobbyPlayer,
+  type GameResult,
   type MapDef,
   type NetPlayer,
+  type PlayerInfo,
   type PlayerState,
+  type Role,
   type RoomPhase,
   type RoomSnapshot,
+  type Vec3,
 } from '@mecha/shared';
 
 /** Игрок внутри комнаты: публичные данные + последнее принятое сервером состояние. */
-export interface RoomMember extends LobbyPlayer {
+export interface RoomMember extends PlayerInfo {
   state: PlayerState;
   /** Серверное время (мс), когда state последний раз был принят. */
   stateAt: number;
 }
 
 /**
- * Комната — чистая доменная модель: ни сокетов, ни Nest.
- * Её легко тестировать и легко читать.
+ * Комната — чистая доменная модель: ни сокетов, ни Nest, ни таймеров.
+ * Она знает правила «что можно», а «когда» решает GameService.
  */
 export class Room {
   /** Map сохраняет порядок вставки — первый в списке = зашёл раньше всех. */
   private readonly members = new Map<string, RoomMember>();
   private _hostId = '';
   private spawnCursor = 0;
+
   phase: RoomPhase = 'lobby';
+  phaseEndsAt: number | null = null;
+  result: GameResult | null = null;
   readonly colliders: Aabb[];
 
   constructor(
@@ -54,6 +60,10 @@ export class Room {
     return this.members.size === 0;
   }
 
+  get inGame(): boolean {
+    return this.phase === 'hiding' || this.phase === 'seeking';
+  }
+
   has(playerId: string): boolean {
     return this.members.has(playerId);
   }
@@ -62,12 +72,26 @@ export class Room {
     return this.members.get(playerId);
   }
 
+  allMembers(): RoomMember[] {
+    return [...this.members.values()];
+  }
+
+  /** Сколько игроков роли ещё «в игре»: ищущие — все, прячущиеся — не найденные. */
+  countActive(role: Role): number {
+    let count = 0;
+    for (const m of this.members.values()) {
+      if (m.role === role && !m.found) count++;
+    }
+    return count;
+  }
+
   addPlayer(id: string, nickname: string, now = Date.now()): RoomMember {
-    // Спавны по кругу, чтобы новые игроки не появлялись друг в друге.
-    const spawn = this.map.spawns[this.spawnCursor++ % this.map.spawns.length];
+    const spawn = this.nextSpawn(this.map.spawns);
     const member: RoomMember = {
       id,
       nickname: this.uniqueNickname(nickname),
+      role: null,
+      found: false,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true },
       stateAt: now,
     };
@@ -85,23 +109,75 @@ export class Room {
     }
   }
 
+  // ---------- Переходы между фазами ----------
+
+  startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number): void {
+    for (const m of this.members.values()) {
+      m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
+      m.found = false;
+    }
+    this.result = null;
+    this.setPhase('hiding', hidingEndsAt);
+  }
+
+  startSeeking(endsAt: number): void {
+    this.setPhase('seeking', endsAt);
+  }
+
+  finishRound(result: GameResult, resultsEndAt: number): void {
+    this.result = result;
+    this.setPhase('results', resultsEndAt);
+  }
+
+  resetToLobby(): void {
+    for (const m of this.members.values()) {
+      m.role = null;
+      m.found = false;
+    }
+    this.result = null;
+    this.setPhase('lobby', null);
+  }
+
+  /**
+   * Переставить игрока. Обновляем и state: иначе валидатор движения сравнит
+   * следующий пакет клиента со СТАРОЙ позицией и решит, что это телепорт-чит.
+   */
+  teleport(member: RoomMember, position: Vec3, now = Date.now()): void {
+    member.state = { ...member.state, x: position.x, y: position.y, z: position.z };
+    member.stateAt = now;
+  }
+
+  /** Точка появления: по кругу из списка, чтобы игроки не появлялись друг в друге. */
+  nextSpawn(points: Vec3[]): Vec3 {
+    return points[this.spawnCursor++ % points.length];
+  }
+
+  // ---------- Снимки для клиентов ----------
+
   toSnapshot(): RoomSnapshot {
     return {
       code: this.code,
       hostId: this._hostId,
       maxPlayers: this.maxPlayers,
       phase: this.phase,
-      players: [...this.members.values()].map(({ id, nickname }) => ({ id, nickname })),
+      phaseEndsAt: this.phaseEndsAt,
+      result: this.result,
+      players: this.allMembers().map(({ id, nickname, role, found }) => ({ id, nickname, role, found })),
     };
   }
 
   netPlayers(): NetPlayer[] {
-    return [...this.members.values()].map(({ id, state }) => ({ id, ...state }));
+    return this.allMembers().map(({ id, state }) => ({ id, ...state }));
+  }
+
+  private setPhase(phase: RoomPhase, endsAt: number | null) {
+    this.phase = phase;
+    this.phaseEndsAt = endsAt;
   }
 
   /** Два «Алекса» в одной комнате путают всех — второй станет «Алекс 2». */
   private uniqueNickname(nickname: string): string {
-    const taken = new Set([...this.members.values()].map((p) => p.nickname));
+    const taken = new Set(this.allMembers().map((p) => p.nickname));
     if (!taken.has(nickname)) return nickname;
     for (let n = 2; ; n++) {
       const candidate = `${nickname} ${n}`;

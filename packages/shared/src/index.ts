@@ -1,5 +1,6 @@
 export * from './protocol.js';
 export * from './lobby.js';
+export * from './game.js';
 export * from './net-state.js';
 export * from './math.js';
 export * from './body.js';

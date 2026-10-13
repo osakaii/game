@@ -1,4 +1,4 @@
-import type { ErrorCode, LobbyPlayer, RoomResult, RoomSnapshot } from '@mecha/shared';
+import type { ErrorCode, PlayerInfo, RoomResult, RoomSnapshot } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
 import type { Network } from '../net/network';
 
@@ -38,7 +38,7 @@ export class Lobby extends Emitter<LobbyEvents> {
     });
   }
 
-  get me(): LobbyPlayer | undefined {
+  get me(): PlayerInfo | undefined {
     return this.room?.players.find((p) => p.id === this.network.playerId);
   }
 
@@ -56,6 +56,16 @@ export class Lobby extends Emitter<LobbyEvents> {
 
   join(nickname: string, code: string): Promise<boolean> {
     return this.request(nickname, () => this.network.joinRoom({ nickname, code }));
+  }
+
+  /** Игрок этого клиента в текущей комнате. */
+  get myRole() {
+    return this.me?.role ?? null;
+  }
+
+  async startGame(): Promise<void> {
+    const result = await this.network.startGame();
+    if (!result.ok) this.emit('error', result.error);
   }
 
   leave(): void {

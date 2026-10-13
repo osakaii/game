@@ -1,5 +1,5 @@
 import './style.css';
-import { PHYSICS_DT, PLAYROOM, buildColliders, type MoveInput } from '@mecha/shared';
+import { PHYSICS_DT, PLAYROOM, buildColliders, canMove, type MoveInput } from '@mecha/shared';
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
 import { Controls } from './input/controls';
@@ -12,7 +12,9 @@ import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
 import { MenuScreen } from './ui/menu-screen';
+import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
+import { toast } from './ui/toast';
 import { buildMap } from './world/map-builder';
 import { RemotePlayers } from './world/remote-players';
 import { createSceneContext } from './world/scene-setup';
@@ -54,7 +56,9 @@ const menu = new MenuScreen(
 const roomPanel = new RoomPanel({
   onLeave: () => lobby.leave(),
   onInvite: () => lobby.room && void inviteToRoom(lobby.room.code),
+  onStart: () => void lobby.startGame(),
 });
+const phaseHud = new PhaseHud();
 
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
@@ -84,7 +88,7 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 // Единая точка реакции на «вошли/вышли/изменилась комната».
 lobby.on('room', (room) => {
   roomPanel.render(room, network.playerId);
-  remotePlayers.applyRoom(room);
+  remotePlayers.applyRoom(room, network.playerId);
   if (room) {
     menu.hide();
     setRoomInUrl(room.code);
@@ -92,11 +96,19 @@ lobby.on('room', (room) => {
     menu.show();
     if (!lobby.isReconnecting) setRoomInUrl(null);
   }
-  controls.enabled = !menu.visible;
+  updateControlsEnabled();
 });
-lobby.on('error', (code) => menu.showError(errorMessage(code)));
+lobby.on('error', (code) => {
+  if (menu.visible) menu.showError(errorMessage(code));
+  else toast(errorMessage(code));
+});
 
-controls.enabled = !menu.visible;
+/** Управление выключено, пока открыто меню или пока ищущий ждёт с закрытыми глазами. */
+function updateControlsEnabled() {
+  const phase = lobby.room?.phase ?? 'lobby';
+  controls.enabled = !menu.visible && canMove(phase, lobby.myRole);
+}
+updateControlsEnabled();
 
 // ---------- Игровой цикл ----------
 
@@ -123,11 +135,12 @@ startFixedStepLoop(PHYSICS_DT, {
     followCamera.update(player.renderPosition, frameDt);
     renderer.render(scene, camera);
     hud.tick(frameDt);
+    phaseHud.update(lobby.room, lobby.myRole, network.clock.now());
   },
 });
 
 // Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
 // В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud } });
 }

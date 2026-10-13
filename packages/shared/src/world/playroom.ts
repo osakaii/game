@@ -76,4 +76,5 @@ export const PLAYROOM: MapDef = {
     { x: -12, z: 11, w: 2, h: 1.4, d: 2, color: '#8ecae6' },
   ],
   spawns: [vec3(0, 0, 6), vec3(-3, 0, 2), vec3(3, 0, 2), vec3(0, 0, -4)],
+  seekerSpawns: [vec3(12.5, 0, 12.5), vec3(11, 0, 12.5)],
 };

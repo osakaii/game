@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GameResult, Role, RoomPhase } from './game.js';
 
 export const MAX_PLAYERS = 8;
 export const NICKNAME_MAX_LENGTH = 16;
@@ -33,12 +34,13 @@ export const JoinRoomSchema = z.object({ nickname: NicknameSchema, code: RoomCod
 export type CreateRoomPayload = z.input<typeof CreateRoomSchema>;
 export type JoinRoomPayload = z.input<typeof JoinRoomSchema>;
 
-/** Фазы комнаты. Пока только лобби, на этапе 4 добавятся hiding/seeking/results. */
-export type RoomPhase = 'lobby';
-
-export interface LobbyPlayer {
+export interface PlayerInfo {
   id: string;
   nickname: string;
+  /** null — в лобби, роли раздаются при старте раунда. */
+  role: Role | null;
+  /** Прячущегося нашли (этап 6). */
+  found: boolean;
 }
 
 /** Снимок комнаты, который сервер рассылает всем её участникам при любом изменении. */
@@ -47,7 +49,11 @@ export interface RoomSnapshot {
   hostId: string;
   maxPlayers: number;
   phase: RoomPhase;
-  players: LobbyPlayer[];
+  /** Когда закончится текущая фаза (серверное время, мс). null — фаза без таймера (лобби). */
+  phaseEndsAt: number | null;
+  /** Итог последнего раунда — заполнен в фазе results. */
+  result: GameResult | null;
+  players: PlayerInfo[];
 }
 
 export const ERROR_CODES = [
@@ -56,6 +62,8 @@ export const ERROR_CODES = [
   'ROOM_FULL',
   'GAME_IN_PROGRESS',
   'ALREADY_IN_ROOM',
+  'NOT_HOST',
+  'NOT_ENOUGH_PLAYERS',
   'INTERNAL',
   /** Клиентская ошибка: сервер не ответил вовремя. */
   'TIMEOUT',
@@ -66,3 +74,4 @@ export type ErrorCode = (typeof ERROR_CODES)[number];
 export type Result<T> = { ok: true; data: T } | { ok: false; error: ErrorCode; message?: string };
 
 export type RoomResult = Result<RoomSnapshot>;
+export type EmptyResult = Result<null>;

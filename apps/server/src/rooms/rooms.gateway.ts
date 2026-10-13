@@ -3,6 +3,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -11,21 +12,36 @@ import { CreateRoomSchema, JoinRoomSchema, type RoomResult } from '@mecha/shared
 import { parseInput, respond } from '../common/game-error';
 import { GATEWAY_OPTIONS, type GameServer, type GameSocket } from '../common/socket-types';
 import type { Room } from './room';
+import { RoomEvents } from './room-events';
 import { RoomsService } from './rooms.service';
 
 /**
  * Тонкий слой между сетью и RoomsService:
- * проверить вход -> вызвать сервис -> синхронизировать socket.io-комнаты -> разослать состояние.
+ * проверить вход -> вызвать сервис -> синхронизировать socket.io-комнаты -> сообщить о событии.
+ * Плюс переводит доменные события (RoomEvents) в сетевые сообщения.
  */
 @WebSocketGateway(GATEWAY_OPTIONS)
-export class RoomsGateway implements OnGatewayDisconnect {
+export class RoomsGateway implements OnGatewayInit, OnGatewayDisconnect {
   private readonly logger = new Logger(RoomsGateway.name);
 
   @WebSocketServer()
   server: GameServer;
 
-  // Nest сам создаст RoomsService и передаст сюда (dependency injection).
-  constructor(private readonly rooms: RoomsService) {}
+  // Nest сам создаст зависимости и передаст сюда (dependency injection).
+  constructor(
+    private readonly rooms: RoomsService,
+    private readonly events: RoomEvents,
+  ) {}
+
+  afterInit() {
+    this.events.changed.subscribe((room) => {
+      this.server.to(room.code).emit('room:state', room.toSnapshot());
+    });
+    // Каждый сокет socket.io автоматически состоит в комнате со своим id — так шлём одному игроку.
+    this.events.teleported.subscribe(({ playerId, position }) => {
+      this.server.to(playerId).emit('player:teleport', position);
+    });
+  }
 
   // @MessageBody() типизируем как unknown: из сети может прийти что угодно, тип даёт только parseInput.
   @SubscribeMessage('room:create')
@@ -70,12 +86,11 @@ export class RoomsGateway implements OnGatewayDisconnect {
    */
   private enter(client: GameSocket, room: Room) {
     client.join(room.code);
-    const snapshot = room.toSnapshot();
-    this.server.to(room.code).emit('room:state', snapshot);
+    this.events.changed.next(room);
     // Позицию на спавне выдаёт сервер — клиент не выбирает, где появиться.
     const { x, y, z } = room.member(client.id)!.state;
-    client.emit('player:teleport', { x, y, z });
-    return snapshot;
+    this.events.teleported.next({ playerId: client.id, position: { x, y, z } });
+    return room.toSnapshot();
   }
 
   private leaveCurrentRoom(client: GameSocket) {
@@ -83,7 +98,8 @@ export class RoomsGateway implements OnGatewayDisconnect {
     if (!result) return;
     client.leave(result.code);
     if (result.room) {
-      this.server.to(result.code).emit('room:state', result.room.toSnapshot());
+      this.events.changed.next(result.room);
+      this.events.playerLeft.next(result.room);
     }
     this.logger.log(`${client.id} left ${result.code}`);
   }

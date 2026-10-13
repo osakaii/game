@@ -30,6 +30,10 @@ export class RoomsService {
     return this.rooms.values();
   }
 
+  get(code: string): Room | undefined {
+    return this.rooms.get(code);
+  }
+
   roomOf(playerId: string): Room | undefined {
     const code = this.playerRooms.get(playerId);
     return code ? this.rooms.get(code) : undefined;
@@ -60,6 +64,7 @@ export class RoomsService {
   assertJoinable(code: string): Room {
     const room = this.rooms.get(code);
     if (!room) throw new GameError('ROOM_NOT_FOUND');
+    // В results тоже не пускаем: через пару секунд комната вернётся в лобби.
     if (room.phase !== 'lobby') throw new GameError('GAME_IN_PROGRESS');
     if (room.isFull) throw new GameError('ROOM_FULL');
     return room;

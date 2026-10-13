@@ -42,6 +42,11 @@ export class RemotePlayer {
     this.model.root.add(this.label);
   }
 
+  /** В прятках ники соперников скрыты: табличка над головой выдала бы спрятавшегося. */
+  setLabelVisible(visible: boolean): void {
+    if (this.label) this.label.visible = visible;
+  }
+
   addSample(t: number, state: NetPlayer): void {
     const last = this.samples.at(-1);
     if (last && t <= last.t) return; // дубль или опоздавший пакет

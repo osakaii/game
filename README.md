@@ -22,6 +22,10 @@ pnpm dev
 
 Другие команды: `pnpm test` (vitest), `pnpm build`, `pnpm typecheck`.
 
+Тесты лежат в `test/` каждого пакета и повторяют структуру `src/`:
+`apps/client/src/skin/atlas.ts` → `apps/client/test/skin/atlas.test.ts`.
+В сборку (`tsconfig.build.json`) попадает только `src/`.
+
 ## Версии
 
 Версия игры — [SemVer](https://semver.org/lang/ru/) `MAJOR.MINOR.PATCH`, единая для всего монорепо

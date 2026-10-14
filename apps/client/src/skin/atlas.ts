@@ -1,11 +1,11 @@
-import type * as THREE from 'three';
 import type { BodyZone } from '@mecha/shared';
 import { CHARACTER_PARTS, PART_ORDER, type PartSize } from './character-parts';
 
 /**
  * UV-атлас («выкройка») кожи персонажа.
  *
- * У каждой коробки 6 граней, у персонажа 6 коробок — 36 прямоугольников. Раскладываем их
+ * У каждой коробки 6 граней, у персонажа 14 частей — 84 прямоугольника. Скругление рёбер выкройку
+ * не меняет: грань скруглённой коробки — это та же плоская грань, «надутая» у краёв (см. rounded-box). Раскладываем их
  * на одной квадратной текстуре так, чтобы у всех граней была одинаковая плотность (пикселей на метр):
  * тогда кисть одного размера оставляет одинаковый след и на голове, и на ноге.
  *
@@ -75,7 +75,7 @@ function allFaces(): FaceToPack[] {
   const faces: FaceToPack[] = [];
   for (const part of PART_ORDER) {
     for (const face of FACES) {
-      const { width, height } = FACE_SPECS[face].size(CHARACTER_PARTS[part]);
+      const { width, height } = FACE_SPECS[face].size(CHARACTER_PARTS[part].size);
       faces.push({ part, face, width, height });
     }
   }
@@ -139,24 +139,18 @@ export function findRect(atlas: SkinAtlas, part: BodyZone, face: FaceId): AtlasR
   return atlas.rects.find((r) => r.part === part && r.face === face)!;
 }
 
-/**
- * Переписывает UV у BoxGeometry: стандартные (0..1 на каждой грани) -> в прямоугольник грани на атласе.
- * У BoxGeometry по 4 вершины на грань, грани идут в порядке FACES.
- */
-export function applyAtlasUVs(geometry: THREE.BoxGeometry, part: BodyZone, atlas: SkinAtlas): void {
-  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
-  FACES.forEach((face, faceIndex) => {
-    const r = findRect(atlas, part, face);
-    const u0 = r.x / atlas.size;
-    const u1 = (r.x + r.w) / atlas.size;
-    const vTop = 1 - r.y / atlas.size;
-    const vBottom = 1 - (r.y + r.h) / atlas.size;
-    for (let k = 0; k < 4; k++) {
-      const i = faceIndex * 4 + k;
-      uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), vBottom + uv.getY(i) * (vTop - vBottom));
-    }
-  });
-  uv.needsUpdate = true;
+/** UV атласа (как у three.js: v вверх) для точки (u, v) внутри грани, где v = 1 — верх грани. */
+export function atlasUV(atlas: SkinAtlas, rect: AtlasRect, u: number, v: number): { u: number; v: number } {
+  return {
+    u: (rect.x + u * rect.w) / atlas.size,
+    v: 1 - (rect.y + (1 - v) * rect.h) / atlas.size,
+  };
+}
+
+/** Размер грани вдоль u и вдоль v (м). */
+export function faceDims(part: PartSize, face: FaceId): { width: number; height: number } {
+  const { width, height } = FACE_SPECS[face].size(part);
+  return { width, height };
 }
 
 /** Нормаль грани — куда она «смотрит» (единичный вектор вдоль оси w, знак как у смещения грани). */

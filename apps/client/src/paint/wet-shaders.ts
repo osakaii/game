@@ -7,7 +7,10 @@
  * Показ (display): то, что натянуто на модель, — сухой слой с мокрым поверх.
  */
 
+import { BODY_ZONES } from '@mecha/shared';
+
 export const MAX_STAMPS = 16;
+const PART_COUNT = BODY_ZONES.length;
 
 export const QUAD_VERTEX = /* glsl */ `
   varying vec2 vUv;
@@ -38,13 +41,14 @@ const PAINT = /* glsl */ `
  */
 export const BRUSH_WET_FRAGMENT = /* glsl */ `
   #define MAX_STAMPS ${MAX_STAMPS}
+  #define PART_COUNT ${PART_COUNT}
   uniform sampler2D uWet;
-  uniform sampler2D uPositions; // rgb — точка на теле, a — номер части + 1
+  uniform sampler2D uPositions; // rgb — точка на теле в позе покоя, a — номер части + 1
   uniform sampler2D uNormals;
   uniform int uCount;
   uniform vec3 uCenters[MAX_STAMPS];
   uniform vec3 uStampNormals[MAX_STAMPS];
-  uniform float uPart;
+  uniform int uMasks[MAX_STAMPS]; // каким частям достаётся оттиск: бит = индекс части (см. paintMask)
   uniform float uRadius;
   uniform float uHardness;
   uniform float uOpacity;
@@ -52,7 +56,7 @@ export const BRUSH_WET_FRAGMENT = /* glsl */ `
   uniform int uMode;            // 0 кисть, 1 спрей, 2 губка, 3 ластик
   uniform float uSeed;          // для спрея: новые капли на каждый оттиск
   uniform sampler2D uNoise;
-  uniform vec3 uBaseColors[6];  // основа кожи по частям тела — её кладёт ластик
+  uniform vec3 uBaseColors[PART_COUNT]; // основа кожи по частям тела — её кладёт ластик
   varying vec2 vUv;
   ${PAINT}
 
@@ -62,10 +66,12 @@ export const BRUSH_WET_FRAGMENT = /* glsl */ `
     vec4 wet = texture2D(uWet, vUv);
     vec4 body = texture2D(uPositions, vUv);
     float coverage = 0.0;
-    if (abs(body.a - uPart) < 0.5) {
+    int partIndex = int(body.a + 0.5) - 1;
+    if (partIndex >= 0) {
       vec3 normal = texture2D(uNormals, vUv).rgb * 2.0 - 1.0;
       for (int i = 0; i < MAX_STAMPS; i++) {
         if (i >= uCount) break;
+        if (((uMasks[i] >> partIndex) & 1) == 0) continue;
         float d = distance(body.rgb, uCenters[i]) / uRadius;
         float falloff = 1.0 - smoothstep(uHardness, 1.0, d);
         float facing = smoothstep(-0.6, -0.2, dot(normal, uStampNormals[i]));
@@ -82,8 +88,7 @@ export const BRUSH_WET_FRAGMENT = /* glsl */ `
       coverage *= smoothstep(0.42, 0.58, pores);
     } else if (uMode == 3) {
       // Ластик: кладём цвет основы этой части тела (белый или форма ищущего).
-      int index = int(body.a + 0.5) - 1;
-      for (int i = 0; i < 6; i++) if (i == index) paint = uBaseColors[i];
+      for (int i = 0; i < PART_COUNT; i++) if (i == partIndex) paint = uBaseColors[i];
     }
     float added = coverage * uOpacity;
     if (added <= 0.0) { gl_FragColor = wet; return; }

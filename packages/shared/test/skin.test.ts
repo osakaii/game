@@ -53,7 +53,8 @@ describe('detectSkinImage', () => {
 describe('skin base', () => {
   it('seekers wear a uniform, hiders start white', () => {
     expect(skinBaseColor('seeker', 'torso')).toBe('#d62828');
-    expect(skinBaseColor('seeker', 'legLeft')).toBe('#2b2d42');
+    expect(skinBaseColor('seeker', 'shinLeft')).toBe('#2b2d42');
+    expect(skinBaseColor('seeker', 'handRight')).toBe('#2b2d42');
     expect(skinBaseColor('default', 'head')).toBe('#f2f2f2');
   });
 });

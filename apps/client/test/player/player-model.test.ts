@@ -3,26 +3,43 @@ import { describe, expect, it } from 'vitest';
 import { PLAYER } from '@mecha/shared';
 import { PlayerModel } from '../../src/player/player-model';
 
-/** Габариты модели в мировых координатах — сравниваем с хитбоксом физики. */
-function heightOf(model: PlayerModel): number {
+/** Габариты тела по настоящим (позированным) вершинам — сравниваем с хитбоксом физики. */
+function boundsOf(model: PlayerModel): THREE.Box3 {
   model.root.updateMatrixWorld(true);
-  const box = new THREE.Box3();
-  for (const zone of Object.values(model.zones)) box.expandByObject(zone);
-  return box.max.y;
+  return new THREE.Box3().expandByObject(model.mesh, true);
+}
+
+function settle(model: PlayerModel, crouching: boolean, grounded = true) {
+  for (let i = 0; i < 180; i++) {
+    model.setCrouch(crouching);
+    model.animate(1 / 60, 0, grounded);
+  }
 }
 
 describe('PlayerModel', () => {
-  it('stands as tall as the physics capsule', () => {
-    expect(heightOf(new PlayerModel())).toBeCloseTo(PLAYER.height, 1);
+  it('stands as tall as the physics capsule, feet on the ground', () => {
+    const model = new PlayerModel();
+    settle(model, false);
+    const box = boundsOf(model);
+    expect(box.max.y).toBeCloseTo(PLAYER.height, 1);
+    expect(box.min.y).toBeCloseTo(0, 1);
   });
 
   it('crouched pose fits the crouch hitbox: visual matches what can be hit', () => {
     const model = new PlayerModel();
-    for (let i = 0; i < 120; i++) {
-      model.setCrouch(true, 1 / 60);
-      model.animate(1 / 60, 0, true);
-    }
-    expect(heightOf(model)).toBeLessThanOrEqual(PLAYER.crouchHeight + 0.05);
-    expect(heightOf(model)).toBeGreaterThan(PLAYER.crouchHeight - 0.15);
+    settle(model, true);
+    const box = boundsOf(model);
+    expect(box.max.y).toBeLessThanOrEqual(PLAYER.crouchHeight + 0.05);
+    expect(box.max.y).toBeGreaterThan(PLAYER.crouchHeight - 0.15);
+    // Стопы на полу, а не в воздухе и не под полом.
+    expect(box.min.y).toBeGreaterThan(-0.03);
+    expect(box.min.y).toBeLessThan(0.03);
+    // И не вылезает далеко за цилиндр физики.
+    expect(Math.max(box.max.z, -box.min.z)).toBeLessThan(PLAYER.radius + 0.25);
+  });
+
+  it('is one draw call: a single skinned mesh with a bone per body part', () => {
+    const model = new PlayerModel();
+    expect(model.mesh.skeleton.bones).toHaveLength(14);
   });
 });

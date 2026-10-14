@@ -14,7 +14,7 @@
 | `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
 | `raycast.ts` | Луч vs AABB (slab), хитбокс игрока, `surfaceNormalAt` |
 | `skin.ts` | Кожа: `SKIN_SIZE=512`, лимит байт, `SkinBase` (`default`/`seeker`, рисуется локально), `SkinState`, `detectSkinImage` (PNG/WebP по магическим байтам) |
-| `body.ts` | `BODY_ZONES` — части тела (они же коробки атласа на клиенте) |
+| `body.ts` | `BODY_ZONES` — 14 частей тела (кости скелета и коробки атласа на клиенте; порядок = индекс в коже) |
 | `version.ts` | `APP_VERSION`, `BuildInfo`, `isUpdateAvailable` |
 | `world/*` | Карты как данные (коробки AABB): `map.ts` типы, `builders.ts` (стол, стул, дерево…), `playroom/kitchen/garden.ts`, реестр `maps.ts` |
 

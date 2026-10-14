@@ -11,10 +11,21 @@ export const MAX_SKIN_BYTES = 400 * 1024;
  */
 export type SkinBase = 'default' | 'seeker';
 
+const SEEKER_DARK = new Set<BodyZone>([
+  'thighLeft',
+  'shinLeft',
+  'footLeft',
+  'thighRight',
+  'shinRight',
+  'footRight',
+  'handLeft',
+  'handRight',
+]);
+
 const BASE_COLORS: Record<SkinBase, (part: BodyZone) => string> = {
   default: () => '#f2f2f2',
-  // Форма ищущих: красный верх, тёмный низ — прячущиеся сразу видят, кого бояться.
-  seeker: (part) => (part === 'legLeft' || part === 'legRight' ? '#2b2d42' : '#d62828'),
+  // Форма ищущих: красный верх, тёмные штаны, ботинки и перчатки — прячущиеся сразу видят, кого бояться.
+  seeker: (part) => (SEEKER_DARK.has(part) ? '#2b2d42' : '#d62828'),
 };
 
 export function skinBaseColor(base: SkinBase, part: BodyZone): string {

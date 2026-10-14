@@ -1,14 +1,16 @@
-import { CHARACTER_PARTS, PART_ORDER } from './character-parts';
-import { faceNormal, facePoint, type SkinAtlas } from './atlas';
+import { CHARACTER_PARTS, partIndex, restCenter } from './character-parts';
+import { facePoint, type SkinAtlas } from './atlas';
+import { roundBoxPoint } from './rounded-box';
 
 /**
  * Карта позиций: для каждого текселя атласа — точка на теле, которой он соответствует.
- *   rgb = координаты точки в системе своей части тела (центр коробки = 0, метры),
+ *   rgb = координаты точки в ПОЗЕ ПОКОЯ, в системе модели (метры, y = 0 — земля),
  *   a   = номер части + 1 (0 — пустой тексель между гранями).
  *
- * Зачем: кисть будет красить «в 3D» — все тексели, чьи точки на теле ближе радиуса кисти
- * к точке касания. Мазок через ребро коробки (с груди на бок) не оборвётся, хотя на выкройке
- * грудь и бок лежат в разных местах.
+ * Зачем: кисть красит «в 3D» — все тексели, чьи точки на теле ближе радиуса кисти
+ * к точке касания. Мазок через ребро (с груди на бок) или через сустав (с бедра на голень)
+ * не оборвётся, хотя на выкройке эти места лежат далеко друг от друга.
+ * Поза покоя одна на всех — поэтому как бы персонаж ни стоял, точка кожи всегда одна и та же.
  *
  * Порядок строк — как у текстуры в WebGL: строка 0 — низ атласа (v ≈ 0).
  * Тогда массив можно сразу отдать в DataTexture.
@@ -17,7 +19,7 @@ export interface PositionMap {
   size: number;
   data: Float32Array;
   /**
-   * Нормаль грани под текселем, упакованная в байты: n * 127.5 + 127.5 (−1..1 → 0..255).
+   * Нормаль поверхности (со скруглением) под текселем, упакованная в байты: n * 127.5 + 127.5 (−1..1 → 0..255).
    * Кисть красит только грани, смотрящие примерно туда же, куда грань под пальцем, —
    * иначе мазок по тонкой руке прокрасил бы её насквозь, вместе с обратной стороной.
    */
@@ -25,28 +27,28 @@ export interface PositionMap {
 }
 
 export function buildPositionMap(atlas: SkinAtlas): PositionMap {
-  const { size, padding } = atlas;
-  const data = new Float32Array(size * size * 4);
-  const normals = new Uint8Array(size * size * 4);
+  const { size: mapSize, padding } = atlas;
+  const data = new Float32Array(mapSize * mapSize * 4);
+  const normals = new Uint8Array(mapSize * mapSize * 4);
 
   for (const r of atlas.rects) {
-    const partIndex = PART_ORDER.indexOf(r.part) + 1;
-    const partSize = CHARACTER_PARTS[r.part];
-    const n = faceNormal(r.face);
+    const number = partIndex(r.part) + 1;
+    const { size, radius } = CHARACTER_PARTS[r.part];
+    const origin = restCenter(r.part);
     // Проходим и по отступу: там «размазан» край грани (u, v зажаты в [0, 1]),
     // поэтому кисть у самого ребра закрасит и отступ — шва при фильтрации не будет.
     for (let ty = r.y - padding; ty < r.y + r.h + padding; ty++) {
       for (let tx = r.x - padding; tx < r.x + r.w + padding; tx++) {
-        if (tx < 0 || ty < 0 || tx >= size || ty >= size) continue;
+        if (tx < 0 || ty < 0 || tx >= mapSize || ty >= mapSize) continue;
         const u = clamp01((tx + 0.5 - r.x) / r.w);
         const v = 1 - clamp01((ty + 0.5 - r.y) / r.h); // на атласе y вниз, в UV v вверх
-        const p = facePoint(partSize, r.face, u, v);
-        const row = size - 1 - ty; // строка WebGL-текстуры: 0 — низ
-        const i = (row * size + tx) * 4;
-        data[i] = p.x;
-        data[i + 1] = p.y;
-        data[i + 2] = p.z;
-        data[i + 3] = partIndex;
+        const { point: p, normal: n } = roundBoxPoint(facePoint(size, r.face, u, v), size, radius);
+        const row = mapSize - 1 - ty; // строка WebGL-текстуры: 0 — низ
+        const i = (row * mapSize + tx) * 4;
+        data[i] = origin.x + p.x;
+        data[i + 1] = origin.y + p.y;
+        data[i + 2] = origin.z + p.z;
+        data[i + 3] = number;
         normals[i] = n.x * 127.5 + 127.5;
         normals[i + 1] = n.y * 127.5 + 127.5;
         normals[i + 2] = n.z * 127.5 + 127.5;
@@ -54,7 +56,7 @@ export function buildPositionMap(atlas: SkinAtlas): PositionMap {
       }
     }
   }
-  return { size, data, normals };
+  return { size: mapSize, data, normals };
 }
 
 /** Значение карты в точке UV (ближайший тексель). Для тестов и отладки. */

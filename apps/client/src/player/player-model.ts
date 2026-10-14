@@ -1,89 +1,166 @@
 import * as THREE from 'three';
-import { BODY_ZONES, PLAYER, skinBaseColor, type BodyZone, type SkinBase } from '@mecha/shared';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { BODY_ZONES, skinBaseColor, type BodyZone, type SkinBase } from '@mecha/shared';
 import { graphics } from '../platform/graphics';
-import { applyAtlasUVs, getSkinAtlas } from '../skin/atlas';
-import { CHARACTER_PARTS } from '../skin/character-parts';
+import { getSkinAtlas } from '../skin/atlas';
+import { buildBodyGeometry } from '../skin/body-geometry';
+import { CHARACTER_PARTS, HIP_Y, PART_ORDER, partIndex } from '../skin/character-parts';
+import { roundBoxPoint } from '../skin/rounded-box';
 import { SkinTexture } from '../skin/skin-texture';
 
-const HIP_Y = 0.6;
-const LEG_LENGTH = CHARACTER_PARTS.legLeft.h;
-/** Угол ног в приседе (рад): почти горизонтально вперёд, как сидя на корточках. */
-const CROUCH_LEG_ANGLE = -1.1;
-/** Бёдра в приседе — ровно на высоте, при которой согнутые ноги касаются пола. */
-const CROUCH_HIP_Y = LEG_LENGTH * Math.cos(CROUCH_LEG_ANGLE);
-/** Верх тела (от бедра до макушки = 1 м) сжимаем так, чтобы макушка была на PLAYER.crouchHeight. */
-const UPPER_HEIGHT = PLAYER.height - HIP_Y;
-const CROUCH_UPPER_SCALE = (PLAYER.crouchHeight - CROUCH_HIP_Y) / UPPER_HEIGHT;
-const CROUCH_SPEED = 10; // как быстро модель приседает/встаёт (1/с)
-/** Руки в Мастерской отведены в стороны (рад) — не загораживают бока торса от кисти. */
-const STUDIO_ARM_ANGLE = 0.35;
+/** Повороты суставов позы (рад, порядок осей XYZ) и положение таза. */
+interface BodyPose {
+  hipY: number;
+  /** Сдвиг таза назад/вперёд: в приседе таз уходит назад, чтобы корпус и голова остались над стопами. */
+  hipZ?: number;
+  joints: Partial<Record<BodyZone, readonly [number, number, number]>>;
+}
 
 /**
- * Визуальная модель персонажа из примитивов. Логики и физики здесь нет — только меши и анимация.
+ * Пара симметричных суставов: левой части — как задано, правой — зеркально.
+ * Зеркало по X сохраняет поворот вокруг X (сгиб вперёд-назад), а повороты вокруг Y и Z меняют знак.
+ */
+function both(
+  part: 'upperArm' | 'forearm' | 'hand' | 'thigh' | 'shin' | 'foot',
+  x: number,
+  y = 0,
+  z = 0,
+): Partial<Record<BodyZone, readonly [number, number, number]>> {
+  return { [`${part}Left`]: [x, y, z], [`${part}Right`]: [x, -y, -z] };
+}
+
+const THIGH = CHARACTER_PARTS.thighLeft.joint.y - CHARACTER_PARTS.shinLeft.joint.y; // длина бедра
+const SHIN = -CHARACTER_PARTS.footLeft.joint.y; // длина голени
+const ANKLE = HIP_Y - THIGH - SHIN; // высота голеностопа над землёй
+
+/**
+ * Высота таза, при которой стопы стоят на полу: бедро и голень — звенья цепочки,
+ * их вертикальные проекции складываются (cos угла от вертикали).
+ */
+function hipOnFeet(thighX: number, shinX: number): number {
+  return THIGH * Math.cos(thighX) + SHIN * Math.cos(thighX + shinX) + ANKLE;
+}
+
+/** Стоит: руки чуть от тела, локти мягко согнуты — не «солдатик». */
+const STAND: BodyPose = {
+  hipY: HIP_Y,
+  joints: { ...both('upperArm', 0, 0, -0.08), ...both('forearm', -0.15) },
+};
+
+/**
+ * Присед — «крадущийся»: глубоко на корточках, таз назад, корпус вперёд, голова поднята (смотрит вперёд),
+ * руки согнуты перед собой. Углы подобраны так, чтобы макушка влезла в хитбокс приседа
+ * PLAYER.crouchHeight, а голова не торчала далеко вперёд из цилиндра физики — это проверяет тест.
+ * Стопа доворачивается так, чтобы стоять на полу плоско: сумма углов бедра, голени и стопы = 0.
+ */
+const CROUCH_THIGH = -1.55;
+const CROUCH_SHIN = 2.45;
+const CROUCH: BodyPose = {
+  hipY: hipOnFeet(CROUCH_THIGH, CROUCH_SHIN),
+  hipZ: -0.28,
+  joints: {
+    torso: [1.15, 0, 0],
+    head: [-0.7, 0, 0],
+    ...both('thigh', CROUCH_THIGH, 0, -0.12),
+    ...both('shin', CROUCH_SHIN),
+    ...both('foot', -(CROUCH_THIGH + CROUCH_SHIN)),
+    ...both('upperArm', -1.6, 0, -0.18),
+    ...both('forearm', -1.0),
+  },
+};
+
+/** Прыжок: колени поджаты, руки вверх. */
+const JUMP: BodyPose = {
+  hipY: HIP_Y,
+  joints: {
+    ...both('thigh', -0.9, 0, -0.06),
+    ...both('shin', 1.35),
+    ...both('foot', 0.25),
+    ...both('upperArm', -2.5, 0, -0.3),
+    ...both('forearm', -0.35),
+  },
+};
+
+/** Манекен для Мастерской: руки и ноги разведены — кисть достаёт до боков торса и внутренней стороны ног. */
+const STUDIO: BodyPose = {
+  hipY: HIP_Y,
+  joints: { ...both('upperArm', 0, 0, -0.38), ...both('thigh', 0, 0, -0.07), ...both('foot', 0, 0, 0.07) },
+};
+
+/** Как быстро суставы догоняют целевую позу (1/с): переходы плавные, но походка не «смазывается». */
+const POSE_SPEED = 18;
+
+/**
+ * Визуальная модель персонажа. Логики и физики здесь нет — только меши и анимация.
  *
- * Иерархия:
- *   root ── body ─┬─ legLeft/legRight (шарнир в бедре)
- *          │      └─ upper (бедро) ─┬─ torso, head
- *          │                        └─ armLeft/armRight (шарнир в плече)
- *          └─ shadow (круглая тень, когда настоящие выключены)
+ * Тело — один SkinnedMesh («кожа на скелете»): каждая часть жёстко привязана к своей кости.
+ * Кости повторяют суставы из CHARACTER_PARTS:
+ *   pelvis (таз) ─┬─ torso ─┬─ head (+ глаза)
+ *                 │         └─ upperArm ─ forearm ─ hand  (×2)
+ *                 └─ thigh ─ shin ─ foot                  (×2)
  *
- * Конечности висят на «шарнирах» (pivot-группах): вращаем pivot — конечность качается вокруг сустава.
- * Верх тела — тоже группа с опорой в бедре: в приседе её опускаем и сжимаем относительно бедра.
+ * Анимация: каждый кадр собираем целевую позу (стоит/присел/прыжок/Мастерская + шаг + дыхание)
+ * и плавно подводим к ней суставы.
  */
 export class PlayerModel {
   readonly root = new THREE.Group();
-  readonly zones = {} as Record<BodyZone, THREE.Mesh>;
+  /** Всё тело одной сеткой: один вызов отрисовки на персонажа. */
+  readonly mesh: THREE.SkinnedMesh;
+  readonly bones = {} as Record<BodyZone, THREE.Bone>;
   /**
    * Кожа персонажа: одна текстура на все части тела, разложенные по атласу.
-   * Один материал на персонажа вместо шести — на видеокарту уходит меньше переключений состояния.
+   * Один материал на персонажа — на видеокарту уходит меньше переключений состояния.
    */
   readonly skin = new SkinTexture(getSkinAtlas());
   private readonly material = new THREE.MeshLambertMaterial({ map: this.skin.texture });
+  private readonly eyeMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
   private base: SkinBase = 'default';
 
   private readonly body = new THREE.Group();
-  private readonly upper = new THREE.Group();
-  private readonly legLeft = new THREE.Group();
-  private readonly legRight = new THREE.Group();
-  private readonly armLeft = new THREE.Group();
-  private readonly armRight = new THREE.Group();
+  private readonly pelvis = new THREE.Bone();
   private readonly shadow: THREE.Mesh;
+  /** Текущие и целевые углы суставов: [x, y, z] на каждую часть, в порядке PART_ORDER. */
+  private readonly current = new Float32Array(PART_ORDER.length * 3);
+  private readonly target = new Float32Array(PART_ORDER.length * 3);
+  private hipCurrent = HIP_Y;
+  private hipTarget = HIP_Y;
+  private hipZCurrent = 0;
+  private hipZTarget = 0;
   private walkPhase = 0;
-  private crouchAmount = 0;
+  private breathPhase = Math.random() * Math.PI * 2; // у всех своё дыхание — толпа не «дышит хором»
+  private crouching = false;
   private ghost = false;
   private studioPose = false;
 
   constructor() {
-    const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
-
-    // Пропорции: ноги 0–0.6, торс 0.6–1.16, голова 1.18–1.6 (рост = PLAYER.height).
-    // Размеры частей — в CHARACTER_PARTS (по ним же построен атлас текстуры).
-    // Внутри upper координаты отсчитываются от бедра (y = 0 — это 0.6 м над землёй).
-    this.upper.position.y = HIP_Y;
-    this.addLimb('legLeft', this.legLeft, -0.13, HIP_Y, this.body);
-    this.addLimb('legRight', this.legRight, 0.13, HIP_Y, this.body);
-    this.addLimb('armLeft', this.armLeft, -0.38, 1.12 - HIP_Y, this.upper);
-    this.addLimb('armRight', this.armRight, 0.38, 1.12 - HIP_Y, this.upper);
-
-    const torso = this.createZone('torso');
-    torso.position.y = 0.88 - HIP_Y;
-    const head = this.createZone('head');
-    head.position.y = 1.39 - HIP_Y;
-    this.upper.add(torso, head);
-    this.body.add(this.upper);
-
-    // Глаза показывают, куда смотрит персонаж (+Z — «вперёд» модели). Они не красятся.
-    const eyeMaterial = new THREE.MeshBasicMaterial({ color: '#1b1f2a' });
-    for (const x of [-0.09, 0.09]) {
-      const eye = new THREE.Mesh(box(0.07, 0.1, 0.02), eyeMaterial);
-      eye.position.set(x, 0.03, 0.215);
-      head.add(eye);
+    // Кости в позе покоя. Таз — общий корень; части без родителя висят на нём.
+    this.pelvis.position.y = HIP_Y;
+    for (const part of PART_ORDER) {
+      const bone = new THREE.Bone();
+      bone.name = part;
+      const { joint } = CHARACTER_PARTS[part];
+      bone.position.set(joint.x, joint.y, joint.z);
+      this.bones[part] = bone;
+    }
+    for (const part of PART_ORDER) {
+      const parent = CHARACTER_PARTS[part].parent;
+      (parent ? this.bones[parent] : this.pelvis).add(this.bones[part]);
     }
 
-    // Все части тела отбрасывают настоящую тень (если тени включены).
-    this.body.traverse((object) => {
-      if (object instanceof THREE.Mesh) object.castShadow = true;
-    });
+    this.mesh = new THREE.SkinnedMesh(buildBodyGeometry(getSkinAtlas()), this.material);
+    this.mesh.add(this.pelvis);
+    // Привязка: обратные матрицы костей считаются из их положения прямо сейчас — в позе покоя.
+    this.mesh.updateMatrixWorld(true);
+    this.mesh.bind(new THREE.Skeleton(PART_ORDER.map((part) => this.bones[part])));
+    // Границы считаются по позе на момент расчёта и не обновляются сами. Берём с запасом на любую позу
+    // (лёжа, руки вверх) — иначе луч кисти или камера «теряли» бы руку, вышедшую за старые границы.
+    this.mesh.boundingBox = new THREE.Box3(new THREE.Vector3(-1.1, -0.2, -1.1), new THREE.Vector3(1.1, 2, 1.1));
+    this.mesh.boundingSphere = this.mesh.boundingBox.getBoundingSphere(new THREE.Sphere());
+    this.mesh.castShadow = true;
+    this.mesh.name = 'body';
+
+    this.bones.head.add(this.createEyes());
+    this.body.add(this.mesh);
 
     // Круглая «тень» — дешёвая замена настоящим теням, помогает понять высоту прыжка.
     this.shadow = new THREE.Mesh(
@@ -93,6 +170,10 @@ export class PlayerModel {
     this.shadow.rotation.x = -Math.PI / 2;
     this.root.add(this.body, this.shadow);
     this.setBase('default');
+    this.applyPose(STAND);
+    this.current.set(this.target);
+    this.hipCurrent = this.hipTarget;
+    this.writeBones();
   }
 
   /** Нарисовать основу кожи (белую или форму ищущего) — до первой картинки или после сброса. */
@@ -114,7 +195,7 @@ export class PlayerModel {
     this.material.map = texture ?? this.skin.texture;
   }
 
-  /** Поза манекена для Мастерской: стоит ровно, руки чуть в стороны. */
+  /** Поза манекена для Мастерской: стоит ровно, руки и ноги разведены. */
   setStudioPose(enabled: boolean): void {
     this.studioPose = enabled;
   }
@@ -129,6 +210,9 @@ export class PlayerModel {
   dispose(): void {
     this.skin.dispose();
     this.material.dispose();
+    this.eyeMaterial.dispose();
+    this.mesh.geometry.dispose();
+    this.mesh.skeleton.dispose();
   }
 
   /**
@@ -139,7 +223,7 @@ export class PlayerModel {
     this.ghost = ghost;
     this.body.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
-      object.castShadow = !ghost; // у призрака нет тени
+      if (object === this.mesh) object.castShadow = !ghost; // у призрака нет тени
       const material = object.material as THREE.Material;
       if (material.transparent === ghost) return;
       material.transparent = ghost;
@@ -155,59 +239,129 @@ export class PlayerModel {
     this.shadow.position.y = groundY - this.root.position.y + 0.01;
   }
 
-  /** Плавный переход в присед и обратно. Вызывается каждый кадр, до animate. */
-  setCrouch(crouching: boolean, dt: number): void {
-    const target = crouching ? 1 : 0;
-    this.crouchAmount += (target - this.crouchAmount) * (1 - Math.exp(-CROUCH_SPEED * dt));
-    const a = this.crouchAmount;
-    const hipY = HIP_Y + (CROUCH_HIP_Y - HIP_Y) * a;
-    this.legLeft.position.y = this.legRight.position.y = hipY;
-    this.upper.position.y = hipY;
-    this.upper.scale.y = 1 + (CROUCH_UPPER_SCALE - 1) * a;
+  /** Присесть или встать. Переход плавный — его делает animate. */
+  setCrouch(crouching: boolean, _dt?: number): void {
+    this.crouching = crouching;
   }
 
-  /** speed01 — горизонтальная скорость 0..1 от максимальной. */
+  /** Каждый кадр. speed01 — горизонтальная скорость 0..1 от максимальной. */
   animate(dt: number, speed01: number, grounded: boolean): void {
-    this.armLeft.rotation.z = this.studioPose ? -STUDIO_ARM_ANGLE : 0;
-    this.armRight.rotation.z = this.studioPose ? STUDIO_ARM_ANGLE : 0;
     if (this.studioPose) {
-      this.legLeft.rotation.x = this.legRight.rotation.x = 0;
-      this.armLeft.rotation.x = this.armRight.rotation.x = 0;
-      return;
+      this.applyPose(STUDIO);
+    } else if (!grounded) {
+      this.applyPose(JUMP);
+    } else {
+      this.applyPose(this.crouching ? CROUCH : STAND);
+      this.addWalk(dt, speed01);
+      this.addBreath(dt);
     }
-    if (!grounded) {
-      // В прыжке поджимаем ноги и поднимаем руки.
-      this.legLeft.rotation.x = this.legRight.rotation.x = -0.5;
-      this.armLeft.rotation.x = this.armRight.rotation.x = -2.4;
-      return;
+
+    // Экспоненциальное приближение к цели: одинаково плавно при любом FPS.
+    const k = 1 - Math.exp(-POSE_SPEED * dt);
+    for (let i = 0; i < this.current.length; i++) this.current[i] += (this.target[i] - this.current[i]) * k;
+    this.hipCurrent += (this.hipTarget - this.hipCurrent) * k;
+    this.hipZCurrent += (this.hipZTarget - this.hipZCurrent) * k;
+    this.writeBones();
+  }
+
+  // ---------- Позы ----------
+
+  /** Целевая поза = базовая поза (остальное — нули, то есть поза покоя). */
+  private applyPose(pose: BodyPose): void {
+    this.target.fill(0);
+    for (const [part, angles] of Object.entries(pose.joints) as [BodyZone, readonly number[]][]) {
+      this.target.set(angles, partIndex(part) * 3);
     }
-    // В приседе шагаем мельче, ноги качаются вокруг согнутого положения.
-    const a = this.crouchAmount;
+    this.hipTarget = pose.hipY;
+    this.hipZTarget = pose.hipZ ?? 0;
+  }
+
+  private add(part: BodyZone, axis: 0 | 1 | 2, value: number): void {
+    this.target[partIndex(part) * 3 + axis] += value;
+  }
+
+  /**
+   * Шаг: бёдра качаются, колено сгибается, пока нога идёт вперёд (её надо пронести над полом),
+   * руки — в противофазе ногам, таз чуть проседает в широком шаге, корпус слегка поворачивается.
+   * В приседе шаги мельче.
+   */
+  private addWalk(dt: number, speed01: number): void {
+    const stride = speed01 * (this.crouching ? 0.45 : 1);
     this.walkPhase += dt * (4 + 8 * speed01);
-    const swing = Math.sin(this.walkPhase) * 0.7 * speed01 * (1 - 0.6 * a);
-    const legBase = CROUCH_LEG_ANGLE * a;
-    this.legLeft.rotation.x = legBase + swing;
-    this.legRight.rotation.x = legBase - swing;
-    this.armLeft.rotation.x = -swing - 0.4 * a; // в приседе руки чуть вперёд
-    this.armRight.rotation.x = swing - 0.4 * a;
+    if (stride < 0.01) return;
+    const sin = Math.sin(this.walkPhase);
+    const cos = Math.cos(this.walkPhase);
+    const swing = sin * 0.65 * stride;
+    const kneeLeft = Math.max(0, -cos) * 1.1 * stride;
+    const kneeRight = Math.max(0, cos) * 1.1 * stride;
+
+    this.add('thighLeft', 0, swing);
+    this.add('thighRight', 0, -swing);
+    this.add('shinLeft', 0, kneeLeft);
+    this.add('shinRight', 0, kneeRight);
+    this.add('footLeft', 0, -kneeLeft * 0.4);
+    this.add('footRight', 0, -kneeRight * 0.4);
+    this.add('upperArmLeft', 0, -swing * 0.8);
+    this.add('upperArmRight', 0, swing * 0.8);
+    this.add('forearmLeft', 0, -0.3 * stride);
+    this.add('forearmRight', 0, -0.3 * stride);
+    this.add('torso', 0, 0.06 * stride);
+    this.add('torso', 1, swing * 0.18);
+    this.add('head', 1, -swing * 0.12);
+    this.hipTarget -= Math.abs(sin) * 0.03 * stride;
   }
 
-  private createZone(zone: BodyZone): THREE.Mesh {
-    const size = CHARACTER_PARTS[zone];
-    const geometry = new THREE.BoxGeometry(size.w, size.h, size.d);
-    // Стандартные UV (каждая грань — весь квадрат 0..1) заменяем на прямоугольники атласа.
-    applyAtlasUVs(geometry, zone, getSkinAtlas());
-    const mesh = new THREE.Mesh(geometry, this.material);
-    mesh.name = zone;
-    this.zones[zone] = mesh;
-    return mesh;
+  /** Дыхание: корпус чуть покачивается, плечи поднимаются. Стоящий персонаж выглядит живым, а не статуей. */
+  private addBreath(dt: number): void {
+    this.breathPhase += dt * 2.2;
+    const b = Math.sin(this.breathPhase);
+    this.add('torso', 0, 0.015 * b);
+    this.add('head', 0, -0.012 * b);
+    this.add('upperArmLeft', 2, -0.02 * b);
+    this.add('upperArmRight', 2, 0.02 * b);
   }
 
-  private addLimb(zone: BodyZone, pivot: THREE.Group, x: number, jointY: number, parent: THREE.Object3D) {
-    const mesh = this.createZone(zone);
-    mesh.position.y = -CHARACTER_PARTS[zone].h / 2;
-    pivot.position.set(x, jointY, 0);
-    pivot.add(mesh);
-    parent.add(pivot);
+  private writeBones(): void {
+    PART_ORDER.forEach((part, i) => {
+      this.bones[part].rotation.set(this.current[i * 3], this.current[i * 3 + 1], this.current[i * 3 + 2]);
+    });
+    this.pelvis.position.y = this.hipCurrent;
+    this.pelvis.position.z = this.hipZCurrent;
+  }
+
+  /**
+   * Глаза — показывают, куда смотрит персонаж. Не красятся (это не кожа).
+   * Овальные, с бликом — так персонаж выглядит дружелюбнее. Обе пары — одна сетка (один вызов отрисовки).
+   */
+  private createEyes(): THREE.Mesh {
+    const head = CHARACTER_PARTS.head;
+    const parts: THREE.BufferGeometry[] = [];
+    const add = (geometry: THREE.BufferGeometry, color: string, matrix: THREE.Matrix4) => {
+      geometry.applyMatrix4(matrix);
+      const c = new THREE.Color(color);
+      const colors = new Float32Array(geometry.getAttribute('position').count * 3);
+      for (let i = 0; i < colors.length; i += 3) colors.set([c.r, c.g, c.b], i);
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      parts.push(geometry);
+    };
+
+    for (const side of [-1, 1]) {
+      // Точка на скруглённой передней грани головы — глаз «сидит» на поверхности, а не висит в воздухе.
+      const { point, normal } = roundBoxPoint({ x: side * 0.1, y: 0.03, z: head.size.d / 2 }, head.size, head.radius);
+      const n = new THREE.Vector3(normal.x, normal.y, normal.z);
+      const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+      const at = new THREE.Vector3(head.center.x + point.x, head.center.y + point.y, head.center.z + point.z);
+
+      const eye = new THREE.Matrix4().compose(at, rotation, new THREE.Vector3(0.036, 0.054, 0.016));
+      add(new THREE.SphereGeometry(1, 16, 12), '#1b1f2a', eye);
+
+      const glintAt = at.clone().add(new THREE.Vector3(0.012, 0.022, 0).applyQuaternion(rotation)).addScaledVector(n, 0.012);
+      const glint = new THREE.Matrix4().compose(glintAt, rotation, new THREE.Vector3(0.011, 0.011, 0.006));
+      add(new THREE.SphereGeometry(1, 8, 6), '#ffffff', glint);
+    }
+    const eyes = new THREE.Mesh(mergeGeometries(parts), this.eyeMaterial);
+    for (const geometry of parts) geometry.dispose();
+    eyes.name = 'eyes';
+    return eyes;
   }
 }

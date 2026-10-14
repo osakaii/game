@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { BODY_ZONES, type BodyZone } from '@mecha/shared';
 import { getSkinAtlas } from '../skin/atlas';
+import { paintMask } from '../skin/character-parts';
 import { buildPositionMap } from '../skin/position-map';
 import type { Point3 } from './brush-stamps';
 import {
@@ -25,6 +27,7 @@ const MAX_STEPS_PER_FRAME = 4;
 /** Проходов течения за шаг: каждый двигает краску не дальше чем на тексель — нужно несколько. */
 const FLOW_ITERATIONS_HIGH = 2;
 
+/** Оттиск кисти: точка и нормаль поверхности — в позе покоя, в системе модели (как карта позиций). */
 export interface Stamp {
   center: Point3;
   normal: Point3;
@@ -35,7 +38,8 @@ export const BRUSH_MODES = { brush: 0, spray: 1, sponge: 2, eraser: 3 } as const
 export type BrushMode = keyof typeof BRUSH_MODES;
 
 export interface BrushParams {
-  part: number;
+  /** Часть тела под пальцем: краска ложится на неё и на соседей через ближний сустав. */
+  part: BodyZone;
   radius: number;
   hardness: number;
   opacity: number;
@@ -120,7 +124,7 @@ export class SkinPainter {
           uCount: { value: 0 },
           uCenters: { value: Array.from({ length: MAX_STAMPS }, () => new THREE.Vector3()) },
           uStampNormals: { value: Array.from({ length: MAX_STAMPS }, () => new THREE.Vector3()) },
-          uPart: { value: 0 },
+          uMasks: { value: new Array<number>(MAX_STAMPS).fill(0) },
           uRadius: { value: 0.05 },
           uHardness: { value: 0.5 },
           uOpacity: { value: 1 },
@@ -128,7 +132,7 @@ export class SkinPainter {
           uMode: { value: 0 },
           uSeed: { value: 0 },
           uNoise: { value: noise },
-          uBaseColors: { value: Array.from({ length: 6 }, () => new THREE.Color('#f2f2f2')) },
+          uBaseColors: { value: Array.from({ length: BODY_ZONES.length }, () => new THREE.Color('#f2f2f2')) },
         },
         THREE.NoBlending,
       ),
@@ -215,7 +219,6 @@ export class SkinPainter {
 
   stamp(stamps: readonly Stamp[], brush: BrushParams): void {
     const u = this.materials.brush.uniforms;
-    u.uPart.value = brush.part;
     u.uRadius.value = brush.radius;
     u.uHardness.value = brush.hardness;
     u.uOpacity.value = brush.opacity;
@@ -226,6 +229,7 @@ export class SkinPainter {
       batch.forEach((s, i) => {
         (u.uCenters.value[i] as THREE.Vector3).set(s.center.x, s.center.y, s.center.z);
         (u.uStampNormals.value[i] as THREE.Vector3).set(s.normal.x, s.normal.y, s.normal.z);
+        (u.uMasks.value as number[])[i] = paintMask(brush.part, s.center, brush.radius);
       });
       u.uCount.value = batch.length;
       u.uSeed.value = Math.random() * 1000;

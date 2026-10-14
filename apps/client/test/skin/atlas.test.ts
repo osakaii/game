@@ -1,7 +1,7 @@
-import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { CHARACTER_PARTS, PART_ORDER } from '../../src/skin/character-parts';
-import { FACES, applyAtlasUVs, buildAtlas, findRect } from '../../src/skin/atlas';
+import { FACES, buildAtlas, findRect } from '../../src/skin/atlas';
+import { buildBodyGeometry } from '../../src/skin/body-geometry';
 import { buildPositionMap, samplePositionMap } from '../../src/skin/position-map';
 
 const atlas = buildAtlas(512, 4);
@@ -29,9 +29,9 @@ describe('skin atlas', () => {
 
   it('uses the same texel density on all faces (no stretching)', () => {
     const torsoFront = findRect(atlas, 'torso', 'pz');
-    expect(torsoFront.w / CHARACTER_PARTS.torso.w).toBeCloseTo(atlas.density, -1);
-    const legSide = findRect(atlas, 'legLeft', 'px');
-    expect(legSide.h / CHARACTER_PARTS.legLeft.h).toBeCloseTo(atlas.density, -1);
+    expect(torsoFront.w / CHARACTER_PARTS.torso.size.w).toBeCloseTo(atlas.density, -1);
+    const legSide = findRect(atlas, 'thighLeft', 'px');
+    expect(legSide.h / CHARACTER_PARTS.thighLeft.size.h).toBeCloseTo(atlas.density, -1);
     // ~2 текселя на сантиметр: достаточно для мазков кисти на 512².
     expect(atlas.density).toBeGreaterThan(150);
   });
@@ -45,42 +45,39 @@ describe('position map', () => {
   const map = buildPositionMap(atlas);
 
   /**
-   * Главная проверка: карта позиций совпадает с настоящей геометрией three.js.
-   * Берём каждую вершину коробки с UV атласа, сдвигаемся на пару текселей внутрь грани
-   * и читаем карту — должна получиться почти та же точка на теле.
+   * Главная проверка: карта позиций совпадает с настоящей геометрией тела.
+   * Берём каждую вершину (поза покоя, со скруглением), сдвигаемся по UV на тексель к центру грани
+   * и читаем карту — должна получиться почти та же точка и та же нормаль.
    */
-  it.each(PART_ORDER)('matches BoxGeometry vertices for %s', (part) => {
-    const size = CHARACTER_PARTS[part];
-    const geometry = new THREE.BoxGeometry(size.w, size.h, size.d);
-    applyAtlasUVs(geometry, part, atlas);
+  it('matches every vertex of the body geometry (rest pose, rounded)', () => {
+    const geometry = buildBodyGeometry(atlas);
     const pos = geometry.getAttribute('position');
     const uv = geometry.getAttribute('uv');
     const normal = geometry.getAttribute('normal');
+    const bone = geometry.getAttribute('skinIndex');
     const texel = 1 / atlas.size;
+    const centers = new Map(atlas.rects.map((r) => [r, { u: (r.x + r.w / 2) / atlas.size, v: 1 - (r.y + r.h / 2) / atlas.size }]));
 
-    for (let face = 0; face < 6; face++) {
-      // Центр грани в UV — среднее четырёх её вершин.
-      let cu = 0;
-      let cv = 0;
-      for (let k = 0; k < 4; k++) {
-        cu += uv.getX(face * 4 + k) / 4;
-        cv += uv.getY(face * 4 + k) / 4;
-      }
-      for (let k = 0; k < 4; k++) {
-        const i = face * 4 + k;
-        const u = uv.getX(i) + Math.sign(cu - uv.getX(i)) * 2 * texel;
-        const v = uv.getY(i) + Math.sign(cv - uv.getY(i)) * 2 * texel;
-        const sample = samplePositionMap(map, u, v);
-        expect(sample.part).toBe(PART_ORDER.indexOf(part) + 1);
-        const distance = Math.hypot(sample.x - pos.getX(i), sample.y - pos.getY(i), sample.z - pos.getZ(i));
-        expect(distance, `${part} face ${FACES[face]} vertex ${k}`).toBeLessThan(0.03);
-        // Нормаль из карты совпадает с нормалью вершины в геометрии three.js.
-        expect(sample.normal).toEqual({
-          x: normal.getX(i) + 0,
-          y: normal.getY(i) + 0,
-          z: normal.getZ(i) + 0,
-        });
-      }
+    for (let i = 0; i < pos.count; i++) {
+      const part = PART_ORDER[bone.getX(i)];
+      // Грань вершины — та, в чей прямоугольник на атласе попадает её UV.
+      const rect = atlas.rects.find(
+        (r) =>
+          r.part === part &&
+          uv.getX(i) * atlas.size >= r.x - 0.01 &&
+          uv.getX(i) * atlas.size <= r.x + r.w + 0.01 &&
+          (1 - uv.getY(i)) * atlas.size >= r.y - 0.01 &&
+          (1 - uv.getY(i)) * atlas.size <= r.y + r.h + 0.01,
+      )!;
+      const c = centers.get(rect)!;
+      const u = uv.getX(i) + Math.sign(c.u - uv.getX(i)) * texel;
+      const v = uv.getY(i) + Math.sign(c.v - uv.getY(i)) * texel;
+      const sample = samplePositionMap(map, u, v);
+      expect(sample.part).toBe(bone.getX(i) + 1);
+      const distance = Math.hypot(sample.x - pos.getX(i), sample.y - pos.getY(i), sample.z - pos.getZ(i));
+      expect(distance, `${part}.${rect.face} vertex ${i}`).toBeLessThan(0.02);
+      const dot = sample.normal.x * normal.getX(i) + sample.normal.y * normal.getY(i) + sample.normal.z * normal.getZ(i);
+      expect(dot).toBeGreaterThan(0.9);
     }
   });
 

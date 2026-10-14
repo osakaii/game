@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import type { BodyZone } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
 import type { Eyedropper } from '../painting/eyedropper';
 import type { PlayerModel } from '../player/player-model';
-import { PART_ORDER } from '../skin/character-parts';
+import { PART_ORDER, mirrorPart, partsLinked } from '../skin/character-parts';
 import type { WorldGeometry } from '../world/active-map';
 import { STAMP_SPACING, interpolateStamps, type Point3 } from './brush-stamps';
 import type { BrushMode, SkinPainter, Stamp } from './skin-painter';
@@ -16,16 +17,14 @@ export interface StrokeEvent {
   speed: number;
 }
 
-/** Номера частей (PART_ORDER + 1), которые меняются местами при зеркалировании: руки и ноги. */
-const MIRROR_PART: Record<number, number> = { 1: 1, 2: 2, 3: 4, 4: 3, 5: 6, 6: 5 };
-
 /** Второй палец пришёл так быстро после первого — значит, это был жест, а не начало мазка. */
 const GESTURE_GRACE_MS = 250;
 const ORBIT_SENSITIVITY = 0.008;
 const RECENT_LIMIT = 8;
 
 interface BodyHit {
-  part: number;
+  part: BodyZone;
+  /** Точка и нормаль в позе покоя (система модели) — в ней работает кисть, см. position-map. */
   local: THREE.Vector3;
   localNormal: THREE.Vector3;
   world: THREE.Vector3;
@@ -35,7 +34,7 @@ interface BodyHit {
 
 interface Stroke {
   pointerId: number;
-  part: number;
+  part: BodyZone;
   last: Point3;
   carried: number;
   startedAt: number;
@@ -280,8 +279,9 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
     this.showCursor(hit);
     if (!stroke || !hit) return; // палец ушёл с тела — ждём, пока вернётся
 
-    if (hit.part !== stroke.part) {
-      // Перешли на другую часть тела (с руки на торс) — между ними пустота, не интерполируем.
+    if (!partsLinked(hit.part, stroke.part)) {
+      // Перешли на часть, не связанную суставом (с руки на торс сбоку), — между ними пустота, не интерполируем.
+      // Через сустав (с бедра на голень) мазок идёт непрерывно: в позе покоя эти точки рядом.
       stroke.part = hit.part;
       stroke.last = hit.local.clone();
       stroke.carried = 0;
@@ -289,6 +289,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
       return;
     }
     const now = performance.now();
+    stroke.part = hit.part;
     const moved = Math.hypot(hit.local.x - stroke.last.x, hit.local.y - stroke.last.y, hit.local.z - stroke.last.z);
     const elapsed = Math.max(1, now - this.lastStrokeTime) / 1000;
     this.lastStrokeTime = now;
@@ -309,20 +310,19 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
     this.emit('edited', undefined); // кожа изменилась — пора (с задержкой) отправить её другим
   }
 
-  private paint(stamps: Stamp[], part: number) {
+  private paint(stamps: Stamp[], part: BodyZone) {
     const mode = this.tool === 'eyedropper' ? 'brush' : this.tool;
     // Спрей и губка кладут краску «частично» — им нужен мягкий край на весь радиус.
     const hardness = mode === 'spray' || mode === 'sponge' ? 0 : this.hardness;
     const brush = { radius: this.radius, hardness, opacity: this.opacity, color: this.color, mode };
     this.deps.painter.stamp(stamps, { ...brush, part });
     if (this.symmetry) {
-      // Зеркало по X в системе части тела: у левой и правой руки системы координат одинаковые,
-      // поэтому точка (x, y, z) левой руки соответствует (-x, y, z) правой.
+      // Зеркало по X в позе покоя: персонаж симметричен, точка (x, y, z) левой руки — это (-x, y, z) правой.
       const mirrored = stamps.map((s) => ({
         center: { x: -s.center.x, y: s.center.y, z: s.center.z },
         normal: { x: -s.normal.x, y: s.normal.y, z: s.normal.z },
       }));
-      this.deps.painter.stamp(mirrored, { ...brush, part: MIRROR_PART[part] });
+      this.deps.painter.stamp(mirrored, { ...brush, part: mirrorPart(part) });
     }
   }
 
@@ -351,23 +351,29 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
     const rect = this.deps.canvas.getBoundingClientRect();
     this.ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.deps.camera);
-    const meshes = Object.values(this.deps.model.zones);
-    const hit = this.raycaster.intersectObjects(meshes, false)[0];
-    if (!hit || !hit.face || !hit.uv) return null;
+    const mesh = this.deps.model.mesh;
+    const hit = this.raycaster.intersectObject(mesh, false)[0];
+    if (!hit || !hit.face || !hit.uv || !hit.barycoord) return null;
 
-    const mesh = hit.object as THREE.Mesh;
-    // Точка и нормаль — в системе координат части тела: в ней же построена карта позиций.
-    const local = mesh.worldToLocal(hit.point.clone());
-    const localNormal = hit.face.normal.clone();
-    const worldNormal = localNormal.clone().transformDirection(mesh.matrixWorld);
-    return {
-      part: PART_ORDER.indexOf(mesh.name as (typeof PART_ORDER)[number]) + 1,
-      local,
-      localNormal,
-      world: hit.point.clone(),
-      worldNormal,
-      uv: hit.uv.clone(),
-    };
+    // Луч попал в треугольник позированного тела. Те же доли (барицентрические координаты)
+    // от вершин в геометрии дают точку в позе покоя: вершины SkinnedMesh хранятся именно в ней.
+    const { a, b, c } = hit.face;
+    const position = mesh.geometry.getAttribute('position');
+    const normal = mesh.geometry.getAttribute('normal');
+    const w = hit.barycoord;
+    const local = new THREE.Vector3()
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(position, a), w.x)
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(position, b), w.y)
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(position, c), w.z);
+    const localNormal = new THREE.Vector3()
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(normal, a), w.x)
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(normal, b), w.y)
+      .addScaledVector(new THREE.Vector3().fromBufferAttribute(normal, c), w.z)
+      .normalize();
+    // face.normal посчитан по уже позированным вершинам (в системе сетки) — для кольца-курсора на экране.
+    const worldNormal = hit.face.normal.clone().transformDirection(mesh.matrixWorld);
+    const bone = mesh.geometry.getAttribute('skinIndex').getX(a);
+    return { part: PART_ORDER[bone], local, localNormal, world: hit.point.clone(), worldNormal, uv: hit.uv.clone() };
   }
 
   private currentPinchDistance(): number {

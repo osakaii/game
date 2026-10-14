@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BodyZone } from '@mecha/shared';
+import { BODY_ZONES, type BodyZone } from '@mecha/shared';
 import { FACES, type FaceId, type SkinAtlas } from './atlas';
 
 /**
@@ -75,7 +75,7 @@ export class SkinTexture {
 }
 
 function partHue(part: BodyZone): number {
-  return { head: 0, torso: 30, armLeft: 200, armRight: 220, legLeft: 120, legRight: 140 }[part];
+  return BODY_ZONES.indexOf(part) * 25;
 }
 
 function drawArrowAndLabel(

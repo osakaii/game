@@ -831,3 +831,50 @@ select option {
   background: #4ade80;
   color: #0b1f12;
 }
+
+/* ---------- Версия и обновления ---------- */
+
+#app-version {
+  margin: 0;
+  font-size: 11px;
+  color: rgb(255 255 255 / 0.35);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+#update-banner {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  background: #1b1f2a;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.4);
+  font-size: 13px;
+}
+
+#update-banner[hidden],
+#update-close[hidden] {
+  display: none;
+}
+
+#update-banner button {
+  padding: 6px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#update-close {
+  background: transparent;
+}
+
+#hud-version {
+  color: rgb(255 255 255 / 0.45);
+  font-size: 10px;
+}

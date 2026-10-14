@@ -67,6 +67,7 @@
       <span id="status" data-state="connecting">connecting…</span>
       <span id="ping"></span>
       <span id="fps"></span>
+      <span id="hud-version"></span>
     </div>
 
     <div id="joystick" hidden><div id="joystick-knob"></div></div>
@@ -193,12 +194,19 @@
           <button type="button" id="sound-toggle">Звук: вкл</button>
           <button type="button" id="shadows-toggle">Тени: вкл</button>
         </div>
+        <p id="app-version"></p>
       </form>
     </div>
 
     <div id="rotate-hint">
       Поверни телефон горизонтально — так удобнее
       <button type="button" id="rotate-hint-close" aria-label="Закрыть">✕</button>
+    </div>
+
+    <div id="update-banner" role="alert" hidden>
+      <span id="update-text"></span>
+      <button type="button" id="update-reload" class="primary">Обновить</button>
+      <button type="button" id="update-close" aria-label="Позже">✕</button>
     </div>
 
     <div id="toast" role="status" hidden></div>

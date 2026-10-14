@@ -1,4 +1,5 @@
 export * from './protocol.js';
+export * from './version.js';
 export * from './lobby.js';
 export * from './game.js';
 export * from './settings.js';

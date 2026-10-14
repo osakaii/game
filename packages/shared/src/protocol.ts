@@ -4,10 +4,16 @@
  *
  * Меняешь формат сообщений — увеличивай PROTOCOL_VERSION,
  * чтобы старый клиент не пытался говорить с новым сервером.
+ *
+ * PROTOCOL_VERSION и APP_VERSION (version.ts) — разные вещи:
+ *   APP_VERSION — для людей: что нового в игре;
+ *   PROTOCOL_VERSION — для кода: могут ли клиент и сервер понять друг друга.
+ * Новая карта меняет APP_VERSION, но не протокол. Новое поле в сообщении — меняет оба.
  */
 import { z } from 'zod';
 import type { PaintPayload } from './body.js';
 import type { UpdateSettingsPayload } from './settings.js';
+import type { BuildInfo } from './version.js';
 import type {
   CreateRoomPayload,
   EmptyResult,
@@ -25,7 +31,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -41,6 +47,8 @@ export interface WelcomePayload {
   serverTime: number;
   /** Комната, в которой игрок всё ещё состоит после переподключения. null — ни в какой. */
   roomCode: string | null;
+  /** Какая сборка на сервере — клиент сравнит со своей и предложит обновиться. */
+  build: BuildInfo;
 }
 
 /** Клиент -> сервер: замер задержки. */

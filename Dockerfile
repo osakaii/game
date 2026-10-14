@@ -16,12 +16,22 @@ COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+# Коммит сборки для экрана версии в клиенте. .git в образ не копируется (.dockerignore),
+# поэтому хэш передаётся снаружи: Render — через RENDER_GIT_COMMIT, локально —
+#   docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) .
+ARG GIT_COMMIT
+ARG RENDER_GIT_COMMIT
+ENV GIT_COMMIT=${GIT_COMMIT:-$RENDER_GIT_COMMIT}
 RUN pnpm build
 # Сервер + его production-зависимости (включая собранный @mecha/shared) в отдельную папку.
 RUN pnpm --filter @mecha/server deploy --prod --legacy /out/server
 
 # ---------- Запуск ----------
 FROM node:24-alpine
+# ARG виден только в своём этапе сборки — объявляем заново, чтобы сервер тоже знал коммит.
+ARG GIT_COMMIT
+ARG RENDER_GIT_COMMIT
+ENV APP_COMMIT=${GIT_COMMIT:-$RENDER_GIT_COMMIT}
 ENV NODE_ENV=production \
     PORT=3000 \
     CLIENT_DIST=/app/client

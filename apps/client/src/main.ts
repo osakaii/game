@@ -5,9 +5,11 @@ import {
   MAPS,
   canMove,
   defaultBodyColors,
+  isUpdateAvailable,
   type MoveInput,
 } from '@mecha/shared';
 import { GameSounds } from './audio/game-sounds';
+import { CLIENT_BUILD, formatBuild } from './build-info';
 import { Sfx } from './audio/sfx';
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
@@ -31,6 +33,7 @@ import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
 import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
+import { UpdateBanner } from './ui/update-banner';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { Splats } from './world/splats';
@@ -155,6 +158,17 @@ network.on('status', ({ state, text }) => {
   if (state === 'offline' && lobby.room) toast('Связь потеряна, переподключаемся…');
 });
 network.on('ping', (rtt) => hud.setPing(rtt));
+
+// ---------- Версия ----------
+
+// Версия видна и в меню, и в игре (HUD) — удобно, когда игрок присылает скриншот с багом.
+$('#app-version').textContent = formatBuild(CLIENT_BUILD);
+$('#hud-version').textContent = formatBuild(CLIENT_BUILD);
+const updateBanner = new UpdateBanner();
+network.on('welcome', ({ build }) => {
+  if (isUpdateAvailable(CLIENT_BUILD, build)) updateBanner.showOptional(build.version);
+});
+network.on('outdated', () => updateBanner.showRequired());
 
 // ---------- Синхронизация игроков ----------
 

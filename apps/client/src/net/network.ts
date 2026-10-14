@@ -34,6 +34,8 @@ interface NetworkEvents {
   snapshot: WorldSnapshot;
   teleport: TeleportPayload;
   shot: ShotEvent;
+  /** Протокол сервера несовместим с этим клиентом — нужна перезагрузка. */
+  outdated: void;
 }
 
 const PING_INTERVAL_MS = 2000;
@@ -115,8 +117,9 @@ export class Network extends Emitter<NetworkEvents> {
 
   private onWelcome(welcome: WelcomePayload) {
     if (welcome.protocolVersion !== PROTOCOL_VERSION) {
-      this.setStatus('offline', 'version mismatch, reload page');
+      this.setStatus('offline', 'outdated client');
       this.socket.disconnect();
+      this.emit('outdated', undefined);
       return;
     }
     this.playerId = welcome.playerId;

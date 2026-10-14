@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { BUILD_INFO } from './common/build-info';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -33,6 +34,6 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3000);
   // 0.0.0.0 — слушаем все сетевые интерфейсы: телефон в той же Wi-Fi сети и контейнер Docker.
   await app.listen(port, '0.0.0.0');
-  Logger.log(`Server listening on http://localhost:${port}`, 'Bootstrap');
+  Logger.log(`Mecha v${BUILD_INFO.version} (${BUILD_INFO.commit}) listening on http://localhost:${port}`, 'Bootstrap');
 }
 bootstrap();

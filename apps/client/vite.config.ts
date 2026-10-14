@@ -1,6 +1,25 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 
+/**
+ * Хэш коммита, из которого собран клиент. В Docker папки .git нет — тогда берём из переменной окружения.
+ * Нет ни того, ни другого — 'dev'.
+ */
+function buildCommit(): string {
+  const fromEnv = process.env.GIT_COMMIT ?? process.env.RENDER_GIT_COMMIT;
+  if (fromEnv) return fromEnv.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 export default defineConfig({
+  // define подставляет значения прямо в код при сборке: в бандле будет строка, а не переменная.
+  define: {
+    __BUILD_COMMIT__: JSON.stringify(buildCommit()),
+  },
   server: {
     // Открыть dev-сервер в локальной сети — заходим с телефона по IP компьютера.
     host: true,

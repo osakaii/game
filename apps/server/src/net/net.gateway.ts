@@ -9,6 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { PROTOCOL_VERSION, SessionIdSchema, type PingPayload, type PongPayload } from '@mecha/shared';
+import { BUILD_INFO } from '../common/build-info';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import { GATEWAY_OPTIONS, playerRoom, type GameServer, type GameSocket } from '../common/socket-types';
 import { RoomEvents } from '../rooms/room-events';
@@ -61,6 +62,7 @@ export class NetGateway implements OnGatewayInit, OnGatewayConnection, OnGateway
       protocolVersion: PROTOCOL_VERSION,
       serverTime: Date.now(),
       roomCode: room?.code ?? null,
+      build: BUILD_INFO,
     });
 
     if (room) {

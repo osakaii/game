@@ -7,6 +7,8 @@ const DEFAULT_DISTANCE = 2.2;
 const MIN_DISTANCE = 0.9;
 const MAX_DISTANCE = 4;
 const WALL_PADDING = 0.15;
+/** Типичное расстояние, с которого ищущий осматривает комнату. */
+const PREVIEW_DISTANCE = 6.5;
 
 /**
  * Камера Мастерской: облёт вокруг своего персонажа.
@@ -17,6 +19,8 @@ export class StudioCamera {
   yaw = 0;
   pitch = 0.15;
   distance = DEFAULT_DISTANCE;
+  /** «Глазами ищущего»: камера далеко, как у ищущего, — видно, сливаешься ли с фоном. */
+  preview = false;
   private readonly pivot = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
   private readonly raycaster = new THREE.Raycaster();
@@ -48,7 +52,7 @@ export class StudioCamera {
     this.direction.set(Math.sin(this.yaw) * cosPitch, Math.sin(this.pitch), Math.cos(this.yaw) * cosPitch);
 
     // Прячешься в углу — камера не должна уйти в стену. Придвигаем её, как в обычной камере.
-    let distance = this.distance;
+    let distance = this.preview ? PREVIEW_DISTANCE : this.distance;
     this.raycaster.set(this.pivot, this.direction);
     this.raycaster.far = distance + WALL_PADDING;
     const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];

@@ -857,8 +857,29 @@ body.studio-open #seek-hint {
   font-size: 13px;
 }
 
-#studio-pick.active {
+.studio-tools {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.studio-tools button {
+  padding: 7px 9px;
+}
+
+.studio-tools button.active,
+#studio-symmetry.active,
+#studio-preview.active {
   background: #ff6b9a;
+}
+
+/* Предпросмотр «глазами ищущего»: убираем всё, кроме кнопок выхода из режима. */
+body.studio-preview .studio-bar > :not(#studio-preview):not(#studio-done),
+body.studio-preview .studio-hint,
+body.studio-preview #palette {
+  display: none;
 }
 
 /* ---------- Палитра ---------- */

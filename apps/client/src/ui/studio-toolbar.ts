@@ -1,4 +1,4 @@
-import type { PaintStudio } from '../paint/paint-studio';
+import type { PaintStudio, StudioTool } from '../paint/paint-studio';
 import type { SkinPainter } from '../paint/skin-painter';
 import { $ } from './dom';
 import { Palette } from './palette';
@@ -9,7 +9,9 @@ export class StudioToolbar {
   private readonly color = $<HTMLButtonElement>('#studio-color');
   private readonly palette: Palette;
   private readonly recent = $('#studio-recent');
-  private readonly pick = $<HTMLButtonElement>('#studio-pick');
+  private readonly toolButtons = [...document.querySelectorAll<HTMLButtonElement>('.studio-tools [data-tool]')];
+  private readonly symmetry = $<HTMLButtonElement>('#studio-symmetry');
+  private readonly preview = $<HTMLButtonElement>('#studio-preview');
   private readonly size = $<HTMLInputElement>('#studio-size');
   private readonly hardness = $<HTMLInputElement>('#studio-hardness');
   private readonly wetness = $<HTMLInputElement>('#studio-wetness');
@@ -32,7 +34,14 @@ export class StudioToolbar {
     // Влажность — свойство самой краски на коже: меняет, как течёт и сохнет вся мокрая краска.
     this.wetness.addEventListener('input', () => painter.setWetness(Number(this.wetness.value)));
     painter.setWetness(Number(this.wetness.value));
-    this.pick.addEventListener('click', () => studio.setTool(studio.tool === 'eyedropper' ? 'brush' : 'eyedropper'));
+    for (const button of this.toolButtons) {
+      button.addEventListener('click', () => studio.setTool(button.dataset.tool as StudioTool));
+    }
+    this.symmetry.addEventListener('click', () => studio.setSymmetry(!studio.symmetry));
+    this.preview.addEventListener('click', () => {
+      studio.setPreview(!studio.previewing);
+      this.palette.close();
+    });
     this.undo.addEventListener('click', () => studio.undo());
     this.redo.addEventListener('click', () => studio.redo());
     $('#studio-done').addEventListener('click', onDone);
@@ -48,14 +57,22 @@ export class StudioToolbar {
     const s = this.studio;
     this.root.hidden = !s.active;
     document.body.classList.toggle('studio-open', s.active);
-    if (!s.active) return;
+    if (!s.active) {
+      document.body.classList.remove('studio-preview');
+      return;
+    }
 
     this.color.style.background = s.colorHex;
     this.color.style.opacity = String(0.35 + 0.65 * s.opacity); // видно, что краска полупрозрачная
     this.color.classList.toggle('open', this.palette.isOpen);
     this.size.value = String(Math.round(s.radius * 100 * 2) / 2);
     this.hardness.value = String(s.hardness);
-    this.pick.classList.toggle('active', s.tool === 'eyedropper');
+    for (const button of this.toolButtons) button.classList.toggle('active', button.dataset.tool === s.tool);
+    this.symmetry.classList.toggle('active', s.symmetry);
+    this.symmetry.setAttribute('aria-pressed', String(s.symmetry));
+    this.preview.classList.toggle('active', s.previewing);
+    this.preview.textContent = s.previewing ? 'Вернуться к покраске' : 'Глазами ищущего';
+    document.body.classList.toggle('studio-preview', s.previewing);
     this.undo.disabled = !this.painter.canUndo;
     this.redo.disabled = !this.painter.canRedo;
 

@@ -49,8 +49,14 @@ export const BRUSH_WET_FRAGMENT = /* glsl */ `
   uniform float uHardness;
   uniform float uOpacity;
   uniform vec3 uColor;
+  uniform int uMode;            // 0 кисть, 1 спрей, 2 губка, 3 ластик
+  uniform float uSeed;          // для спрея: новые капли на каждый оттиск
+  uniform sampler2D uNoise;
+  uniform vec3 uBaseColors[6];  // основа кожи по частям тела — её кладёт ластик
   varying vec2 vUv;
   ${PAINT}
+
+  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
   void main() {
     vec4 wet = texture2D(uWet, vUv);
@@ -66,11 +72,24 @@ export const BRUSH_WET_FRAGMENT = /* glsl */ `
         coverage = max(coverage, falloff * facing);
       }
     }
+    vec3 paint = uColor;
+    if (uMode == 1) {
+      // Спрей: в круге — редкие случайные капли, каждый оттиск — новые. Слоями набирается плотность.
+      coverage *= step(hash(vUv * 512.0 + uSeed), 0.12) * 0.9;
+    } else if (uMode == 2) {
+      // Губка: пористая фактура, привязанная к поверхности тела (а не к экрану), — узор не «плывёт».
+      float pores = texture2D(uNoise, (body.xy + body.zz * 0.7) * 2.2).r;
+      coverage *= smoothstep(0.42, 0.58, pores);
+    } else if (uMode == 3) {
+      // Ластик: кладём цвет основы этой части тела (белый или форма ищущего).
+      int index = int(body.a + 0.5) - 1;
+      for (int i = 0; i < 6; i++) if (i == index) paint = uBaseColors[i];
+    }
     float added = coverage * uOpacity;
     if (added <= 0.0) { gl_FragColor = wet; return; }
     float amount = min(1.0, wet.a + added);
     // Доля нового цвета = сколько добавили / сколько стало.
-    vec3 color = wet.a > 0.001 ? mixPaint(wet.rgb, uColor, added / max(wet.a + added, 0.001)) : uColor;
+    vec3 color = wet.a > 0.001 ? mixPaint(wet.rgb, paint, added / max(wet.a + added, 0.001)) : paint;
     gl_FragColor = vec4(color, amount);
   }
 `;

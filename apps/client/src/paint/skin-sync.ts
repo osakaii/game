@@ -1,4 +1,5 @@
-import type { SkinImageEvent } from '@mecha/shared';
+import { skinBaseColor, type SkinBase, type SkinImageEvent } from '@mecha/shared';
+import { PART_ORDER } from '../skin/character-parts';
 import type { Lobby } from '../lobby/lobby';
 import type { Network } from '../net/network';
 import type { PlayerModel } from '../player/player-model';
@@ -63,6 +64,12 @@ export class SkinSync {
       this.model.setBase(skin.base);
       this.painter.resetFrom(this.model.skin.texture);
     }
+    this.applyEraserBase(skin.base);
+  }
+
+  /** Ластик кладёт цвет основы — она зависит от роли (белый у прячущихся, форма у ищущих). */
+  private applyEraserBase(base: SkinBase) {
+    this.painter.setBaseColors(PART_ORDER.map((part) => skinBaseColor(base, part)));
   }
 
   private markDirty() {

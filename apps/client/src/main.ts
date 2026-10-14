@@ -149,6 +149,8 @@ for (const button of soundButtons) {
   button.addEventListener('click', () => {
     sfx.setMuted(!sfx.muted);
     renderSoundButtons();
+// Шорох кисти в Мастерской.
+studio.on('stroke', ({ state, speed }) => sfx.brush(state, speed));
 
 const shadowsButton = $<HTMLButtonElement>('#shadows-toggle');
 const renderShadowsButton = () => (shadowsButton.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл');

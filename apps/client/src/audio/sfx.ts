@@ -68,6 +68,58 @@ export class Sfx {
     [392, 330, 262].forEach((f, i) => this.tone(f, 0.35, { type: 'sawtooth', delay: i * 0.18, volume: 0.12 }));
   }
 
+  /**
+   * Шорох кисти: зацикленный шум через полосовой фильтр. Чем быстрее мазок — тем громче и «выше»,
+   * как у настоящей кисти по бумаге. Пока палец стоит — тишина.
+   */
+  brush(state: 'start' | 'move' | 'end', speed = 0): void {
+    const ctx = this.ready();
+    if (state === 'start') {
+      if (!ctx || this.brushSource) return;
+      const source = ctx.createBufferSource();
+      source.buffer = this.ensureNoise(ctx);
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1200;
+      filter.Q.value = 0.8;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      source.connect(filter).connect(gain).connect(this.master!);
+      source.start();
+      this.brushSource = source;
+      this.brushFilter = filter;
+      this.brushGain = gain;
+      return;
+    }
+    if (!ctx || !this.brushGain || !this.brushFilter || !this.brushSource) return;
+    const now = ctx.currentTime;
+    if (state === 'move') {
+      // setTargetAtTime — плавно подтянуть громкость, без щелчков на каждом событии пальца.
+      this.brushGain.gain.setTargetAtTime(Math.min(0.22, speed * 0.5), now, 0.03);
+      this.brushFilter.frequency.setTargetAtTime(900 + Math.min(speed, 1.5) * 2500, now, 0.05);
+      return;
+    }
+    this.brushGain.gain.setTargetAtTime(0, now, 0.05);
+    this.brushSource.stop(now + 0.3);
+    this.brushSource = null;
+    this.brushGain = null;
+    this.brushFilter = null;
+  }
+
+  private brushSource: AudioBufferSourceNode | null = null;
+  private brushGain: GainNode | null = null;
+  private brushFilter: BiquadFilterNode | null = null;
+
+  private ensureNoise(ctx: AudioContext): AudioBuffer {
+    if (!this.noiseBuffer) {
+      this.noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return this.noiseBuffer;
+  }
+
   private unlock() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
@@ -95,13 +147,8 @@ export class Sfx {
     const ctx = this.ready();
     if (!ctx) return;
     // Буфер белого шума создаём один раз и переиспользуем.
-    if (!this.noiseBuffer) {
-      this.noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
-      const data = this.noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    }
     const source = ctx.createBufferSource();
-    source.buffer = this.noiseBuffer;
+    source.buffer = this.ensureNoise(ctx);
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass'; // срезаем высокие частоты: из «шипения» получается «шлепок»
     filter.frequency.value = lowpassHz;

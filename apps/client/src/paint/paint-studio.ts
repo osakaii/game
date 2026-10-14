@@ -5,10 +5,19 @@ import type { PlayerModel } from '../player/player-model';
 import { PART_ORDER } from '../skin/character-parts';
 import type { WorldGeometry } from '../world/active-map';
 import { STAMP_SPACING, interpolateStamps, type Point3 } from './brush-stamps';
-import type { SkinPainter, Stamp } from './skin-painter';
+import type { BrushMode, SkinPainter, Stamp } from './skin-painter';
 import { StudioCamera } from './studio-camera';
 
-export type StudioTool = 'brush' | 'eyedropper';
+export type StudioTool = BrushMode | 'eyedropper';
+
+/** Событие мазка — для звука кисти и вибрации. speed — скорость пальца по телу, м/с. */
+export interface StrokeEvent {
+  state: 'start' | 'move' | 'end';
+  speed: number;
+}
+
+/** Номера частей (PART_ORDER + 1), которые меняются местами при зеркалировании: руки и ноги. */
+const MIRROR_PART: Record<number, number> = { 1: 1, 2: 2, 3: 4, 4: 3, 5: 6, 6: 5 };
 
 /** Второй палец пришёл так быстро после первого — значит, это был жест, а не начало мазка. */
 const GESTURE_GRACE_MS = 250;
@@ -51,7 +60,7 @@ interface StudioDeps {
  *   2 пальца             — облёт + щипок для зума;
  *   мышь: левая на теле — кисть, левая мимо / правая — облёт, колесо — зум.
  */
-export class PaintStudio extends Emitter<{ change: void; edited: void }> {
+export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: StrokeEvent }> {
   active = false;
   tool: StudioTool = 'brush';
   readonly color = new THREE.Color('#e63946');
@@ -64,6 +73,13 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   recent: string[] = [];
   /** Цвет фона, взятый пипеткой с предмета, — палитра сравнивает с ним цвет кисти. */
   reference: string | null = null;
+  /** Симметрия: мазок повторяется зеркально (левая рука ↔ правая, половинки головы и торса). */
+  symmetry = false;
+  /** «Глазами ищущего»: камера отъезжает на типичное расстояние поиска, красить нельзя. */
+  previewing = false;
+  /** Последний инструмент рисования — к нему возвращаемся после пипетки. */
+  private lastPaintTool: BrushMode = 'brush';
+  private lastStrokeTime = 0;
 
   private readonly studioCamera: StudioCamera;
   private readonly raycaster = new THREE.Raycaster();
@@ -98,7 +114,8 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
 
   open(facing: number): void {
     this.active = true;
-    this.tool = 'brush';
+    this.tool = this.lastPaintTool;
+    this.previewing = false;
     this.studioCamera.frameFront(facing);
     this.deps.model.setStudioPose(true);
     this.emit('change', undefined);
@@ -108,6 +125,8 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
     if (!this.active) return;
     this.endStroke();
     this.active = false;
+    this.previewing = false;
+    this.studioCamera.preview = false;
     this.pointers.clear();
     this.cursor.visible = false;
     this.deps.model.setStudioPose(false);
@@ -133,6 +152,21 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
 
   setTool(tool: StudioTool): void {
     this.tool = tool;
+    if (tool !== 'eyedropper') this.lastPaintTool = tool;
+    navigator.vibrate?.(6);
+    this.emit('change', undefined);
+  }
+
+  setSymmetry(enabled: boolean): void {
+    this.symmetry = enabled;
+    this.emit('change', undefined);
+  }
+
+  setPreview(enabled: boolean): void {
+    this.endStroke();
+    this.previewing = enabled;
+    this.studioCamera.preview = enabled;
+    this.cursor.visible = false;
     this.emit('change', undefined);
   }
 
@@ -174,6 +208,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
     }
     if (this.pointers.size > 2) return;
 
+    if (this.previewing) return; // в предпросмотре — только облёт
     if (this.tool === 'eyedropper' && e.button === 0) {
       this.pickColor(e.clientX, e.clientY);
       return;
@@ -190,7 +225,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
 
     if (!previous) {
       // Мышь без нажатия — просто показываем курсор кисти.
-      if (e.pointerType === 'mouse') this.showCursor(this.raycastBody(e.clientX, e.clientY));
+      if (e.pointerType === 'mouse' && !this.previewing) this.showCursor(this.raycastBody(e.clientX, e.clientY));
       return;
     }
 
@@ -234,6 +269,9 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
     this.stroke = { pointerId, part: hit.part, last: hit.local.clone(), carried: 0, startedAt: performance.now() };
     this.paint([{ center: hit.local.clone(), normal: hit.localNormal.clone() }], hit.part);
     this.showCursor(hit);
+    this.lastStrokeTime = performance.now();
+    navigator.vibrate?.(8); // короткий «тык» — палец почувствовал касание кисти
+    this.emit('stroke', { state: 'start', speed: 0 });
     this.emit('change', undefined);
   }
 
@@ -250,6 +288,12 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
       this.paint([{ center: hit.local.clone(), normal: hit.localNormal.clone() }], hit.part);
       return;
     }
+    const now = performance.now();
+    const moved = Math.hypot(hit.local.x - stroke.last.x, hit.local.y - stroke.last.y, hit.local.z - stroke.last.z);
+    const elapsed = Math.max(1, now - this.lastStrokeTime) / 1000;
+    this.lastStrokeTime = now;
+    this.emit('stroke', { state: 'move', speed: moved / elapsed });
+
     const { points, carried } = interpolateStamps(stroke.last, hit.local, this.radius * STAMP_SPACING, stroke.carried);
     stroke.carried = carried;
     stroke.last = hit.local.clone();
@@ -259,19 +303,27 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   private endStroke() {
     if (!this.stroke) return;
     this.stroke = null;
+    this.emit('stroke', { state: 'end', speed: 0 });
     this.remember(this.colorHex);
     this.emit('change', undefined);
     this.emit('edited', undefined); // кожа изменилась — пора (с задержкой) отправить её другим
   }
 
   private paint(stamps: Stamp[], part: number) {
-    this.deps.painter.stamp(stamps, {
-      part,
-      radius: this.radius,
-      hardness: this.hardness,
-      opacity: this.opacity,
-      color: this.color,
-    });
+    const mode = this.tool === 'eyedropper' ? 'brush' : this.tool;
+    // Спрей и губка кладут краску «частично» — им нужен мягкий край на весь радиус.
+    const hardness = mode === 'spray' || mode === 'sponge' ? 0 : this.hardness;
+    const brush = { radius: this.radius, hardness, opacity: this.opacity, color: this.color, mode };
+    this.deps.painter.stamp(stamps, { ...brush, part });
+    if (this.symmetry) {
+      // Зеркало по X в системе части тела: у левой и правой руки системы координат одинаковые,
+      // поэтому точка (x, y, z) левой руки соответствует (-x, y, z) правой.
+      const mirrored = stamps.map((s) => ({
+        center: { x: -s.center.x, y: s.center.y, z: s.center.z },
+        normal: { x: -s.normal.x, y: s.normal.y, z: s.normal.z },
+      }));
+      this.deps.painter.stamp(mirrored, { ...brush, part: MIRROR_PART[part] });
+    }
   }
 
   // ---------- Пипетка ----------
@@ -286,7 +338,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
       this.setColor(picked);
       this.remember(picked);
     }
-    this.setTool('brush');
+    this.setTool(this.lastPaintTool);
   }
 
   private remember(hex: string) {
@@ -324,7 +376,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   }
 
   private showCursor(hit: BodyHit | null) {
-    if (!hit || this.tool !== 'brush') {
+    if (!hit || this.tool === 'eyedropper' || this.previewing) {
       this.cursor.visible = false;
       return;
     }

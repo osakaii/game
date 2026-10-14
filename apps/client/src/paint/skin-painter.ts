@@ -29,12 +29,17 @@ export interface Stamp {
   normal: Point3;
 }
 
+/** Режим кисти — номер совпадает с uMode в шейдере. */
+export const BRUSH_MODES = { brush: 0, spray: 1, sponge: 2, eraser: 3 } as const;
+export type BrushMode = keyof typeof BRUSH_MODES;
+
 export interface BrushParams {
   part: number;
   radius: number;
   hardness: number;
   opacity: number;
   color: THREE.Color;
+  mode?: BrushMode;
 }
 
 /**
@@ -112,6 +117,10 @@ export class SkinPainter {
           uHardness: { value: 0.5 },
           uOpacity: { value: 1 },
           uColor: { value: new THREE.Color() },
+          uMode: { value: 0 },
+          uSeed: { value: 0 },
+          uNoise: { value: noise },
+          uBaseColors: { value: Array.from({ length: 6 }, () => new THREE.Color('#f2f2f2')) },
         },
         THREE.NoBlending,
       ),
@@ -147,6 +156,12 @@ export class SkinPainter {
   /** Текстура для модели. */
   get texture(): THREE.Texture {
     return this.view.texture;
+  }
+
+  /** Цвета основы по частям тела (порядок PART_ORDER) — их кладёт ластик. */
+  setBaseColors(colors: readonly string[]): void {
+    const target = this.materials.brush.uniforms.uBaseColors.value as THREE.Color[];
+    colors.forEach((hex, i) => target[i]?.set(hex));
   }
 
   /** 0 — краска сохнет мгновенно, 1 — долго течёт и даёт подтёки. */
@@ -192,6 +207,7 @@ export class SkinPainter {
     u.uHardness.value = brush.hardness;
     u.uOpacity.value = brush.opacity;
     (u.uColor.value as THREE.Color).copy(brush.color);
+    u.uMode.value = BRUSH_MODES[brush.mode ?? 'brush'];
     for (let start = 0; start < stamps.length; start += MAX_STAMPS) {
       const batch = stamps.slice(start, start + MAX_STAMPS);
       batch.forEach((s, i) => {
@@ -199,6 +215,7 @@ export class SkinPainter {
         (u.uStampNormals.value[i] as THREE.Vector3).set(s.normal.x, s.normal.y, s.normal.z);
       });
       u.uCount.value = batch.length;
+      u.uSeed.value = Math.random() * 1000;
       u.uWet.value = this.wetRead.texture;
       this.renderPass('brush', this.wetWrite, true);
       this.swapWet();

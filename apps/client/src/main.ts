@@ -20,6 +20,7 @@ import { Eyedropper } from './painting/eyedropper';
 import { Painter } from './painting/painter';
 import { LocalPlayer } from './player/local-player';
 import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
+import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
@@ -33,15 +34,16 @@ import { toast } from './ui/toast';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { Splats } from './world/splats';
-import { createSceneContext } from './world/scene-setup';
+import { applyShadows, createSceneContext } from './world/scene-setup';
 
 // ---------- 3D-мир ----------
 
 const canvas = $<HTMLCanvasElement>('#scene');
-const { renderer, scene, camera } = createSceneContext(canvas);
+const sceneContext = createSceneContext(canvas);
+const { renderer, scene, camera, sun } = sceneContext;
 
 // Карта по умолчанию, пока не вошли в комнату. Потом — та, что выбрал хост.
-const activeMap = new ActiveMap(scene);
+const activeMap = new ActiveMap(scene, sun);
 activeMap.load(PLAYROOM);
 
 const player = new LocalPlayer(PLAYROOM.spawns[0], activeMap);
@@ -93,7 +95,7 @@ const paintPanel = new PaintPanel(painter);
 // ---------- Поиск ----------
 
 const seekerControls = new SeekerControls(camera, canvas, network, lobby);
-const splats = new Splats(scene);
+const splats = new Splats(scene, activeMap);
 controls.onTap = (x, y) => void seekerControls.tap(x, y);
 
 // ---------- Звук и устройство ----------
@@ -112,9 +114,27 @@ for (const button of soundButtons) {
   button.addEventListener('click', () => {
     sfx.setMuted(!sfx.muted);
     renderSoundButtons();
+
+const shadowsButton = $<HTMLButtonElement>('#shadows-toggle');
+const renderShadowsButton = () => (shadowsButton.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл');
+shadowsButton.addEventListener('click', () => {
+  setShadowsEnabled(!graphics.shadows);
+  applyShadows(sceneContext, graphics.shadows);
+  renderShadowsButton();
+});
+renderShadowsButton();
   });
 }
 renderSoundButtons();
+
+const shadowsButton = $<HTMLButtonElement>('#shadows-toggle');
+const renderShadowsButton = () => (shadowsButton.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл');
+shadowsButton.addEventListener('click', () => {
+  setShadowsEnabled(!graphics.shadows);
+  applyShadows(sceneContext, graphics.shadows);
+  renderShadowsButton();
+});
+renderShadowsButton();
 
 network.on('shot', (shot) => {
   gameSounds.onShot(shot, player.state.position);
@@ -157,7 +177,7 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 // Единая точка реакции на «вошли/вышли/изменилась комната».
 lobby.on('room', (room) => {
   // Хост сменил карту — перестраиваем мир. Новую позицию на ней пришлёт сервер (player:teleport).
-  if (room) activeMap.load(MAPS[room.settings.mapId]);
+  if (room && activeMap.load(MAPS[room.settings.mapId])) splats.clear();
   roomPanel.render(room, network.playerId);
   settingsDialog.render(room, lobby.isHost);
   phaseHud.renderScores(room, network.playerId);
@@ -196,6 +216,15 @@ updateControlsEnabled();
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
 const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false };
 
+// Экран загрузки висит, пока не нарисован первый кадр: бандл скачан, сцена собрана.
+let firstFrame = true;
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  splash.classList.add('hidden');
+  splash.addEventListener('transitionend', () => splash.remove(), { once: true });
+}
+
 startFixedStepLoop(PHYSICS_DT, {
   fixedUpdate(dt) {
     // Ось джойстика (вправо/вперёд) переводим в мир относительно направления камеры.
@@ -216,6 +245,10 @@ startFixedStepLoop(PHYSICS_DT, {
     remotePlayers.render(network.clock.now(), frameDt);
     followCamera.update(player.renderPosition, frameDt, player.state.crouching);
     renderer.render(scene, camera);
+    if (firstFrame) {
+      firstFrame = false;
+      hideSplash();
+    }
     hud.tick(frameDt);
     const serverNow = network.clock.now();
     phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found && lobby.myRole === 'hider');
@@ -228,5 +261,5 @@ startFixedStepLoop(PHYSICS_DT, {
 // Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
 // В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
 if (import.meta.env.DEV) {
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter, seekerControls, controls } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter, seekerControls, controls, sceneContext, splats, followCamera } });
 }

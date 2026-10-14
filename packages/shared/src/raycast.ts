@@ -54,3 +54,38 @@ export function playerHitbox(position: Vec3, crouching = false, inflate = 0.08):
     maxZ: position.z + r,
   };
 }
+
+/**
+ * Нормаль поверхности в точке попадания: на какой грани какого блока лежит точка.
+ * Нужна, чтобы положить пятно краски «плашмя» на стену, а не воткнуть его поперёк.
+ */
+export function surfaceNormalAt(point: Vec3, colliders: readonly Aabb[], eps = 0.02): Vec3 {
+  let best: Vec3 = { x: 0, y: 1, z: 0 }; // по умолчанию — пол
+  let bestDistance = Math.abs(point.y);
+
+  for (const b of colliders) {
+    // Точка должна лежать на поверхности блока (внутри него с небольшим допуском).
+    if (
+      point.x < b.minX - eps || point.x > b.maxX + eps ||
+      point.y < b.minY - eps || point.y > b.maxY + eps ||
+      point.z < b.minZ - eps || point.z > b.maxZ + eps
+    ) {
+      continue;
+    }
+    const faces: [number, Vec3][] = [
+      [Math.abs(point.x - b.minX), { x: -1, y: 0, z: 0 }],
+      [Math.abs(point.x - b.maxX), { x: 1, y: 0, z: 0 }],
+      [Math.abs(point.y - b.minY), { x: 0, y: -1, z: 0 }],
+      [Math.abs(point.y - b.maxY), { x: 0, y: 1, z: 0 }],
+      [Math.abs(point.z - b.minZ), { x: 0, y: 0, z: -1 }],
+      [Math.abs(point.z - b.maxZ), { x: 0, y: 0, z: 1 }],
+    ];
+    for (const [distance, normal] of faces) {
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = normal;
+      }
+    }
+  }
+  return best;
+}

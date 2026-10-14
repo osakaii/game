@@ -1,45 +1,62 @@
 import * as THREE from 'three';
 import { BODY_ZONES, DEFAULT_BODY_COLOR, PLAYER, type BodyColors, type BodyZone } from '@mecha/shared';
+import { graphics } from '../platform/graphics';
 
-const CROUCH_SCALE = PLAYER.crouchHeight / PLAYER.height;
+const HIP_Y = 0.6;
+const LEG_LENGTH = 0.6;
+/** Угол ног в приседе (рад): почти горизонтально вперёд, как сидя на корточках. */
+const CROUCH_LEG_ANGLE = -1.1;
+/** Бёдра в приседе — ровно на высоте, при которой согнутые ноги касаются пола. */
+const CROUCH_HIP_Y = LEG_LENGTH * Math.cos(CROUCH_LEG_ANGLE);
+/** Верх тела (от бедра до макушки = 1 м) сжимаем так, чтобы макушка была на PLAYER.crouchHeight. */
+const UPPER_HEIGHT = PLAYER.height - HIP_Y;
+const CROUCH_UPPER_SCALE = (PLAYER.crouchHeight - CROUCH_HIP_Y) / UPPER_HEIGHT;
 const CROUCH_SPEED = 10; // как быстро модель приседает/встаёт (1/с)
 
 /**
  * Визуальная модель персонажа из примитивов. Логики и физики здесь нет — только меши и анимация.
  *
- * Конечности висят на «шарнирах» (pivot-группах): pivot стоит в плече/бедре,
- * меш смещён вниз. Вращаем pivot — конечность качается вокруг сустава, а не вокруг своего центра.
+ * Иерархия:
+ *   root ── body ─┬─ legLeft/legRight (шарнир в бедре)
+ *          │      └─ upper (бедро) ─┬─ torso, head
+ *          │                        └─ armLeft/armRight (шарнир в плече)
+ *          └─ shadow (круглая тень, когда настоящие выключены)
+ *
+ * Конечности висят на «шарнирах» (pivot-группах): вращаем pivot — конечность качается вокруг сустава.
+ * Верх тела — тоже группа с опорой в бедре: в приседе её опускаем и сжимаем относительно бедра.
  */
 export class PlayerModel {
   readonly root = new THREE.Group();
-  /** Всё тело, кроме тени. Присед — сжатие этой группы по высоте: стилизованно, зато точно совпадает с хитбоксом. */
-  private readonly body = new THREE.Group();
-  private crouchAmount = 0;
   readonly zones = {} as Record<BodyZone, THREE.Mesh>;
 
+  private readonly body = new THREE.Group();
+  private readonly upper = new THREE.Group();
   private readonly legLeft = new THREE.Group();
   private readonly legRight = new THREE.Group();
   private readonly armLeft = new THREE.Group();
   private readonly armRight = new THREE.Group();
   private readonly shadow: THREE.Mesh;
   private walkPhase = 0;
+  private crouchAmount = 0;
+  private ghost = false;
 
   constructor() {
     const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 
     // Пропорции: ноги 0–0.6, торс 0.6–1.16, голова 1.18–1.6 (рост = PLAYER.height).
-    this.addLimb('legLeft', this.legLeft, box(0.22, 0.6, 0.24), -0.13, 0.6);
-    this.addLimb('legRight', this.legRight, box(0.22, 0.6, 0.24), 0.13, 0.6);
-    this.addLimb('armLeft', this.armLeft, box(0.18, 0.5, 0.2), -0.38, 1.12);
-    this.addLimb('armRight', this.armRight, box(0.18, 0.5, 0.2), 0.38, 1.12);
+    // Внутри upper координаты отсчитываются от бедра (y = 0 — это 0.6 м над землёй).
+    this.upper.position.y = HIP_Y;
+    this.addLimb('legLeft', this.legLeft, box(0.22, LEG_LENGTH, 0.24), -0.13, HIP_Y, this.body);
+    this.addLimb('legRight', this.legRight, box(0.22, LEG_LENGTH, 0.24), 0.13, HIP_Y, this.body);
+    this.addLimb('armLeft', this.armLeft, box(0.18, 0.5, 0.2), -0.38, 1.12 - HIP_Y, this.upper);
+    this.addLimb('armRight', this.armRight, box(0.18, 0.5, 0.2), 0.38, 1.12 - HIP_Y, this.upper);
 
     const torso = this.createZone('torso', box(0.56, 0.56, 0.32));
-    torso.position.y = 0.88;
-    this.body.add(torso);
-
+    torso.position.y = 0.88 - HIP_Y;
     const head = this.createZone('head', box(0.42, 0.42, 0.42));
-    head.position.y = 1.39;
-    this.body.add(head);
+    head.position.y = 1.39 - HIP_Y;
+    this.upper.add(torso, head);
+    this.body.add(this.upper);
 
     // Глаза показывают, куда смотрит персонаж (+Z — «вперёд» модели). Они не красятся.
     const eyeMaterial = new THREE.MeshBasicMaterial({ color: '#1b1f2a' });
@@ -48,6 +65,11 @@ export class PlayerModel {
       eye.position.set(x, 0.03, 0.215);
       head.add(eye);
     }
+
+    // Все части тела отбрасывают настоящую тень (если тени включены).
+    this.body.traverse((object) => {
+      if (object instanceof THREE.Mesh) object.castShadow = true;
+    });
 
     // Круглая «тень» — дешёвая замена настоящим теням, помогает понять высоту прыжка.
     this.shadow = new THREE.Mesh(
@@ -66,13 +88,20 @@ export class PlayerModel {
     for (const zone of BODY_ZONES) this.setZoneColor(zone, colors[zone]);
   }
 
+  /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
+  colorOf(zone: BodyZone): string {
+    return `#${this.material(zone).color.getHexString()}`;
+  }
+
   /**
    * Призрак — найденный прячущийся: полупрозрачный, наблюдает за раундом.
    * Смена transparent требует needsUpdate: three.js пересоберёт шейдер материала.
    */
   setGhost(ghost: boolean): void {
-    this.root.traverse((object) => {
-      if (!(object instanceof THREE.Mesh) || object === this.shadow) return;
+    this.ghost = ghost;
+    this.body.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.castShadow = !ghost; // у призрака нет тени
       const material = object.material as THREE.Material;
       if (material.transparent === ghost) return;
       material.transparent = ghost;
@@ -80,31 +109,26 @@ export class PlayerModel {
       material.depthWrite = !ghost;
       material.needsUpdate = true;
     });
-    this.shadow.visible = !ghost;
   }
 
-  /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
-  colorOf(zone: BodyZone): string {
-    return `#${this.material(zone).color.getHexString()}`;
-  }
-
-  private material(zone: BodyZone): THREE.MeshLambertMaterial {
-    return this.zones[zone].material as THREE.MeshLambertMaterial;
-  }
-
-  /** Тень лежит на опоре под персонажем, а не у ног (в прыжке она остаётся внизу). */
+  /** Круглая тень лежит на опоре под персонажем (в прыжке остаётся внизу). Видна, только если настоящие тени выключены. */
   setShadowGround(groundY: number): void {
+    this.shadow.visible = !graphics.shadows && !this.ghost;
     this.shadow.position.y = groundY - this.root.position.y + 0.01;
   }
 
-  /** speed01 — горизонтальная скорость 0..1 от максимальной. */
-  /** Плавный переход в присед и обратно. Вызывается каждый кадр. */
+  /** Плавный переход в присед и обратно. Вызывается каждый кадр, до animate. */
   setCrouch(crouching: boolean, dt: number): void {
     const target = crouching ? 1 : 0;
     this.crouchAmount += (target - this.crouchAmount) * (1 - Math.exp(-CROUCH_SPEED * dt));
-    this.body.scale.y = 1 + (CROUCH_SCALE - 1) * this.crouchAmount;
+    const a = this.crouchAmount;
+    const hipY = HIP_Y + (CROUCH_HIP_Y - HIP_Y) * a;
+    this.legLeft.position.y = this.legRight.position.y = hipY;
+    this.upper.position.y = hipY;
+    this.upper.scale.y = 1 + (CROUCH_UPPER_SCALE - 1) * a;
   }
 
+  /** speed01 — горизонтальная скорость 0..1 от максимальной. */
   animate(dt: number, speed01: number, grounded: boolean): void {
     if (!grounded) {
       // В прыжке поджимаем ноги и поднимаем руки.
@@ -112,12 +136,19 @@ export class PlayerModel {
       this.armLeft.rotation.x = this.armRight.rotation.x = -2.4;
       return;
     }
+    // В приседе шагаем мельче, ноги качаются вокруг согнутого положения.
+    const a = this.crouchAmount;
     this.walkPhase += dt * (4 + 8 * speed01);
-    const swing = Math.sin(this.walkPhase) * 0.7 * speed01;
-    this.legLeft.rotation.x = swing;
-    this.legRight.rotation.x = -swing;
-    this.armLeft.rotation.x = -swing;
-    this.armRight.rotation.x = swing;
+    const swing = Math.sin(this.walkPhase) * 0.7 * speed01 * (1 - 0.6 * a);
+    const legBase = CROUCH_LEG_ANGLE * a;
+    this.legLeft.rotation.x = legBase + swing;
+    this.legRight.rotation.x = legBase - swing;
+    this.armLeft.rotation.x = -swing - 0.4 * a; // в приседе руки чуть вперёд
+    this.armRight.rotation.x = swing - 0.4 * a;
+  }
+
+  private material(zone: BodyZone): THREE.MeshLambertMaterial {
+    return this.zones[zone].material as THREE.MeshLambertMaterial;
   }
 
   private createZone(zone: BodyZone, geometry: THREE.BufferGeometry): THREE.Mesh {
@@ -128,12 +159,18 @@ export class PlayerModel {
     return mesh;
   }
 
-  private addLimb(zone: BodyZone, pivot: THREE.Group, geometry: THREE.BoxGeometry, x: number, jointY: number) {
+  private addLimb(
+    zone: BodyZone,
+    pivot: THREE.Group,
+    geometry: THREE.BoxGeometry,
+    x: number,
+    jointY: number,
+    parent: THREE.Object3D,
+  ) {
     const mesh = this.createZone(zone, geometry);
-    const length = geometry.parameters.height;
-    mesh.position.y = -length / 2;
+    mesh.position.y = -geometry.parameters.height / 2;
     pivot.position.set(x, jointY, 0);
     pivot.add(mesh);
-    this.body.add(pivot);
+    parent.add(pivot);
   }
 }

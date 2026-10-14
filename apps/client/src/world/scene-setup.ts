@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { graphics } from '../platform/graphics';
 
 /** Вертикальный FOV в альбомной ориентации, в градусах. */
 const BASE_FOV = 65;
@@ -19,6 +20,7 @@ export interface SceneContext {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  sun: THREE.DirectionalLight;
 }
 
 export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
@@ -30,17 +32,26 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
     powerPreference: 'high-performance',
   });
   renderer.setPixelRatio(dpr);
+  // Тени: сцена рисуется ещё раз «глазами солнца» в текстуру глубины (shadow map).
+  // PCF — сглаживание краёв тени, дешевле PCFSoft. Включение — по настройке игрока.
+  renderer.shadowMap.enabled = graphics.shadows;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
   // Цвет неба задаёт карта (ActiveMap.load).
 
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 120);
 
-  // Без теней в реальном времени: на мобилке это самая дорогая часть рендера.
-  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7a66', 1.6));
-  const sun = new THREE.DirectionalLight('#ffffff', 1.4);
-  sun.position.set(6, 10, 4);
-  scene.add(sun);
+  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7a66', 1.4));
+  const sun = new THREE.DirectionalLight('#ffffff', 1.6);
+  sun.position.set(8, 14, 6);
+  sun.castShadow = graphics.shadows;
+  // 1024² — компромисс для телефонов: чётко на 30-метровой карте, без лишней видеопамяти.
+  sun.shadow.mapSize.set(1024, 1024);
+  // bias/normalBias убирают «полосатость» (shadow acne) — поверхность не затеняет саму себя.
+  sun.shadow.bias = -0.0005;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
 
   function resize() {
     const { clientWidth: w, clientHeight: h } = canvas;
@@ -52,5 +63,17 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   window.addEventListener('resize', resize);
   resize();
 
-  return { renderer, scene, camera };
+  return { renderer, scene, camera, sun };
+}
+
+/**
+ * Включить/выключить тени на лету. Шейдеры материалов с тенями и без — разные,
+ * поэтому всем материалам ставим needsUpdate: three.js пересоберёт их на следующем кадре.
+ */
+export function applyShadows({ renderer, scene, sun }: SceneContext, enabled: boolean): void {
+  renderer.shadowMap.enabled = enabled;
+  sun.castShadow = enabled;
+  scene.traverse((object) => {
+    if (object instanceof THREE.Mesh) (object.material as THREE.Material).needsUpdate = true;
+  });
 }

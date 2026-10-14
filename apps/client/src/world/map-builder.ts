@@ -15,6 +15,7 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
     new THREE.MeshLambertMaterial({ color: map.floorColor }),
   );
   floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
   group.add(floor);
   obstacles.push(floor);
 
@@ -38,6 +39,8 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
     const mesh = new THREE.Mesh(unitBox, materialFor(box.color));
     mesh.position.set(box.x, box.y ?? 0, box.z);
     mesh.scale.set(box.w, box.h, box.d);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     group.add(mesh);
     obstacles.push(mesh);
   }

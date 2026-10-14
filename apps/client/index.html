@@ -16,8 +16,52 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Mecha</title>
+    <!--
+      Стили экрана загрузки — прямо в HTML. Основной CSS приходит вместе с JS-бандлом,
+      а этот экран должен появиться мгновенно, пока бандл ещё качается.
+    -->
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        background: #1b1f2a;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        transition: opacity 0.4s;
+      }
+      #splash.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .logo {
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-align: center;
+      }
+      #splash .dots {
+        margin-top: 12px;
+        text-align: center;
+        color: rgb(255 255 255 / 0.6);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.3;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Загрузка">
+      <div>
+        <div class="logo">MECHA</div>
+        <div class="dots">загружаем краски…</div>
+      </div>
+    </div>
     <canvas id="scene"></canvas>
     <div id="hud">
       <span id="status" data-state="connecting">connecting…</span>
@@ -147,6 +191,7 @@
         <div class="menu-footer">
           <button type="button" id="fullscreen" hidden>На весь экран</button>
           <button type="button" id="sound-toggle">Звук: вкл</button>
+          <button type="button" id="shadows-toggle">Тени: вкл</button>
         </div>
       </form>
     </div>

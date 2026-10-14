@@ -19,7 +19,10 @@ export class ActiveMap implements WorldGeometry {
   private def: MapDef | null = null;
   private group: THREE.Group | null = null;
 
-  constructor(private readonly scene: THREE.Scene) {}
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly sun: THREE.DirectionalLight,
+  ) {}
 
   get current(): MapDef | null {
     return this.def;
@@ -37,7 +40,24 @@ export class ActiveMap implements WorldGeometry {
     this.colliders = buildColliders(def);
     this.def = def;
     this.scene.background = new THREE.Color(def.skyColor ?? '#9ad1ff');
+    this.fitShadowCamera(def);
     return true;
+  }
+
+  /**
+   * Тень солнца считается в ортографической «коробке». Она должна покрывать всю карту:
+   * больше — тени размытые (те же 1024² пикселей на большую площадь), меньше — у краёв теней нет.
+   */
+  private fitShadowCamera(def: MapDef) {
+    const half = Math.max(def.width, def.depth) / 2 + 2;
+    const camera = this.sun.shadow.camera;
+    camera.left = -half;
+    camera.right = half;
+    camera.top = half;
+    camera.bottom = -half;
+    camera.near = 1;
+    camera.far = 60;
+    camera.updateProjectionMatrix();
   }
 
   /**

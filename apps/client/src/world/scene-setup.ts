@@ -70,6 +70,13 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
  * Включить/выключить тени на лету. Шейдеры материалов с тенями и без — разные,
  * поэтому всем материалам ставим needsUpdate: three.js пересоберёт их на следующем кадре.
  */
+/** Рендер в меньшем разрешении (1× вместо 2×) — вчетверо меньше пикселей на кадр. */
+export function setRenderScale(context: SceneContext, pixelRatio: number): void {
+  context.renderer.setPixelRatio(pixelRatio);
+  const canvas = context.renderer.domElement;
+  context.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+}
+
 export function applyShadows({ renderer, scene, sun }: SceneContext, enabled: boolean): void {
   renderer.shadowMap.enabled = enabled;
   sun.castShadow = enabled;

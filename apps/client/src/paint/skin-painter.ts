@@ -18,11 +18,12 @@ import {
 export const MAX_STAMPS_PER_PASS = MAX_STAMPS;
 const UNDO_LIMIT = 15;
 /** Симуляция течения идёт фиксированными шагами — одинаково при любом FPS. */
-const SIM_STEP = 1 / 30;
+const SIM_STEP_HIGH = 1 / 30;
+const SIM_STEP_LOW = 1 / 20;
 /** Не больше шагов за кадр: после подвисания не пытаемся догнать секунды симуляции разом. */
 const MAX_STEPS_PER_FRAME = 4;
 /** Проходов течения за шаг: каждый двигает краску не дальше чем на тексель — нужно несколько. */
-const FLOW_ITERATIONS = 2;
+const FLOW_ITERATIONS_HIGH = 2;
 
 export interface Stamp {
   center: Point3;
@@ -68,10 +69,16 @@ export class SkinPainter {
   /** До какого момента (performance.now) на коже может оставаться мокрая краска. */
   private wetUntil = 0;
   private wetness = 0.6;
+  /** Качество симуляции: слабые телефоны — реже и с одним проходом течения (краска растекается чуть меньше). */
+  private simStep = SIM_STEP_HIGH;
+  private flowIterations = FLOW_ITERATIONS_HIGH;
   /** Тип мокрого слоя: half-float, если видеокарта умеет в него рисовать, иначе 8 бит с подмешиванием шума. */
   readonly precision: 'half-float' | '8-bit';
 
-  constructor(private readonly renderer: THREE.WebGLRenderer) {
+  constructor(
+    private readonly renderer: THREE.WebGLRenderer,
+    options: { forceEightBit?: boolean } = {},
+  ) {
     const atlas = getSkinAtlas();
     this.size = atlas.size;
     this.dry = createColorTarget(this.size, false);
@@ -79,7 +86,8 @@ export class SkinPainter {
 
     const extensions = renderer.extensions;
     const canRenderHalfFloat =
-      extensions.has('EXT_color_buffer_float') || extensions.has('EXT_color_buffer_half_float');
+      !options.forceEightBit &&
+      (extensions.has('EXT_color_buffer_float') || extensions.has('EXT_color_buffer_half_float'));
     this.precision = canRenderHalfFloat ? 'half-float' : '8-bit';
     const wetType = canRenderHalfFloat ? THREE.HalfFloatType : THREE.UnsignedByteType;
     this.wetRead = createDataTarget(this.size, wetType);
@@ -158,6 +166,11 @@ export class SkinPainter {
     return this.view.texture;
   }
 
+  setQuality(quality: 'high' | 'low'): void {
+    this.simStep = quality === 'high' ? SIM_STEP_HIGH : SIM_STEP_LOW;
+    this.flowIterations = quality === 'high' ? FLOW_ITERATIONS_HIGH : 1;
+  }
+
   /** Цвета основы по частям тела (порядок PART_ORDER) — их кладёт ластик. */
   setBaseColors(colors: readonly string[]): void {
     const target = this.materials.brush.uniforms.uBaseColors.value as THREE.Color[];
@@ -228,10 +241,10 @@ export class SkinPainter {
   /** Каждый кадр. Симуляция идёт только пока есть мокрая краска — сухая кожа видеокарту не нагружает. */
   update(dt: number): void {
     if (!this.isWet) return;
-    this.simAccumulator = Math.min(this.simAccumulator + dt, SIM_STEP * MAX_STEPS_PER_FRAME);
+    this.simAccumulator = Math.min(this.simAccumulator + dt, this.simStep * MAX_STEPS_PER_FRAME);
     let stepped = false;
-    while (this.simAccumulator >= SIM_STEP) {
-      this.simAccumulator -= SIM_STEP;
+    while (this.simAccumulator >= this.simStep) {
+      this.simAccumulator -= this.simStep;
       this.simulateStep();
       stepped = true;
     }
@@ -319,13 +332,13 @@ export class SkinPainter {
     const flow = this.materials.flow.uniforms;
     flow.uDiffusion.value = 0.14 * this.wetness;
     flow.uDrip.value = 0.5 * this.wetness;
-    for (let i = 0; i < FLOW_ITERATIONS; i++) {
+    for (let i = 0; i < this.flowIterations; i++) {
       flow.uWet.value = this.wetRead.texture;
       this.renderPass('flow', this.wetWrite, true);
       this.swapWet();
     }
 
-    const dryAmount = SIM_STEP / this.dryTime;
+    const dryAmount = this.simStep / this.dryTime;
     this.blit('dryTransfer', { uWet: this.wetRead.texture, uDryAmount: dryAmount }, this.dry, false);
     this.materials.dryWet.uniforms.uDryAmount.value = dryAmount;
     this.materials.dryWet.uniforms.uWet.value = this.wetRead.texture;

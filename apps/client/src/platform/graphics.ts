@@ -8,6 +8,11 @@ const SHADOWS_KEY = 'mecha:shadows';
  */
 export const graphics = {
   shadows: storage.get(SHADOWS_KEY) !== '0',
+  /**
+   * Только для разработки: принудительно 8-битный мокрый слой — так на компьютере проверяется
+   * запасной режим слабых телефонов. Включить: localStorage['mecha:wet8bit'] = '1' и перезагрузить.
+   */
+  forceWetEightBit: import.meta.env.DEV && storage.get('mecha:wet8bit') === '1',
 };
 
 export function setShadowsEnabled(enabled: boolean): void {

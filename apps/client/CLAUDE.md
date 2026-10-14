@@ -6,7 +6,7 @@
 ## Модули
 | Папка | Ответственность |
 |---|---|
-| `core/` | `Emitter` (типизированный observer), `fixed-step-loop` (физика 60 Гц + рендер с интерполяцией) |
+| `core/` | `Emitter` (типизированный observer), `fixed-step-loop` (физика 60 Гц + рендер с интерполяцией), `perf-governor` (автокачество: тени → лёгкая краска + 1× разрешение, только вниз) |
 | `net/` | `Network` (обёртка socket.io: запросы с таймаутом → `Result`, события), `ServerClock` (смещение часов по пингу), `StateSender` (своя позиция 20 Гц), `session-id` (секрет сессии в sessionStorage) |
 | `lobby/` | `Lobby` (состояние комнаты, гонки room:state vs ack, переподключение), `invite` (?room=CODE, Web Share) |
 | `world/` | `scene-setup` (renderer, свет, тени), `ActiveMap` (текущая карта; потребители читают живые `colliders/obstacles` через `WorldGeometry`), `map-builder`, `RemotePlayers` (чужие игроки, кэш кож по ревизии), `splats` (пятна проверок) |

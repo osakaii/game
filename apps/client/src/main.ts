@@ -39,7 +39,8 @@ import { UpdateBanner } from './ui/update-banner';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { Splats } from './world/splats';
-import { applyShadows, createSceneContext } from './world/scene-setup';
+import { applyShadows, createSceneContext, setRenderScale } from './world/scene-setup';
+import { PerfGovernor } from './core/perf-governor';
 
 // ---------- 3D-мир ----------
 
@@ -89,7 +90,7 @@ const phaseHud = new PhaseHud();
 // ---------- Покраска ----------
 
 // Кожа своего персонажа — на видеокарте (кисть), чужих — пока canvas с цветами зон.
-const skinPainter = new SkinPainter(renderer);
+const skinPainter = new SkinPainter(renderer, { forceEightBit: graphics.forceWetEightBit });
 skinPainter.resetFrom(player.model.skin.texture);
 player.model.setSkinMap(skinPainter.texture);
 
@@ -149,6 +150,10 @@ for (const button of soundButtons) {
   button.addEventListener('click', () => {
     sfx.setMuted(!sfx.muted);
     renderSoundButtons();
+  });
+}
+renderSoundButtons();
+
 // Шорох кисти в Мастерской.
 studio.on('stroke', ({ state, speed }) => sfx.brush(state, speed));
 
@@ -160,18 +165,20 @@ shadowsButton.addEventListener('click', () => {
   renderShadowsButton();
 });
 renderShadowsButton();
-  });
-}
-renderSoundButtons();
 
-const shadowsButton = $<HTMLButtonElement>('#shadows-toggle');
-const renderShadowsButton = () => (shadowsButton.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл');
-shadowsButton.addEventListener('click', () => {
-  setShadowsEnabled(!graphics.shadows);
-  applyShadows(sceneContext, graphics.shadows);
-  renderShadowsButton();
+// Автокачество: тормозит — сначала выключаем тени, потом облегчаем краску и разрешение.
+const perfGovernor = new PerfGovernor(graphics.shadows ? 2 : 1, (level) => {
+  if (level <= 1 && graphics.shadows) {
+    graphics.shadows = false; // только на эту сессию, сохранённую настройку игрока не трогаем
+    applyShadows(sceneContext, false);
+    renderShadowsButton();
+  }
+  if (level === 0) {
+    skinPainter.setQuality('low');
+    setRenderScale(sceneContext, 1);
+  }
+  toast('Графика упрощена для плавности');
 });
-renderShadowsButton();
 
 network.on('shot', (shot) => {
   gameSounds.onShot(shot, player.state.position);
@@ -305,6 +312,7 @@ startFixedStepLoop(PHYSICS_DT, {
       hideSplash();
     }
     hud.tick(frameDt);
+    perfGovernor.tick(frameDt);
     const serverNow = network.clock.now();
     phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found && lobby.myRole === 'hider');
     seekerControls.update(serverNow);

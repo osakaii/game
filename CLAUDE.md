@@ -1,0 +1,47 @@
+# Mecha — контекст для ИИ
+
+Мобильная браузерная мультиплеерная игра «прятки с покраской» (по мотивам Meccha Chameleon).
+Прячущиеся раскрашивают себя кистью под окружение, ищущие тапают по подозрительным местам.
+Пользователь учится: работаем поэтапно, после этапа — краткий разбор (что, понятия, файлы, задание).
+
+## Стек и раскладка
+- pnpm-монорепо: `packages/shared` (протокол, физика, карты — чистый TS, без three.js), `apps/server` (NestJS 12 + socket.io), `apps/client` (Vite 8 + three.js 0.186, без фреймворка UI).
+- TypeScript ~6.0 (не 7: Nest CLI зафиксирован на 6). Node 24. Сервер — CommonJS (`module: nodenext`), shared — ESM (импорты с `.js`).
+- В каждом пакете свой `CLAUDE.md` с картой модулей — читай его перед правками в пакете.
+
+## Команды
+```
+pnpm dev         # shared (watch) + сервер :3000 + клиент :5173 (Vite проксирует /socket.io)
+pnpm test        # vitest на весь монорепо
+pnpm typecheck   # tsc по всем пакетам (src + test)
+pnpm build       # shared -> client -> server
+pnpm release <major|minor|patch>   # версия + CHANGELOG (коммит/тег делаешь сам)
+```
+После правок shared нужен его build (в dev — watch делает сам), иначе сервер/клиент видят старый `dist`.
+
+## Правила проекта
+- **Сервер — источник правды.** Клиенту не доверяем: всё из сети валидируется zod-схемой из shared (`parseInput`) или проверкой байтов. Клиент шлёт намерения (луч, позицию, картинку), сервер решает.
+- **Протокол только в `packages/shared/src/protocol.ts`.** Меняешь формат сообщения — подними `PROTOCOL_VERSION` (сейчас 11). Запрос с ответом = socket.io ack, ответ `Result<T>` (`{ok:true,data} | {ok:false,error:ErrorCode}`).
+- **Новый `ErrorCode`** → добавить текст в `apps/client/src/ui/error-messages.ts` (`Record` заставит).
+- **Тесты** — в `<пакет>/test/`, зеркально `src/` (`src/skin/atlas.ts` → `test/skin/atlas.test.ts`). DOM-тесты: первой строкой `// @vitest-environment happy-dom`. Сборка (`tsconfig.build.json`) берёт только `src/`.
+- **Комментарии и UI — на русском**, комментарий объясняет «почему», а не «что».
+- **Версия** одна на монорепо: `packages/shared/src/version.ts` + все `package.json` (тест сверяет). Изменения пиши в `CHANGELOG.md` → `[Unreleased]`.
+- **Git:** коммит по просьбе пользователя, сообщение conventional (`feat:`, `fix:`, `chore:`) на английском. Push в `main` = автодеплой на Render (`render.yaml`, Docker, один инстанс — комнаты в памяти).
+
+## Рецепты
+- **Новое событие:** тип в `protocol.ts` (+ zod-схема, если C→S) → обработчик в gateway (`@SubscribeMessage`, `@RateLimit`, `respond(() => …)`) → логика в сервисе → метод в `apps/client/src/net/network.ts` → `PROTOCOL_VERSION++`.
+- **Сервис хочет что-то разослать** (например, по таймеру): `RoomEvents` (rxjs Subject) в `apps/server/src/rooms/room-events.ts`, gateway подписан в `afterInit`.
+- **Новая карта:** файл в `packages/shared/src/world/`, добавить в `MAP_IDS`/`MAPS` (`maps.ts`); `maps.test.ts` сам проверит спавны.
+- **Новая настройка комнаты:** `RoomSettingsSchema` в `shared/src/settings.ts` → `SettingsDialog` на клиенте.
+
+## Проверка в браузере (важно)
+- Dev-хук: `window.__mecha` (player, lobby, network, studio, skinPainter, remotePlayers, sceneContext, controls…). В prod вырезается.
+- Если панель браузера скрыта — `requestAnimationFrame` не идёт: кадры рисуй вручную (`sceneContext.renderer.render(scene, camera)`), шаги симуляции вызывай сами (`skinPainter.update(1/30)`).
+- Снимок canvas: `canvas.toDataURL()` сразу после `render()` → POST на локальный приёмник (python http.server в scratchpad на :8765) → смотреть jpg.
+- Сокет-e2e: node-скрипт с `socket.io-client` (`apps/client/node_modules/socket.io-client/build/esm-debug/index.js`), `auth: { sessionId }` обязателен (16–64 символа `[A-Za-z0-9_-]`).
+- Dev-сервер Nest перезапускается при правках → комнаты в памяти пропадают.
+
+## Статус
+Готово: этапы 0–11 (лобби, физика, сеть, фазы, поиск, сессии, деплой, карты, присед, античит, визуал), версия 1.0.0 (тег `v1.0.0`).
+Сейчас — переделка покраски (ветка `main`, **не пушить до конца П7**): П1 атлас/кожа ✔, П2 Мастерская и GPU-кисть ✔, П3 синхронизация кожи ✔, П4 палитра ✔, П5 мокрая краска ✔.
+Дальше: **П6** инструменты (спрей, губка, ластик, симметрия, предпросмотр «как видит ищущий», звук кисти, вибрация), **П7** баланс и телефоны (FPS, авто-качество, 8-бит fallback, Safari PNG).

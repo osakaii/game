@@ -12,6 +12,7 @@ export class StudioToolbar {
   private readonly pick = $<HTMLButtonElement>('#studio-pick');
   private readonly size = $<HTMLInputElement>('#studio-size');
   private readonly hardness = $<HTMLInputElement>('#studio-hardness');
+  private readonly wetness = $<HTMLInputElement>('#studio-wetness');
   private readonly undo = $<HTMLButtonElement>('#studio-undo');
   private readonly redo = $<HTMLButtonElement>('#studio-redo');
 
@@ -28,6 +29,9 @@ export class StudioToolbar {
     // input — пока ползунок двигают, change — когда отпустили. Для размера нужен живой отклик.
     this.size.addEventListener('input', () => (studio.radius = Number(this.size.value) / 100));
     this.hardness.addEventListener('input', () => (studio.hardness = Number(this.hardness.value)));
+    // Влажность — свойство самой краски на коже: меняет, как течёт и сохнет вся мокрая краска.
+    this.wetness.addEventListener('input', () => painter.setWetness(Number(this.wetness.value)));
+    painter.setWetness(Number(this.wetness.value));
     this.pick.addEventListener('click', () => studio.setTool(studio.tool === 'eyedropper' ? 'brush' : 'eyedropper'));
     this.undo.addEventListener('click', () => studio.undo());
     this.redo.addEventListener('click', () => studio.redo());

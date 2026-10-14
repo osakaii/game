@@ -72,10 +72,14 @@ export class SkinSync {
   }
 
   private uploadDelay(): number {
+    return this.inHurry() ? 0 : UPLOAD_DELAY_MS;
+  }
+
+  /** До конца пряток осталось совсем мало — ждать высыхания и пауз некогда. */
+  private inHurry(): boolean {
     const room = this.lobby.room;
-    if (room?.phase !== 'hiding' || !room.phaseEndsAt) return UPLOAD_DELAY_MS;
-    const left = room.phaseEndsAt - this.network.clock.now();
-    return left < HURRY_BEFORE_END_MS ? 0 : UPLOAD_DELAY_MS;
+    if (room?.phase !== 'hiding' || !room.phaseEndsAt) return false;
+    return room.phaseEndsAt - this.network.clock.now() < HURRY_BEFORE_END_MS;
   }
 
   private async flush(): Promise<void> {
@@ -84,6 +88,16 @@ export class SkinSync {
     if (this.uploading) {
       this.uploadAgain = true; // отправим ещё раз, когда закончится текущая отправка
       return;
+    }
+    // Мокрая краска ещё течёт: отправим, когда высохнет, — другие должны увидеть итог, а не середину процесса.
+    // Если до конца пряток пара секунд — досушиваем мгновенно.
+    if (this.painter.isWet) {
+      if (this.inHurry()) {
+        this.painter.dryNow();
+      } else {
+        this.timer = setTimeout(() => void this.flush(), this.painter.msUntilDry + 50);
+        return;
+      }
     }
     this.uploading = true;
     this.dirty = false;

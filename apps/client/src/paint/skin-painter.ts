@@ -1,135 +1,240 @@
 import * as THREE from 'three';
-import { buildPositionMap } from '../skin/position-map';
 import { getSkinAtlas } from '../skin/atlas';
+import { buildPositionMap } from '../skin/position-map';
 import type { Point3 } from './brush-stamps';
+import {
+  BAKE_FRAGMENT,
+  BRUSH_WET_FRAGMENT,
+  CLEAR_FRAGMENT,
+  COMPOSITE_FRAGMENT,
+  COPY_FRAGMENT,
+  DRY_TRANSFER_FRAGMENT,
+  DRY_WET_FRAGMENT,
+  FLOW_FRAGMENT,
+  MAX_STAMPS,
+  QUAD_VERTEX,
+} from './wet-shaders';
 
-/** Сколько оттисков обрабатывает один проход шейдера (ограничение на массивы uniform). */
-export const MAX_STAMPS_PER_PASS = 16;
+export const MAX_STAMPS_PER_PASS = MAX_STAMPS;
 const UNDO_LIMIT = 15;
+/** Симуляция течения идёт фиксированными шагами — одинаково при любом FPS. */
+const SIM_STEP = 1 / 30;
+/** Не больше шагов за кадр: после подвисания не пытаемся догнать секунды симуляции разом. */
+const MAX_STEPS_PER_FRAME = 4;
+/** Проходов течения за шаг: каждый двигает краску не дальше чем на тексель — нужно несколько. */
+const FLOW_ITERATIONS = 2;
 
 export interface Stamp {
-  /** Центр оттиска в системе координат своей части тела. */
   center: Point3;
-  /** Нормаль поверхности под пальцем — красим только грани, смотрящие в ту же сторону. */
   normal: Point3;
 }
 
 export interface BrushParams {
-  /** Номер части тела + 1 (как в карте позиций). */
   part: number;
   radius: number;
-  /** 0 — мягкий край на весь радиус, 1 — жёсткий край. */
   hardness: number;
   opacity: number;
   color: THREE.Color;
 }
 
 /**
- * Кисть на видеокарте. Кожа хранится в render target — текстуре, в которую рисует сама видеокарта.
+ * Кожа своего персонажа на видеокарте, с мокрой краской.
  *
- * Оттиск кисти — это проход по ВСЕМ текселям кожи (полноэкранный квадрат в пространстве UV).
- * Для каждого текселя шейдер смотрит в карту позиций: «где я на теле?» — и если эта точка
- * ближе радиуса к центру оттиска, тексель закрашивается. Поэтому мазок идёт через рёбра без швов.
+ *   wet  — мокрый слой (две текстуры по очереди, «ping-pong»: из одной читаем, в другую пишем —
+ *          шейдер не может читать и писать одну и ту же текстуру одновременно);
+ *   dry  — сухой слой;
+ *   view — показ: сухой + мокрый поверх. Именно он натянут на модель, из него снимки и экспорт.
  */
 export class SkinPainter {
-  readonly target: THREE.WebGLRenderTarget;
+  private readonly size: number;
+  private readonly dry: THREE.WebGLRenderTarget;
+  private readonly view: THREE.WebGLRenderTarget;
+  private wetRead: THREE.WebGLRenderTarget;
+  private wetWrite: THREE.WebGLRenderTarget;
   private readonly quadScene = new THREE.Scene();
   private readonly quadCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private readonly quad: THREE.Mesh;
-  private readonly brushMaterial: THREE.ShaderMaterial;
-  private readonly copyMaterial: THREE.ShaderMaterial;
-  private readonly positions: THREE.DataTexture;
-  private readonly normals: THREE.DataTexture;
+  private readonly materials: Record<string, THREE.ShaderMaterial>;
+  private readonly dataTextures: THREE.Texture[];
   private readonly undoStack: THREE.WebGLRenderTarget[] = [];
   private readonly redoStack: THREE.WebGLRenderTarget[] = [];
   private readonly pixel = new Uint8Array(4);
+  private simAccumulator = 0;
+  /** До какого момента (performance.now) на коже может оставаться мокрая краска. */
+  private wetUntil = 0;
+  private wetness = 0.6;
+  /** Тип мокрого слоя: half-float, если видеокарта умеет в него рисовать, иначе 8 бит с подмешиванием шума. */
+  readonly precision: 'half-float' | '8-bit';
 
   constructor(private readonly renderer: THREE.WebGLRenderer) {
     const atlas = getSkinAtlas();
-    this.target = createSkinTarget(atlas.size);
+    this.size = atlas.size;
+    this.dry = createColorTarget(this.size, false);
+    this.view = createColorTarget(this.size, true);
+
+    const extensions = renderer.extensions;
+    const canRenderHalfFloat =
+      extensions.has('EXT_color_buffer_float') || extensions.has('EXT_color_buffer_half_float');
+    this.precision = canRenderHalfFloat ? 'half-float' : '8-bit';
+    const wetType = canRenderHalfFloat ? THREE.HalfFloatType : THREE.UnsignedByteType;
+    this.wetRead = createDataTarget(this.size, wetType);
+    this.wetWrite = createDataTarget(this.size, wetType);
 
     const map = buildPositionMap(atlas);
-    // Float-текстуры видеокарта не умеет сглаживать на всех устройствах — берём ближайший тексель.
-    this.positions = new THREE.DataTexture(map.data, map.size, map.size, THREE.RGBAFormat, THREE.FloatType);
-    this.positions.magFilter = this.positions.minFilter = THREE.NearestFilter;
-    this.positions.needsUpdate = true;
-    this.normals = new THREE.DataTexture(map.normals, map.size, map.size, THREE.RGBAFormat, THREE.UnsignedByteType);
-    this.normals.magFilter = this.normals.minFilter = THREE.NearestFilter;
-    this.normals.needsUpdate = true;
+    const positions = dataTexture(map.data, this.size, THREE.FloatType);
+    const normals = dataTexture(map.normals, this.size, THREE.UnsignedByteType);
+    const noise = smoothNoiseTexture();
+    this.dataTextures = [positions, normals, noise];
 
-    this.brushMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uPositions: { value: this.positions },
-        uNormals: { value: this.normals },
-        uCount: { value: 0 },
-        uCenters: { value: Array.from({ length: MAX_STAMPS_PER_PASS }, () => new THREE.Vector3()) },
-        uStampNormals: { value: Array.from({ length: MAX_STAMPS_PER_PASS }, () => new THREE.Vector3()) },
-        uPart: { value: 0 },
-        uRadius: { value: 0.05 },
-        uHardness: { value: 0.5 },
-        uOpacity: { value: 1 },
-        uColor: { value: new THREE.Color() },
-      },
-      vertexShader: QUAD_VERTEX,
-      fragmentShader: BRUSH_FRAGMENT,
-      // Обычное смешивание: новый цвет * alpha + старый * (1 - alpha). Старый цвет — то, что уже на коже.
-      blending: THREE.NormalBlending,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-    });
+    const shader = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>, blending: THREE.Blending) =>
+      new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: QUAD_VERTEX,
+        fragmentShader,
+        blending,
+        transparent: blending !== THREE.NoBlending,
+        depthTest: false,
+        depthWrite: false,
+      });
+    const texel = new THREE.Vector2(1 / this.size, 1 / this.size);
+    this.materials = {
+      brush: shader(
+        BRUSH_WET_FRAGMENT,
+        {
+          uWet: { value: null },
+          uPositions: { value: positions },
+          uNormals: { value: normals },
+          uCount: { value: 0 },
+          uCenters: { value: Array.from({ length: MAX_STAMPS }, () => new THREE.Vector3()) },
+          uStampNormals: { value: Array.from({ length: MAX_STAMPS }, () => new THREE.Vector3()) },
+          uPart: { value: 0 },
+          uRadius: { value: 0.05 },
+          uHardness: { value: 0.5 },
+          uOpacity: { value: 1 },
+          uColor: { value: new THREE.Color() },
+        },
+        THREE.NoBlending,
+      ),
+      flow: shader(
+        FLOW_FRAGMENT,
+        {
+          uWet: { value: null },
+          uPositions: { value: positions },
+          uNormals: { value: normals },
+          uNoise: { value: noise },
+          uTexel: { value: texel },
+          uDiffusion: { value: 0 },
+          uDrip: { value: 0 },
+          uDripThreshold: { value: 0.6 },
+          uDither: { value: this.precision === '8-bit' ? 1 / 255 : 0 },
+        },
+        THREE.NoBlending,
+      ),
+      dryTransfer: shader(DRY_TRANSFER_FRAGMENT, { uWet: { value: null }, uDryAmount: { value: 0 } }, THREE.NormalBlending),
+      dryWet: shader(DRY_WET_FRAGMENT, { uWet: { value: null }, uDryAmount: { value: 0 } }, THREE.NoBlending),
+      composite: shader(COMPOSITE_FRAGMENT, { uDry: { value: this.dry.texture }, uWet: { value: null } }, THREE.NoBlending),
+      bake: shader(BAKE_FRAGMENT, { uWet: { value: null } }, THREE.NormalBlending),
+      copy: shader(COPY_FRAGMENT, { uSource: { value: null } }, THREE.NoBlending),
+      clear: shader(CLEAR_FRAGMENT, {}, THREE.NoBlending),
+    };
 
-    this.copyMaterial = new THREE.ShaderMaterial({
-      uniforms: { uSource: { value: null } },
-      vertexShader: QUAD_VERTEX,
-      fragmentShader: COPY_FRAGMENT,
-      blending: THREE.NoBlending,
-      depthTest: false,
-      depthWrite: false,
-    });
-
-    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.brushMaterial);
+    this.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.materials.copy);
     this.quad.frustumCulled = false;
     this.quadScene.add(this.quad);
+    this.clearWet();
   }
 
+  /** Текстура для модели. */
   get texture(): THREE.Texture {
-    return this.target.texture;
+    return this.view.texture;
   }
 
-  /** Залить кожу содержимым другой текстуры (например, базовой раскраской). История очищается. */
+  /** 0 — краска сохнет мгновенно, 1 — долго течёт и даёт подтёки. */
+  setWetness(value: number): void {
+    this.wetness = Math.min(1, Math.max(0, value));
+  }
+
+  /** Время высыхания при текущей влажности (с). */
+  private get dryTime(): number {
+    return 0.15 + 3.35 * this.wetness;
+  }
+
+  get isWet(): boolean {
+    return performance.now() < this.wetUntil;
+  }
+
+  /** Сколько ещё сохнуть (мс). */
+  get msUntilDry(): number {
+    return Math.max(0, this.wetUntil - performance.now());
+  }
+
+  /** Залить кожу содержимым другой текстуры (основа или картинка из сети). Мокрое и история — сбрасываются. */
   resetFrom(source: THREE.Texture): void {
-    this.copy(source, this.target);
+    this.blit('copy', { uSource: source }, this.dry, true);
+    this.clearWet();
     this.clearHistory(this.undoStack);
+    this.clearHistory(this.redoStack);
+    this.composite();
+  }
+
+  /** Перед мазком запоминаем то, что видно сейчас, — «Отменить» вернёт именно это. */
+  beginStroke(): void {
+    const snapshot = this.undoStack.length >= UNDO_LIMIT ? this.undoStack.shift()! : createColorTarget(this.size, false);
+    this.blit('copy', { uSource: this.view.texture }, snapshot, true);
+    this.undoStack.push(snapshot);
     this.clearHistory(this.redoStack);
   }
 
-  /** Перед мазком запоминаем кожу целиком — так работает «Отменить». */
-  beginStroke(): void {
-    const snapshot = this.undoStack.length >= UNDO_LIMIT ? this.undoStack.shift()! : createSkinTarget(this.target.width);
-    this.copy(this.target.texture, snapshot);
-    this.undoStack.push(snapshot);
-    this.clearHistory(this.redoStack); // новый мазок отменяет возможность «Повторить»
-  }
-
   stamp(stamps: readonly Stamp[], brush: BrushParams): void {
-    const u = this.brushMaterial.uniforms;
+    const u = this.materials.brush.uniforms;
     u.uPart.value = brush.part;
     u.uRadius.value = brush.radius;
     u.uHardness.value = brush.hardness;
     u.uOpacity.value = brush.opacity;
     (u.uColor.value as THREE.Color).copy(brush.color);
-
-    for (let start = 0; start < stamps.length; start += MAX_STAMPS_PER_PASS) {
-      const batch = stamps.slice(start, start + MAX_STAMPS_PER_PASS);
+    for (let start = 0; start < stamps.length; start += MAX_STAMPS) {
+      const batch = stamps.slice(start, start + MAX_STAMPS);
       batch.forEach((s, i) => {
         (u.uCenters.value[i] as THREE.Vector3).set(s.center.x, s.center.y, s.center.z);
         (u.uStampNormals.value[i] as THREE.Vector3).set(s.normal.x, s.normal.y, s.normal.z);
       });
       u.uCount.value = batch.length;
-      this.quad.material = this.brushMaterial;
-      this.renderInto(this.target, false);
+      u.uWet.value = this.wetRead.texture;
+      this.renderPass('brush', this.wetWrite, true);
+      this.swapWet();
     }
+    // Свежая краска высохнет не раньше, чем через dryTime (+ запас на растекание).
+    this.wetUntil = Math.max(this.wetUntil, performance.now() + this.dryTime * 1000 + 300);
+    this.composite();
+  }
+
+  /** Каждый кадр. Симуляция идёт только пока есть мокрая краска — сухая кожа видеокарту не нагружает. */
+  update(dt: number): void {
+    if (!this.isWet) return;
+    this.simAccumulator = Math.min(this.simAccumulator + dt, SIM_STEP * MAX_STEPS_PER_FRAME);
+    let stepped = false;
+    while (this.simAccumulator >= SIM_STEP) {
+      this.simAccumulator -= SIM_STEP;
+      this.simulateStep();
+      stepped = true;
+    }
+    if (stepped) this.composite();
+  }
+
+  /** Досушить мгновенно — перед отправкой по сети, когда ждать некогда (конец пряток). */
+  dryNow(): void {
+    this.blit('bake', { uWet: this.wetRead.texture }, this.dry, false);
+    this.clearWet();
+    this.wetUntil = 0;
+    this.composite();
+  }
+
+  /** Отменить начатый мазок целиком, без возможности «Повторить» (это был не мазок, а жест). */
+  cancelStroke(): void {
+    const snapshot = this.undoStack.pop();
+    if (!snapshot) return;
+    this.restore(snapshot);
+    snapshot.dispose();
   }
 
   get canUndo(): boolean {
@@ -140,14 +245,6 @@ export class SkinPainter {
     return this.redoStack.length > 0;
   }
 
-  /** Отменить начатый мазок целиком, без возможности «Повторить» (это был не мазок, а жест). */
-  cancelStroke(): void {
-    const snapshot = this.undoStack.pop();
-    if (!snapshot) return;
-    this.copy(snapshot.texture, this.target);
-    snapshot.dispose();
-  }
-
   undo(): void {
     this.swapWith(this.undoStack, this.redoStack);
   }
@@ -156,13 +253,11 @@ export class SkinPainter {
     this.swapWith(this.redoStack, this.undoStack);
   }
 
-  /** Цвет кожи в точке UV — для пипетки по своему телу. */
+  /** Цвет кожи в точке UV (как видно сейчас) — для пипетки по своему телу. */
   readColor(u: number, v: number): string {
-    const size = this.target.width;
-    const x = Math.min(size - 1, Math.max(0, Math.floor(u * size)));
-    const y = Math.min(size - 1, Math.max(0, Math.floor(v * size)));
-    this.renderer.readRenderTargetPixels(this.target, x, y, 1, 1, this.pixel);
-    // Render target хранит цвет в sRGB (SRGB8_ALPHA8) — байты уже готовые '#rrggbb'.
+    const x = Math.min(this.size - 1, Math.max(0, Math.floor(u * this.size)));
+    const y = Math.min(this.size - 1, Math.max(0, Math.floor(v * this.size)));
+    this.renderer.readRenderTargetPixels(this.view, x, y, 1, 1, this.pixel);
     return `#${[this.pixel[0], this.pixel[1], this.pixel[2]].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
   }
 
@@ -172,17 +267,16 @@ export class SkinPainter {
    * (в WebGL строка 0 — низ, в картинке — верх) и сжимаем браузерным кодеком.
    */
   async exportImage(): Promise<Blob> {
-    const size = this.target.width;
-    const pixels = new Uint8ClampedArray(size * size * 4);
-    this.renderer.readRenderTargetPixels(this.target, 0, 0, size, size, pixels);
-
+    const pixels = new Uint8ClampedArray(this.size * this.size * 4);
+    this.renderer.readRenderTargetPixels(this.view, 0, 0, this.size, this.size, pixels);
     const flipped = new Uint8ClampedArray(pixels.length);
-    const row = size * 4;
-    for (let y = 0; y < size; y++) flipped.set(pixels.subarray(y * row, (y + 1) * row), (size - 1 - y) * row);
-
+    const row = this.size * 4;
+    for (let y = 0; y < this.size; y++) {
+      flipped.set(pixels.subarray(y * row, (y + 1) * row), (this.size - 1 - y) * row);
+    }
     const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = size;
-    canvas.getContext('2d')!.putImageData(new ImageData(flipped, size, size), 0, 0);
+    canvas.width = canvas.height = this.size;
+    canvas.getContext('2d')!.putImageData(new ImageData(flipped, this.size, this.size), 0, 0);
     // WebP с потерями, но высоким качеством: ~50–120 КБ вместо ~1 МБ сырых пикселей.
     // Safari до недавних версий не умеет кодировать WebP и молча отдаёт PNG — сервер примет и его.
     return new Promise((resolve, reject) =>
@@ -191,34 +285,78 @@ export class SkinPainter {
   }
 
   dispose(): void {
-    this.target.dispose();
+    for (const t of [this.dry, this.view, this.wetRead, this.wetWrite]) t.dispose();
     this.clearHistory(this.undoStack);
     this.clearHistory(this.redoStack);
-    this.positions.dispose();
-    this.normals.dispose();
-    this.brushMaterial.dispose();
-    this.copyMaterial.dispose();
+    for (const t of this.dataTextures) t.dispose();
+    for (const m of Object.values(this.materials)) m.dispose();
     this.quad.geometry.dispose();
   }
 
-  /** Обмен «текущая кожа <-> снимок из истории» без лишних копий: меняем местами буферы. */
+  // ---------- Симуляция ----------
+
+  private simulateStep() {
+    // Чем мокрее кисть, тем сильнее растекание и подтёки. Значения подобраны на глаз.
+    // Устойчивость: за один проход тексель может отдать соседям не больше, чем у него есть:
+    // 4 соседа × 0.14 × максимум шума 1.65 ≈ 0.92 < 1. Больше — и симуляция «взорвётся» (краска из ниоткуда).
+    const flow = this.materials.flow.uniforms;
+    flow.uDiffusion.value = 0.14 * this.wetness;
+    flow.uDrip.value = 0.5 * this.wetness;
+    for (let i = 0; i < FLOW_ITERATIONS; i++) {
+      flow.uWet.value = this.wetRead.texture;
+      this.renderPass('flow', this.wetWrite, true);
+      this.swapWet();
+    }
+
+    const dryAmount = SIM_STEP / this.dryTime;
+    this.blit('dryTransfer', { uWet: this.wetRead.texture, uDryAmount: dryAmount }, this.dry, false);
+    this.materials.dryWet.uniforms.uDryAmount.value = dryAmount;
+    this.materials.dryWet.uniforms.uWet.value = this.wetRead.texture;
+    this.renderPass('dryWet', this.wetWrite, true);
+    this.swapWet();
+  }
+
+  private composite() {
+    this.materials.composite.uniforms.uWet.value = this.wetRead.texture;
+    this.renderPass('composite', this.view, true);
+  }
+
+  private clearWet() {
+    this.renderPass('clear', this.wetRead, true);
+    this.renderPass('clear', this.wetWrite, true);
+  }
+
+  private swapWet() {
+    [this.wetRead, this.wetWrite] = [this.wetWrite, this.wetRead];
+  }
+
+  /** Снимок (как было видно) становится сухим слоем; мокрого нет. */
+  private restore(snapshot: THREE.WebGLRenderTarget) {
+    this.blit('copy', { uSource: snapshot.texture }, this.dry, true);
+    this.clearWet();
+    this.wetUntil = 0;
+    this.composite();
+  }
+
+  /** Обмен «текущее <-> снимок из истории»: текущее (как видно) уходит в другую историю. */
   private swapWith(from: THREE.WebGLRenderTarget[], to: THREE.WebGLRenderTarget[]) {
     const snapshot = from.pop();
     if (!snapshot) return;
-    const current = createSkinTarget(this.target.width);
-    this.copy(this.target.texture, current);
+    const current = createColorTarget(this.size, false);
+    this.blit('copy', { uSource: this.view.texture }, current, true);
     to.push(current);
-    this.copy(snapshot.texture, this.target);
+    this.restore(snapshot);
     snapshot.dispose();
   }
 
-  private copy(source: THREE.Texture, destination: THREE.WebGLRenderTarget) {
-    this.copyMaterial.uniforms.uSource.value = source;
-    this.quad.material = this.copyMaterial;
-    this.renderInto(destination, true);
+  private blit(material: string, uniforms: Record<string, unknown>, destination: THREE.WebGLRenderTarget, clear: boolean) {
+    const m = this.materials[material];
+    for (const [name, value] of Object.entries(uniforms)) m.uniforms[name].value = value;
+    this.renderPass(material, destination, clear);
   }
 
-  private renderInto(destination: THREE.WebGLRenderTarget, clear: boolean) {
+  private renderPass(material: string, destination: THREE.WebGLRenderTarget, clear: boolean) {
+    this.quad.material = this.materials[material];
     const previousTarget = this.renderer.getRenderTarget();
     const previousAutoClear = this.renderer.autoClear;
     this.renderer.autoClear = clear;
@@ -234,71 +372,49 @@ export class SkinPainter {
   }
 }
 
-/**
- * Текстура-кожа в видеопамяти. colorSpace sRGB — видеокарта сама переводит цвет:
- * шейдер пишет «линейный» цвет, в памяти хранится sRGB (точнее для тёмных оттенков в 8 битах),
- * при чтении в шейдере модели — обратно в линейный.
- */
-function createSkinTarget(size: number): THREE.WebGLRenderTarget {
+/** Цветная текстура кожи: хранит sRGB (точнее для тёмных оттенков в 8 битах). */
+function createColorTarget(size: number, mipmaps: boolean): THREE.WebGLRenderTarget {
   const target = new THREE.WebGLRenderTarget(size, size, {
     colorSpace: THREE.SRGBColorSpace,
     depthBuffer: false,
-    generateMipmaps: true,
-    minFilter: THREE.LinearMipmapLinearFilter,
+    generateMipmaps: mipmaps,
+    minFilter: mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
   });
   target.texture.anisotropy = 4;
   return target;
 }
 
-/** Квадрат на весь «экран» текстуры: вершины уже в координатах отсечения, камера не нужна. */
-const QUAD_VERTEX = /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = vec4(position.xy, 0.0, 1.0);
-  }
-`;
+/** Текстура-данные (мокрый слой): без цветового пространства, ближайший тексель, без мипмапов. */
+function createDataTarget(size: number, type: THREE.TextureDataType): THREE.WebGLRenderTarget {
+  return new THREE.WebGLRenderTarget(size, size, {
+    type,
+    depthBuffer: false,
+    generateMipmaps: false,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+}
 
-const BRUSH_FRAGMENT = /* glsl */ `
-  #define MAX_STAMPS ${MAX_STAMPS_PER_PASS}
-  uniform sampler2D uPositions; // rgb — точка на теле, a — номер части + 1
-  uniform sampler2D uNormals;   // нормаль грани, упакованная в 0..1
-  uniform int uCount;
-  uniform vec3 uCenters[MAX_STAMPS];
-  uniform vec3 uStampNormals[MAX_STAMPS];
-  uniform float uPart;
-  uniform float uRadius;
-  uniform float uHardness;
-  uniform float uOpacity;
-  uniform vec3 uColor;
-  varying vec2 vUv;
+function dataTexture(data: Float32Array | Uint8Array, size: number, type: THREE.TextureDataType): THREE.DataTexture {
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, type);
+  texture.magFilter = texture.minFilter = THREE.NearestFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
 
-  void main() {
-    vec4 body = texture2D(uPositions, vUv);
-    // Другая часть тела или пустое место атласа — не трогаем.
-    if (abs(body.a - uPart) > 0.5) discard;
-    vec3 normal = texture2D(uNormals, vUv).rgb * 2.0 - 1.0;
-
-    float coverage = 0.0;
-    for (int i = 0; i < MAX_STAMPS; i++) {
-      if (i >= uCount) break;
-      float d = distance(body.rgb, uCenters[i]) / uRadius;
-      // Мягкий край: внутри hardness — полный цвет, к краю радиуса плавно сходит на нет.
-      float falloff = 1.0 - smoothstep(uHardness, 1.0, d);
-      // Соседние грани (под 90°) красим, противоположные (180°) — нет.
-      float facing = smoothstep(-0.6, -0.2, dot(normal, uStampNormals[i]));
-      coverage = max(coverage, falloff * facing);
-    }
-    if (coverage <= 0.0) discard;
-    gl_FragColor = vec4(uColor, coverage * uOpacity);
-  }
-`;
-
-const COPY_FRAGMENT = /* glsl */ `
-  uniform sampler2D uSource;
-  varying vec2 vUv;
-  void main() {
-    gl_FragColor = vec4(texture2D(uSource, vUv).rgb, 1.0);
-  }
-`;
+/**
+ * Плавный шум для неровного течения: случайные значения на крупной сетке 64×64 (клетка ≈ 4 см на теле),
+ * между ними видеокарта плавно интерполирует (LinearFilter). Шум «на каждый тексель» давал бы зерно,
+ * как через сито; плавный — органично рваный край кляксы. Шум неизменный — края не «кипят».
+ */
+function smoothNoiseTexture(): THREE.DataTexture {
+  const size = 64;
+  const data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < data.length; i++) data[i] = Math.floor(Math.random() * 256);
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.UnsignedByteType);
+  texture.magFilter = texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}

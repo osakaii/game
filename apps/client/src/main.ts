@@ -292,6 +292,8 @@ startFixedStepLoop(PHYSICS_DT, {
     const look = controls.consumeLook();
     followCamera.rotate(look.dx, look.dy);
     player.render(alpha, frameDt);
+    // Мокрая краска течёт и сохнет и после закрытия Мастерской.
+    skinPainter.update(frameDt);
     remotePlayers.render(network.clock.now(), frameDt);
     if (studio.active) studio.update(player.renderPosition);
     else followCamera.update(player.renderPosition, frameDt, player.state.crouching);

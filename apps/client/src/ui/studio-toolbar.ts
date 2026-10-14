@@ -1,14 +1,13 @@
 import type { PaintStudio } from '../paint/paint-studio';
 import type { SkinPainter } from '../paint/skin-painter';
 import { $ } from './dom';
+import { Palette } from './palette';
 
-/**
- * Панель Мастерской: цвет, недавние цвета, пипетка, размер и жёсткость кисти, отмена/повтор, «Готово».
- * Полноценная палитра — на этапе П4; пока цвет выбирается системным диалогом <input type="color">.
- */
+/** Панель Мастерской: палитра, недавние цвета, пипетка, размер и жёсткость кисти, отмена/повтор, «Готово». */
 export class StudioToolbar {
   private readonly root = $('#studio');
-  private readonly color = $<HTMLInputElement>('#studio-color');
+  private readonly color = $<HTMLButtonElement>('#studio-color');
+  private readonly palette: Palette;
   private readonly recent = $('#studio-recent');
   private readonly pick = $<HTMLButtonElement>('#studio-pick');
   private readonly size = $<HTMLInputElement>('#studio-size');
@@ -21,8 +20,12 @@ export class StudioToolbar {
     private readonly painter: SkinPainter,
     onDone: () => void,
   ) {
-    // input — пока ползунок двигают, change — когда отпустили. Для цвета и размера нужен живой отклик.
-    this.color.addEventListener('input', () => studio.setColor(this.color.value));
+    this.palette = new Palette(studio);
+    this.color.addEventListener('click', () => {
+      this.palette.toggle();
+      this.render();
+    });
+    // input — пока ползунок двигают, change — когда отпустили. Для размера нужен живой отклик.
     this.size.addEventListener('input', () => (studio.radius = Number(this.size.value) / 100));
     this.hardness.addEventListener('input', () => (studio.hardness = Number(this.hardness.value)));
     this.pick.addEventListener('click', () => studio.setTool(studio.tool === 'eyedropper' ? 'brush' : 'eyedropper'));
@@ -43,7 +46,9 @@ export class StudioToolbar {
     document.body.classList.toggle('studio-open', s.active);
     if (!s.active) return;
 
-    this.color.value = s.colorHex;
+    this.color.style.background = s.colorHex;
+    this.color.style.opacity = String(0.35 + 0.65 * s.opacity); // видно, что краска полупрозрачная
+    this.color.classList.toggle('open', this.palette.isOpen);
     this.size.value = String(Math.round(s.radius * 100 * 2) / 2);
     this.hardness.value = String(s.hardness);
     this.pick.classList.toggle('active', s.tool === 'eyedropper');

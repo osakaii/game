@@ -13,7 +13,7 @@ export type StudioTool = 'brush' | 'eyedropper';
 /** Второй палец пришёл так быстро после первого — значит, это был жест, а не начало мазка. */
 const GESTURE_GRACE_MS = 250;
 const ORBIT_SENSITIVITY = 0.008;
-const RECENT_LIMIT = 6;
+const RECENT_LIMIT = 8;
 
 interface BodyHit {
   part: number;
@@ -59,7 +59,11 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   /** Радиус кисти, м. */
   radius = 0.05;
   hardness = 0.6;
+  /** Плотность краски: 1 — кроет полностью, меньше — просвечивает (можно смешивать слоями). */
+  opacity = 1;
   recent: string[] = [];
+  /** Цвет фона, взятый пипеткой с предмета, — палитра сравнивает с ним цвет кисти. */
+  reference: string | null = null;
 
   private readonly studioCamera: StudioCamera;
   private readonly raycaster = new THREE.Raycaster();
@@ -119,6 +123,11 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   setColor(hex: string): void {
     this.colorHex = hex;
     this.color.set(hex);
+    this.emit('change', undefined);
+  }
+
+  setOpacity(opacity: number): void {
+    this.opacity = opacity;
     this.emit('change', undefined);
   }
 
@@ -260,7 +269,7 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
       part,
       radius: this.radius,
       hardness: this.hardness,
-      opacity: 1,
+      opacity: this.opacity,
       color: this.color,
     });
   }
@@ -272,6 +281,8 @@ export class PaintStudio extends Emitter<{ change: void; edited: void }> {
     const hit = this.raycastBody(x, y);
     const picked = hit ? this.deps.painter.readColor(hit.uv.x, hit.uv.y) : this.deps.eyedropper.pick(x, y);
     if (picked) {
+      // Цвет предмета — это фон, под который маскируемся: запоминаем для сравнения в палитре.
+      if (!hit) this.reference = picked;
       this.setColor(picked);
       this.remember(picked);
     }

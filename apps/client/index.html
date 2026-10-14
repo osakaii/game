@@ -92,11 +92,27 @@
 
     <button type="button" id="paint-toggle" hidden>Краска</button>
     <div id="studio" hidden>
+      <div id="palette" hidden>
+        <canvas id="palette-sv" aria-label="Насыщенность и яркость"></canvas>
+        <canvas id="palette-hue" aria-label="Оттенок"></canvas>
+        <label class="palette-opacity">
+          <span>Плотность</span>
+          <input type="range" id="palette-opacity" min="0.05" max="1" step="0.05" />
+        </label>
+        <div class="palette-compare">
+          <span class="cmp-swatch" id="cmp-brush" title="Кисть"></span>
+          <span class="cmp-swatch" id="cmp-bg" title="Фон"></span>
+          <span id="cmp-label"></span>
+        </div>
+        <div class="palette-row">
+          <input id="palette-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Цвет #rrggbb" />
+          <button type="button" id="palette-save" aria-label="Сохранить цвет">+</button>
+        </div>
+        <div id="palette-saved" aria-label="Сохранённые цвета"></div>
+      </div>
       <div class="studio-hint">Палец на теле — кисть · мимо тела — повернуть · двумя — повернуть и приблизить</div>
       <div class="studio-bar">
-        <label class="studio-color" title="Цвет">
-          <input type="color" id="studio-color" value="#e63946" />
-        </label>
+        <button type="button" id="studio-color" class="studio-color" aria-label="Палитра"></button>
         <div id="studio-recent"></div>
         <button type="button" id="studio-pick">Пипетка</button>
         <label class="studio-range">

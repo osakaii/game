@@ -275,5 +275,18 @@ startFixedStepLoop(PHYSICS_DT, {
 // Отладка из консоли браузера: __mecha.remotePlayers, __mecha.player.state ...
 // В продакшен-сборке import.meta.env.DEV = false, и Vite вырежет этот блок целиком.
 if (import.meta.env.DEV) {
+  // Клавиша U — отладка атласа: шахматка со стрелками «вверх» на модели и сама выкройка в углу.
+  let atlasDebug = false;
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyU' || (e.target as HTMLElement).tagName === 'INPUT') return;
+    atlasDebug = !atlasDebug;
+    player.model.showDebugPattern(atlasDebug);
+    const canvas = player.model.skin.canvas;
+    if (!canvas) return;
+    canvas.id = 'atlas-debug';
+    if (atlasDebug) document.body.append(canvas);
+    else canvas.remove();
+  });
+
   Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter, seekerControls, controls, sceneContext, splats, followCamera } });
 }

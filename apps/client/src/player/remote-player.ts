@@ -109,6 +109,7 @@ export class RemotePlayer {
   dispose(): void {
     if (this.label) disposeNameLabel(this.label);
     this.model.root.removeFromParent();
+    this.model.dispose(); // у каждого игрока своя текстура кожи — освобождаем видеопамять
   }
 }
 

@@ -1,9 +1,12 @@
 import * as THREE from 'three';
-import { BODY_ZONES, DEFAULT_BODY_COLOR, PLAYER, type BodyColors, type BodyZone } from '@mecha/shared';
+import { BODY_ZONES, PLAYER, defaultBodyColors, type BodyColors, type BodyZone } from '@mecha/shared';
 import { graphics } from '../platform/graphics';
+import { applyAtlasUVs, getSkinAtlas } from '../skin/atlas';
+import { CHARACTER_PARTS } from '../skin/character-parts';
+import { SkinTexture } from '../skin/skin-texture';
 
 const HIP_Y = 0.6;
-const LEG_LENGTH = 0.6;
+const LEG_LENGTH = CHARACTER_PARTS.legLeft.h;
 /** Угол ног в приседе (рад): почти горизонтально вперёд, как сидя на корточках. */
 const CROUCH_LEG_ANGLE = -1.1;
 /** Бёдра в приседе — ровно на высоте, при которой согнутые ноги касаются пола. */
@@ -28,6 +31,13 @@ const CROUCH_SPEED = 10; // как быстро модель приседает/
 export class PlayerModel {
   readonly root = new THREE.Group();
   readonly zones = {} as Record<BodyZone, THREE.Mesh>;
+  /**
+   * Кожа персонажа: одна текстура на все части тела, разложенные по атласу.
+   * Один материал на персонажа вместо шести — на видеокарту уходит меньше переключений состояния.
+   */
+  readonly skin = new SkinTexture(getSkinAtlas());
+  private readonly material = new THREE.MeshLambertMaterial({ map: this.skin.texture });
+  private colors: BodyColors = defaultBodyColors();
 
   private readonly body = new THREE.Group();
   private readonly upper = new THREE.Group();
@@ -39,21 +49,23 @@ export class PlayerModel {
   private walkPhase = 0;
   private crouchAmount = 0;
   private ghost = false;
+  private debugPattern = false;
 
   constructor() {
     const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
 
     // Пропорции: ноги 0–0.6, торс 0.6–1.16, голова 1.18–1.6 (рост = PLAYER.height).
+    // Размеры частей — в CHARACTER_PARTS (по ним же построен атлас текстуры).
     // Внутри upper координаты отсчитываются от бедра (y = 0 — это 0.6 м над землёй).
     this.upper.position.y = HIP_Y;
-    this.addLimb('legLeft', this.legLeft, box(0.22, LEG_LENGTH, 0.24), -0.13, HIP_Y, this.body);
-    this.addLimb('legRight', this.legRight, box(0.22, LEG_LENGTH, 0.24), 0.13, HIP_Y, this.body);
-    this.addLimb('armLeft', this.armLeft, box(0.18, 0.5, 0.2), -0.38, 1.12 - HIP_Y, this.upper);
-    this.addLimb('armRight', this.armRight, box(0.18, 0.5, 0.2), 0.38, 1.12 - HIP_Y, this.upper);
+    this.addLimb('legLeft', this.legLeft, -0.13, HIP_Y, this.body);
+    this.addLimb('legRight', this.legRight, 0.13, HIP_Y, this.body);
+    this.addLimb('armLeft', this.armLeft, -0.38, 1.12 - HIP_Y, this.upper);
+    this.addLimb('armRight', this.armRight, 0.38, 1.12 - HIP_Y, this.upper);
 
-    const torso = this.createZone('torso', box(0.56, 0.56, 0.32));
+    const torso = this.createZone('torso');
     torso.position.y = 0.88 - HIP_Y;
-    const head = this.createZone('head', box(0.42, 0.42, 0.42));
+    const head = this.createZone('head');
     head.position.y = 1.39 - HIP_Y;
     this.upper.add(torso, head);
     this.body.add(this.upper);
@@ -78,19 +90,38 @@ export class PlayerModel {
     );
     this.shadow.rotation.x = -Math.PI / 2;
     this.root.add(this.body, this.shadow);
+    for (const zone of BODY_ZONES) this.skin.fillPart(zone, this.colors[zone]);
   }
 
   setZoneColor(zone: BodyZone, color: string): void {
-    this.material(zone).color.set(color);
+    this.colors[zone] = color;
+    this.skin.fillPart(zone, color);
   }
 
   setColors(colors: BodyColors): void {
-    for (const zone of BODY_ZONES) this.setZoneColor(zone, colors[zone]);
+    for (const zone of BODY_ZONES) {
+      // Перерисовываем только изменившиеся части: каждая перерисовка — загрузка текстуры в видеопамять.
+      if (this.colors[zone] !== colors[zone] || this.debugPattern) this.setZoneColor(zone, colors[zone]);
+    }
+    this.debugPattern = false;
   }
 
   /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
   colorOf(zone: BodyZone): string {
-    return `#${this.material(zone).color.getHexString()}`;
+    return this.colors[zone];
+  }
+
+  /** Отладка атласа: шахматка со стрелками «вверх» вместо раскраски. */
+  showDebugPattern(enabled: boolean): void {
+    this.debugPattern = enabled;
+    if (enabled) this.skin.drawDebugPattern();
+    else for (const zone of BODY_ZONES) this.skin.fillPart(zone, this.colors[zone]);
+  }
+
+  /** Освободить видеопамять: текстура кожи у каждого игрока своя. */
+  dispose(): void {
+    this.skin.dispose();
+    this.material.dispose();
   }
 
   /**
@@ -147,28 +178,20 @@ export class PlayerModel {
     this.armRight.rotation.x = swing - 0.4 * a;
   }
 
-  private material(zone: BodyZone): THREE.MeshLambertMaterial {
-    return this.zones[zone].material as THREE.MeshLambertMaterial;
-  }
-
-  private createZone(zone: BodyZone, geometry: THREE.BufferGeometry): THREE.Mesh {
-    // Каждой зоне свой материал — чтобы потом красить её независимо.
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: DEFAULT_BODY_COLOR }));
+  private createZone(zone: BodyZone): THREE.Mesh {
+    const size = CHARACTER_PARTS[zone];
+    const geometry = new THREE.BoxGeometry(size.w, size.h, size.d);
+    // Стандартные UV (каждая грань — весь квадрат 0..1) заменяем на прямоугольники атласа.
+    applyAtlasUVs(geometry, zone, getSkinAtlas());
+    const mesh = new THREE.Mesh(geometry, this.material);
     mesh.name = zone;
     this.zones[zone] = mesh;
     return mesh;
   }
 
-  private addLimb(
-    zone: BodyZone,
-    pivot: THREE.Group,
-    geometry: THREE.BoxGeometry,
-    x: number,
-    jointY: number,
-    parent: THREE.Object3D,
-  ) {
-    const mesh = this.createZone(zone, geometry);
-    mesh.position.y = -geometry.parameters.height / 2;
+  private addLimb(zone: BodyZone, pivot: THREE.Group, x: number, jointY: number, parent: THREE.Object3D) {
+    const mesh = this.createZone(zone);
+    mesh.position.y = -CHARACTER_PARTS[zone].h / 2;
     pivot.position.set(x, jointY, 0);
     pivot.add(mesh);
     parent.add(pivot);

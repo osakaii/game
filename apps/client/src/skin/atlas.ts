@@ -159,6 +159,14 @@ export function applyAtlasUVs(geometry: THREE.BoxGeometry, part: BodyZone, atlas
   uv.needsUpdate = true;
 }
 
+/** Нормаль грани — куда она «смотрит» (единичный вектор вдоль оси w, знак как у смещения грани). */
+export function faceNormal(face: FaceId): { x: number; y: number; z: number } {
+  const spec = FACE_SPECS[face];
+  const n = { x: 0, y: 0, z: 0 };
+  n[spec.w] = Math.sign(spec.size({ w: 1, h: 1, d: 1 }).depth);
+  return n;
+}
+
 /** Точка на грани коробки по координатам (u, v) внутри грани — обратная формула к buildPlane. */
 export function facePoint(part: PartSize, face: FaceId, u: number, v: number): { x: number; y: number; z: number } {
   const spec = FACE_SPECS[face];

@@ -15,6 +15,8 @@ const CROUCH_HIP_Y = LEG_LENGTH * Math.cos(CROUCH_LEG_ANGLE);
 const UPPER_HEIGHT = PLAYER.height - HIP_Y;
 const CROUCH_UPPER_SCALE = (PLAYER.crouchHeight - CROUCH_HIP_Y) / UPPER_HEIGHT;
 const CROUCH_SPEED = 10; // как быстро модель приседает/встаёт (1/с)
+/** Руки в Мастерской отведены в стороны (рад) — не загораживают бока торса от кисти. */
+const STUDIO_ARM_ANGLE = 0.35;
 
 /**
  * Визуальная модель персонажа из примитивов. Логики и физики здесь нет — только меши и анимация.
@@ -50,6 +52,7 @@ export class PlayerModel {
   private crouchAmount = 0;
   private ghost = false;
   private debugPattern = false;
+  private studioPose = false;
 
   constructor() {
     const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
@@ -98,12 +101,31 @@ export class PlayerModel {
     this.skin.fillPart(zone, color);
   }
 
-  setColors(colors: BodyColors): void {
+  /** Возвращает true, если раскраска изменилась. */
+  setColors(colors: BodyColors): boolean {
+    let changed = this.debugPattern;
     for (const zone of BODY_ZONES) {
       // Перерисовываем только изменившиеся части: каждая перерисовка — загрузка текстуры в видеопамять.
-      if (this.colors[zone] !== colors[zone] || this.debugPattern) this.setZoneColor(zone, colors[zone]);
+      if (this.colors[zone] !== colors[zone] || this.debugPattern) {
+        this.setZoneColor(zone, colors[zone]);
+        changed = true;
+      }
     }
     this.debugPattern = false;
+    return changed;
+  }
+
+  /**
+   * Какую текстуру натягивать на модель. По умолчанию — canvas-кожа (skin.texture).
+   * Свой персонаж в Мастерской рисуется кистью на видеокарте — тогда сюда отдают её текстуру.
+   */
+  setSkinMap(texture: THREE.Texture | null): void {
+    this.material.map = texture ?? this.skin.texture;
+  }
+
+  /** Поза манекена для Мастерской: стоит ровно, руки чуть в стороны. */
+  setStudioPose(enabled: boolean): void {
+    this.studioPose = enabled;
   }
 
   /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
@@ -161,6 +183,13 @@ export class PlayerModel {
 
   /** speed01 — горизонтальная скорость 0..1 от максимальной. */
   animate(dt: number, speed01: number, grounded: boolean): void {
+    this.armLeft.rotation.z = this.studioPose ? -STUDIO_ARM_ANGLE : 0;
+    this.armRight.rotation.z = this.studioPose ? STUDIO_ARM_ANGLE : 0;
+    if (this.studioPose) {
+      this.legLeft.rotation.x = this.legRight.rotation.x = 0;
+      this.armLeft.rotation.x = this.armRight.rotation.x = 0;
+      return;
+    }
     if (!grounded) {
       // В прыжке поджимаем ноги и поднимаем руки.
       this.legLeft.rotation.x = this.legRight.rotation.x = -0.5;

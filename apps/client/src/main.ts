@@ -4,6 +4,7 @@ import {
   PLAYROOM,
   MAPS,
   canMove,
+  canPaint,
   defaultBodyColors,
   isUpdateAvailable,
   type MoveInput,
@@ -19,7 +20,8 @@ import { Lobby } from './lobby/lobby';
 import { Network } from './net/network';
 import { StateSender } from './net/state-sender';
 import { Eyedropper } from './painting/eyedropper';
-import { Painter } from './painting/painter';
+import { PaintStudio } from './paint/paint-studio';
+import { SkinPainter } from './paint/skin-painter';
 import { LocalPlayer } from './player/local-player';
 import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
@@ -28,7 +30,7 @@ import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
 import { MenuScreen } from './ui/menu-screen';
-import { PaintPanel } from './ui/paint-panel';
+import { StudioToolbar } from './ui/studio-toolbar';
 import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
 import { SettingsDialog } from './ui/settings-dialog';
@@ -86,14 +88,44 @@ const phaseHud = new PhaseHud();
 
 // ---------- Покраска ----------
 
-const painter = new Painter(
-  new Eyedropper(camera, canvas, activeMap),
-  controls,
-  network,
-  lobby,
-  player.model,
-);
-const paintPanel = new PaintPanel(painter);
+// Кожа своего персонажа — на видеокарте (кисть), чужих — пока canvas с цветами зон.
+const skinPainter = new SkinPainter(renderer);
+skinPainter.resetFrom(player.model.skin.texture);
+player.model.setSkinMap(skinPainter.texture);
+
+const studio = new PaintStudio({
+  canvas,
+  camera,
+  scene,
+  world: activeMap,
+  model: player.model,
+  painter: skinPainter,
+  eyedropper: new Eyedropper(camera, canvas, activeMap),
+});
+new StudioToolbar(studio, skinPainter, () => closeStudio());
+
+const paintToggle = $<HTMLButtonElement>('#paint-toggle');
+paintToggle.addEventListener('click', () => {
+  if (!canUseStudio()) return;
+  studio.open(player.facing);
+  updateControlsEnabled();
+});
+
+/** Мастерская доступна там же, где раньше покраска: в лобби — всем, в прятках — прячущимся. */
+function canUseStudio(): boolean {
+  const room = lobby.room;
+  return !!room && canPaint(room.phase, lobby.myRole);
+}
+
+function closeStudio() {
+  studio.close();
+  updateControlsEnabled();
+}
+
+function renderPaintToggle() {
+  paintToggle.hidden = !canUseStudio() || studio.active;
+}
+studio.on('change', renderPaintToggle);
 
 // ---------- Поиск ----------
 
@@ -197,10 +229,15 @@ lobby.on('room', (room) => {
   phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
-  player.model.setColors(lobby.me?.colors ?? defaultBodyColors());
+  // Сервер сменил базовую раскраску (например, форма ищущего в начале раунда) — кожа начинается заново.
+  if (player.model.setColors(lobby.me?.colors ?? defaultBodyColors())) {
+    skinPainter.resetFrom(player.model.skin.texture);
+  }
   // Призрак — только в режиме ghost. Помощник ищущих остаётся обычным, в форме ищущего.
   player.model.setGhost(!!lobby.me?.found && lobby.me.role === 'hider');
-  paintPanel.render();
+  // Фаза сменилась на поиск или вышли из комнаты — Мастерская закрывается сама.
+  if (studio.active && !canUseStudio()) closeStudio();
+  renderPaintToggle();
   gameSounds.onRoom(room, lobby.myRole);
   // Пока в комнате, экран не гаснет — иначе неподвижный прячущийся «уснёт» и отвалится.
   wakeLock.enabled = !!room;
@@ -221,7 +258,7 @@ lobby.on('error', (code) => {
 /** Управление выключено, пока открыто меню или пока ищущий ждёт с закрытыми глазами. */
 function updateControlsEnabled() {
   const phase = lobby.room?.phase ?? 'lobby';
-  controls.enabled = !menu.visible && canMove(phase, lobby.myRole);
+  controls.enabled = !menu.visible && canMove(phase, lobby.myRole) && !studio.active;
 }
 updateControlsEnabled();
 
@@ -257,7 +294,8 @@ startFixedStepLoop(PHYSICS_DT, {
     followCamera.rotate(look.dx, look.dy);
     player.render(alpha, frameDt);
     remotePlayers.render(network.clock.now(), frameDt);
-    followCamera.update(player.renderPosition, frameDt, player.state.crouching);
+    if (studio.active) studio.update(player.renderPosition);
+    else followCamera.update(player.renderPosition, frameDt, player.state.crouching);
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
@@ -288,5 +326,5 @@ if (import.meta.env.DEV) {
     else canvas.remove();
   });
 
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, painter, seekerControls, controls, sceneContext, splats, followCamera } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, controls, sceneContext, splats, followCamera } });
 }

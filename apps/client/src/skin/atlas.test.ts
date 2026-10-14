@@ -55,6 +55,7 @@ describe('position map', () => {
     applyAtlasUVs(geometry, part, atlas);
     const pos = geometry.getAttribute('position');
     const uv = geometry.getAttribute('uv');
+    const normal = geometry.getAttribute('normal');
     const texel = 1 / atlas.size;
 
     for (let face = 0; face < 6; face++) {
@@ -73,6 +74,12 @@ describe('position map', () => {
         expect(sample.part).toBe(PART_ORDER.indexOf(part) + 1);
         const distance = Math.hypot(sample.x - pos.getX(i), sample.y - pos.getY(i), sample.z - pos.getZ(i));
         expect(distance, `${part} face ${FACES[face]} vertex ${k}`).toBeLessThan(0.03);
+        // Нормаль из карты совпадает с нормалью вершины в геометрии three.js.
+        expect(sample.normal).toEqual({
+          x: normal.getX(i) + 0,
+          y: normal.getY(i) + 0,
+          z: normal.getZ(i) + 0,
+        });
       }
     }
   });

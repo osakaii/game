@@ -115,6 +115,8 @@ export class Controls {
   }
 
   private onDown(e: PointerEvent) {
+    // Выключенное управление не забирает касания: экран может принадлежать Мастерской.
+    if (!this.enabled) return;
     if (this.tapHandler) {
       const handler = this.tapHandler;
       this.tapHandler = null;

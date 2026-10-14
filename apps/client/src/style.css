@@ -478,9 +478,7 @@ input:focus {
   background: #ff6b9a;
 }
 
-#paint-toggle[hidden],
-#paint-panel[hidden],
-#pick-hint[hidden] {
+#paint-toggle[hidden] {
   display: none;
 }
 
@@ -494,123 +492,7 @@ input:focus {
     display: none;
   }
 
-  #paint-panel {
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  }
-}
-
-#paint-panel {
-  position: fixed;
-  right: calc(120px + env(safe-area-inset-right, 0px));
-  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-  width: 176px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 14px;
-  background: rgb(15 18 26 / 0.75);
-}
-
-.paint-tools {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-#paint-current {
-  width: 36px;
-  height: 36px;
-  flex: none;
-  border-radius: 50%;
-  border: 2px solid #fff;
-}
-
-#paint-pick {
-  flex: 1;
-  padding: 8px;
-  font-size: 13px;
-}
-
-#paint-pick.active {
-  background: #ff6b9a;
-}
-
-#paint-recent {
-  display: flex;
-  gap: 6px;
-  min-height: 24px;
-}
-
-.swatch {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid rgb(255 255 255 / 0.5);
-}
-
-.body-figure {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.figure-row {
-  display: flex;
-  gap: 4px;
-}
-
-.zone {
-  padding: 0;
-  border: 2px solid rgb(255 255 255 / 0.35);
-  border-radius: 6px;
-}
-
-.zone:active {
-  border-color: #fff;
-}
-
-.zone-head {
-  width: 36px;
-  height: 34px;
-  border-radius: 8px;
-}
-
-.zone-torso {
-  width: 48px;
-  height: 52px;
-}
-
-.zone-arm {
-  width: 22px;
-  height: 52px;
-}
-
-.zone-leg {
-  width: 26px;
-  height: 48px;
-}
-
-#paint-all {
-  padding: 8px;
-  font-size: 13px;
-}
-
-#pick-hint {
-  position: fixed;
-  top: calc(56px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 14px;
-  border-radius: 10px;
-  background: #ff6b9a;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-}
+  
 
 /* ---------- Поиск ---------- */
 
@@ -890,4 +772,96 @@ select option {
   image-rendering: pixelated;
   pointer-events: none;
   z-index: 60;
+}
+
+/* ---------- Мастерская ---------- */
+
+/* В Мастерской прячем всё, что относится к ходьбе и бою: экран целиком под кисть. */
+body.studio-open #jump-button,
+body.studio-open #crouch-button,
+body.studio-open #paint-toggle,
+body.studio-open #joystick,
+body.studio-open #desktop-hint,
+body.studio-open #seek-hint {
+  display: none;
+}
+
+#studio[hidden] {
+  display: none;
+}
+
+.studio-hint {
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgb(15 18 26 / 0.6);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studio-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100% - 16px);
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgb(15 18 26 / 0.8);
+}
+
+.studio-color {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #fff;
+}
+
+.studio-color input {
+  width: 64px;
+  height: 64px;
+  margin: -12px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+#studio-recent {
+  display: flex;
+  gap: 4px;
+}
+
+.studio-range {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.studio-range input {
+  width: 96px;
+}
+
+.studio-bar button {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+#studio-pick.active {
+  background: #ff6b9a;
 }

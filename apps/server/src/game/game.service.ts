@@ -32,6 +32,12 @@ const PAINT_INTERVAL_MS = 50;
 const SHOT_ORIGIN_MAX_OFFSET = 6;
 /** Длина луча от камеры. Дальность от самого ищущего проверяется отдельно (shotRange). */
 const SHOT_RAY_LENGTH = 40;
+/**
+ * Насколько далеко в прошлое можно «отмотать» мир при проверке места.
+ * Без предела игрок с огромным пингом (или подделанным viewTime) находил бы прячущегося там,
+ * где тот был секунду назад, — хотя давно ушёл. Компромисс в пользу ищущего, но ограниченный.
+ */
+const MAX_REWIND_MS = 300;
 
 /**
  * Ведёт раунд: раздаёт роли, переключает фазы по таймерам, проверяет условия победы.
@@ -110,7 +116,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
    * Проверка места ищущим. Клиент присылает только луч — что в него попало, решает сервер
    * по своим позициям и своей карте.
    */
-  shoot(room: Room, playerId: string, origin: Vec3, rawDir: Vec3, now = Date.now()): ShotResult {
+  shoot(room: Room, playerId: string, origin: Vec3, rawDir: Vec3, now = Date.now(), viewTime = now): ShotResult {
     const seeker = room.member(playerId);
     if (!seeker) throw new GameError('ROOM_NOT_FOUND');
     if (!canShoot(room.phase, seeker.role)) throw new GameError('SHOT_NOT_ALLOWED');
@@ -126,7 +132,12 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       throw new GameError('INVALID_INPUT', 'shot origin too far from seeker');
     }
 
-    const targets = room.activeHiders().map((m) => ({ id: m.id, position: m.state, crouching: m.state.crouching }));
+    // Lag compensation: прячущиеся там, где их видел ищущий в момент тапа.
+    const rewindTo = Math.min(now, Math.max(viewTime, now - MAX_REWIND_MS));
+    const targets = room.activeHiders().map((m) => {
+      const past = m.history.at(rewindTo) ?? m.state;
+      return { id: m.id, position: past, crouching: past.crouching };
+    });
     const hit = resolveShot(origin, dir, room.colliders, targets, SHOT_RAY_LENGTH);
 
     let point = hit

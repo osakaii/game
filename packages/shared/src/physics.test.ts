@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { vec3, type Vec3 } from './math.js';
-import { PHYSICS_DT, PLAYER, penetratesColliders, stepPlayer, type PlayerPhysicsState } from './physics.js';
+import { PHYSICS_DT, PLAYER, penetratesColliders, stepPlayer, supportHeight, type PlayerPhysicsState } from './physics.js';
 import { buildColliders } from './world/map.js';
 import { PLAYROOM } from './world/playroom.js';
 
@@ -91,5 +91,16 @@ describe('crouching', () => {
   it('cannot jump while crouching', () => {
     const s = simulate(vec3(0, 0, 6), 0, 0, 0.3, 2, true);
     expect(s.position.y).toBe(0);
+  });
+});
+
+describe('supportHeight', () => {
+  it('finds the crate under a player standing on its edge', () => {
+    // Ящик 1.5x1.5 с центром (-8.5, -12), верх на 1 м. Центр игрока чуть за краем.
+    expect(supportHeight(vec3(-7.6, 1, -12), colliders)).toBeCloseTo(1);
+  });
+
+  it('is the floor for a player in mid-air over open space', () => {
+    expect(supportHeight(vec3(0, 1.2, 6), colliders)).toBe(0);
   });
 });

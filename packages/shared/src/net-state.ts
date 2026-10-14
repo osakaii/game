@@ -46,7 +46,15 @@ export function roundCm(value: number): number {
 const Vec3Schema = z.object({ x: z.number(), y: z.number(), z: z.number() });
 
 /** Ищущий проверяет место: луч из камеры через точку касания. */
-export const ShootSchema = z.object({ origin: Vec3Schema, dir: Vec3Schema });
+export const ShootSchema = z.object({
+  origin: Vec3Schema,
+  dir: Vec3Schema,
+  /**
+   * Серверное время, которое ищущий видел на экране в момент тапа (serverNow - задержка интерполяции).
+   * Сервер «отматывает» позиции прячущихся к этому моменту — lag compensation.
+   */
+  viewTime: z.number().optional(),
+});
 export type ShootPayload = z.input<typeof ShootSchema>;
 
 export interface ShotResult {

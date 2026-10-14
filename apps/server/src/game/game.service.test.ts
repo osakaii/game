@@ -216,9 +216,33 @@ describe('GameService.shoot', () => {
     expect(caught.score).toBe(2);
   });
 
+  it('lag compensation: hits where the seeker saw the hider, within the rewind limit', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    const t0 = Date.now();
+    // Прячущийся стоял на линии выстрела, а 150 мс назад ушёл вбок на 2 м.
+    hider.history.push(t0 + 50, { x: 0, y: 0, z: 4, crouching: false });
+    hider.history.push(t0 + 200, { x: 2, y: 0, z: 4, crouching: false });
+    hider.state = { ...hider.state, x: 2 };
+
+    const now = t0 + 200;
+    // Ищущий видел его ещё на линии (viewTime = t0 + 60) — засчитываем.
+    expect(game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 }, now, t0 + 60).hitPlayerId).toBe(hider.id);
+  });
+
+  it('lag compensation is capped: a fake ancient viewTime does not help', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    const t0 = Date.now();
+    hider.history.push(t0 + 50, { x: 0, y: 0, z: 4, crouching: false });
+    hider.history.push(t0 + 1000, { x: 2, y: 0, z: 4, crouching: false });
+    hider.state = { ...hider.state, x: 2 };
+    // «Я видел его секунду назад» — сервер перематывает максимум на 300 мс.
+    expect(game.shoot(room, seeker.id, origin, { x: 0, y: 0, z: -1 }, t0 + 1000, t0).hitPlayerId).toBeNull();
+  });
+
   it('crouching hider is harder to hit: a shot over the head misses', () => {
     const { game, room, seeker, hider, origin } = seekingRound();
     hider.state = { ...hider.state, crouching: true };
+    hider.history.push(Date.now(), hider.state);
     // Луч на высоте 1.3 м: стоящего задел бы, присевшего (0.9 м) — нет.
     const result = game.shoot(room, seeker.id, { ...origin, y: 1.3 }, { x: 0, y: 0, z: -1 });
     expect(result.hitPlayerId).toBeNull();

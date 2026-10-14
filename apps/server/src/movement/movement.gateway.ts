@@ -7,7 +7,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { PlayerStateSchema, SNAPSHOT_RATE, canMove } from '@mecha/shared';
+import { PlayerStateSchema, SNAPSHOT_RATE, canMove, supportHeight } from '@mecha/shared';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import {
   GATEWAY_OPTIONS,
@@ -17,6 +17,7 @@ import {
   type GameSocket,
 } from '../common/socket-types';
 import { RoomsService } from '../rooms/rooms.service';
+import { checkAirborne } from './air-check';
 import { validateMove } from './move-validator';
 
 /** Допуск на сдвиг замороженного игрока (м): клиент мог отправить пакет до того, как узнал о заморозке. */
@@ -78,8 +79,19 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
       return;
     }
 
+    const air = checkAirborne(member.air, next, room.colliders, now);
+    if (!air.ok) {
+      this.logger.warn(`rejected move from ${member.nickname}: ${air.reason}`);
+      // Возвращаем не в последнюю точку (она тоже могла быть в воздухе), а на опору под ней.
+      const ground = { x: prev.x, y: supportHeight(prev, room.colliders), z: prev.z };
+      room.teleport(member, ground, now);
+      client.emit('player:teleport', ground);
+      return;
+    }
+
     member.state = next;
     member.stateAt = now;
+    member.history.push(now, next);
   }
 
   private broadcastSnapshots() {

@@ -9,9 +9,10 @@ class Handlers {
   free() {}
 }
 
-function contextFor(handler: () => void, client: object): ExecutionContext {
+function contextFor(handler: () => void, client: object, ack?: (result: unknown) => void): ExecutionContext {
   return {
     getHandler: () => handler,
+    getArgs: () => [client, {}, ack, 'event'].filter((arg) => arg !== undefined),
     switchToWs: () => ({ getClient: () => client }),
   } as unknown as ExecutionContext;
 }
@@ -29,6 +30,15 @@ describe('RateLimitGuard', () => {
     vi.advanceTimersByTime(500); // +1 жетон при 2/с
     expect(guard.canActivate(ctx)).toBe(true);
     expect(guard.canActivate(ctx)).toBe(false);
+  });
+
+  it('answers a waiting ack with RATE_LIMITED instead of leaving it hanging', () => {
+    const guard = new RateLimitGuard(new Reflector());
+    const client = { data: { playerId: 'p' } };
+    const ack = vi.fn();
+    for (let i = 0; i < 3; i++) guard.canActivate(contextFor(Handlers.prototype.limited, client));
+    expect(guard.canActivate(contextFor(Handlers.prototype.limited, client, ack))).toBe(false);
+    expect(ack).toHaveBeenCalledWith({ ok: false, error: 'RATE_LIMITED' });
   });
 
   it('does not limit handlers without the decorator', () => {

@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, Logger, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { Result } from '@mecha/shared';
 import type { GameSocket } from './socket-types';
 
 const RATE_LIMIT_KEY = 'rateLimit';
@@ -45,6 +46,10 @@ export class RateLimitGuard implements CanActivate {
     bucket.updatedAt = now;
     if (bucket.tokens < 1) {
       this.logger.warn(`rate limit: ${client.data.playerId} on ${key}`);
+      // Если клиент ждёт ответа (emit с ack), отвечаем сразу — иначе он ждал бы до таймаута.
+      // Nest передаёт ack-колбэк среди аргументов обработчика: [client, data, ack, ...].
+      const ack = context.getArgs().find((arg): arg is (result: unknown) => void => typeof arg === 'function');
+      ack?.({ ok: false, error: 'RATE_LIMITED' } satisfies Result<never>);
       return false;
     }
     bucket.tokens -= 1;

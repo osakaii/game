@@ -20,6 +20,9 @@ import {
   type Vec3,
 } from '@mecha/shared';
 
+import type { AirState } from '../movement/air-check';
+import { PositionHistory } from '../movement/position-history';
+
 /** Игрок внутри комнаты: публичные данные + последнее принятое сервером состояние. */
 export interface RoomMember extends PlayerInfo {
   state: PlayerState;
@@ -33,6 +36,10 @@ export interface RoomMember extends PlayerInfo {
   roundPoints: number;
   /** Сколько раундов был ищущим — для честной очереди ведущих. */
   timesSeeker: number;
+  /** Сколько в воздухе и откуда оторвался — защита от «полётов». */
+  air: AirState;
+  /** Недавние позиции — для компенсации задержки при проверке мест. */
+  history: PositionHistory;
 }
 
 /**
@@ -144,9 +151,12 @@ export class Room {
       score: 0,
       roundPoints: 0,
       timesSeeker: 0,
+      air: { since: null, takeoffY: spawn.y },
+      history: new PositionHistory(),
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false },
       stateAt: now,
     };
+    member.history.push(now, member.state);
     this.members.set(id, member);
     if (!this._hostId) this._hostId = id;
     return member;
@@ -241,6 +251,10 @@ export class Room {
   teleport(member: RoomMember, position: Vec3, now = Date.now()): void {
     member.state = { ...member.state, x: position.x, y: position.y, z: position.z };
     member.stateAt = now;
+    member.air = { since: null, takeoffY: position.y };
+    // Старая история относится к другому месту — перемотка не должна «вернуть» игрока туда.
+    member.history.clear();
+    member.history.push(now, member.state);
   }
 
   /** Точка появления: по кругу из списка, чтобы игроки не появлялись друг в друге. */

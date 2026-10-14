@@ -42,10 +42,10 @@ export class GameGateway implements OnGatewayInit {
   @RateLimit(4, 6)
   shoot(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): Result<ShotResult> {
     return respond(() => {
-      const { origin, dir } = parseInput(ShootSchema, body);
+      const { origin, dir, viewTime } = parseInput(ShootSchema, body);
       const room = this.rooms.roomOf(playerIdOf(client));
       if (!room) throw new GameError('ROOM_NOT_FOUND');
-      return this.game.shoot(room, playerIdOf(client), origin, dir);
+      return this.game.shoot(room, playerIdOf(client), origin, dir, Date.now(), viewTime);
     });
   }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canShoot } from '@mecha/shared';
+import { INTERPOLATION_DELAY_MS, canShoot } from '@mecha/shared';
 import type { Lobby } from '../lobby/lobby';
 import type { Network } from '../net/network';
 import { $ } from '../ui/dom';
@@ -46,6 +46,8 @@ export class SeekerControls {
     const result = await this.network.shoot({
       origin: { x: origin.x, y: origin.y, z: origin.z },
       dir: { x: direction.x, y: direction.y, z: direction.z },
+      // Чужих игроков мы рисуем с задержкой интерполяции — значит, видели их в этот момент.
+      viewTime: this.network.clock.now() - INTERPOLATION_DELAY_MS,
     });
     this.pending = false;
 

@@ -202,6 +202,24 @@ function circleOverlapsRect(x: number, z: number, r: number, b: Aabb): boolean {
   return dx * dx + dz * dz < r * r;
 }
 
+/**
+ * Высота опоры под игроком: самый высокий блок под его кругом (вид сверху), не выше ног.
+ * В отличие от groundHeightAt учитывает радиус — игрок, стоящий на краю ящика центром мимо него,
+ * всё равно стоит на ящике.
+ */
+export function supportHeight(position: Vec3, colliders: readonly Aabb[]): number {
+  const r = PLAYER.radius * 0.95;
+  let ground = 0;
+  for (const b of colliders) {
+    if (b.maxY > position.y + 0.05 || b.maxY <= ground) continue;
+    if (circleOverlapsRect(position.x, position.z, r, b)) ground = b.maxY;
+  }
+  return ground;
+}
+
+/** Высота прыжка с места: v² / 2g. Нужна серверу, чтобы ловить «полёты». */
+export const JUMP_HEIGHT = (PLAYER.jumpSpeed * PLAYER.jumpSpeed) / (2 * PLAYER.gravity);
+
 /** Высота опоры под точкой (для тени под персонажем): самый высокий блок не выше maxY. */
 export function groundHeightAt(x: number, z: number, maxY: number, colliders: readonly Aabb[]): number {
   let ground = 0;

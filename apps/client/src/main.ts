@@ -5,7 +5,6 @@ import {
   MAPS,
   canMove,
   canPaint,
-  defaultBodyColors,
   isUpdateAvailable,
   type MoveInput,
 } from '@mecha/shared';
@@ -22,6 +21,7 @@ import { StateSender } from './net/state-sender';
 import { Eyedropper } from './painting/eyedropper';
 import { PaintStudio } from './paint/paint-studio';
 import { SkinPainter } from './paint/skin-painter';
+import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
 import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
@@ -208,6 +208,7 @@ const remotePlayers = new RemotePlayers(scene, activeMap);
 const stateSender = new StateSender((state) => network.sendPlayerState(state));
 
 network.on('snapshot', (snapshot) => remotePlayers.applySnapshot(snapshot, network.playerId));
+const skinSync = new SkinSync(network, lobby, skinPainter, studio, player.model, remotePlayers);
 network.on('teleport', (position) => {
   player.teleport(position);
   stateSender.reset();
@@ -229,10 +230,8 @@ lobby.on('room', (room) => {
   phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).
-  // Сервер сменил базовую раскраску (например, форма ищущего в начале раунда) — кожа начинается заново.
-  if (player.model.setColors(lobby.me?.colors ?? defaultBodyColors())) {
-    skinPainter.resetFrom(player.model.skin.texture);
-  }
+  // Сервер мог сбросить кожу (начало раунда, найденный стал помощником) — тогда начинаем с основы.
+  skinSync.onRoom();
   // Призрак — только в режиме ghost. Помощник ищущих остаётся обычным, в форме ищущего.
   player.model.setGhost(!!lobby.me?.found && lobby.me.role === 'hider');
   // Фаза сменилась на поиск или вышли из комнаты — Мастерская закрывается сама.

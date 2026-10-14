@@ -51,7 +51,7 @@ interface StudioDeps {
  *   2 пальца             — облёт + щипок для зума;
  *   мышь: левая на теле — кисть, левая мимо / правая — облёт, колесо — зум.
  */
-export class PaintStudio extends Emitter<{ change: void }> {
+export class PaintStudio extends Emitter<{ change: void; edited: void }> {
   active = false;
   tool: StudioTool = 'brush';
   readonly color = new THREE.Color('#e63946');
@@ -130,11 +130,13 @@ export class PaintStudio extends Emitter<{ change: void }> {
   undo(): void {
     this.deps.painter.undo();
     this.emit('change', undefined);
+    this.emit('edited', undefined);
   }
 
   redo(): void {
     this.deps.painter.redo();
     this.emit('change', undefined);
+    this.emit('edited', undefined);
   }
 
   // ---------- Ввод ----------
@@ -250,6 +252,7 @@ export class PaintStudio extends Emitter<{ change: void }> {
     this.stroke = null;
     this.remember(this.colorHex);
     this.emit('change', undefined);
+    this.emit('edited', undefined); // кожа изменилась — пора (с задержкой) отправить её другим
   }
 
   private paint(stamps: Stamp[], part: number) {

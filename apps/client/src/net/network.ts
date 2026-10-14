@@ -5,7 +5,6 @@ import {
   type CreateRoomPayload,
   type EmptyResult,
   type JoinRoomPayload,
-  type PaintPayload,
   type PlayerState,
   type Result,
   type RoomResult,
@@ -14,6 +13,7 @@ import {
   type ShootPayload,
   type ShotEvent,
   type ShotResult,
+  type SkinImageEvent,
   type UpdateSettingsPayload,
   type TeleportPayload,
   type WelcomePayload,
@@ -34,12 +34,15 @@ interface NetworkEvents {
   snapshot: WorldSnapshot;
   teleport: TeleportPayload;
   shot: ShotEvent;
+  skin: SkinImageEvent;
   /** Протокол сервера несовместим с этим клиентом — нужна перезагрузка. */
   outdated: void;
 }
 
 const PING_INTERVAL_MS = 2000;
 const REQUEST_TIMEOUT_MS = 5000;
+/** Картинка кожи весит до сотен КБ — на медленном мобильном интернете ей нужно больше времени. */
+const UPLOAD_TIMEOUT_MS = 15000;
 
 /**
  * Обёртка над socket.io: соединение, пинг и запросы.
@@ -66,6 +69,7 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
     this.socket.on('player:teleport', (position) => this.emit('teleport', position));
     this.socket.on('seek:shot', (shot) => this.emit('shot', shot));
+    this.socket.on('player:skin', (skin) => this.emit('skin', skin));
     this.socket.on('disconnect', (reason) => {
       clearInterval(this.pingTimer);
       // Сервер отключил нас сам — значит, эта же сессия открылась в другой вкладке.
@@ -95,8 +99,9 @@ export class Network extends Emitter<NetworkEvents> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('room:settings', payload));
   }
 
-  paint(payload: PaintPayload): Promise<EmptyResult> {
-    return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('player:paint', payload));
+  /** Бинарные данные socket.io передаёт как есть, без JSON и base64 — на треть меньше трафика. */
+  uploadSkin(image: ArrayBuffer): Promise<Result<{ revision: number }>> {
+    return withTimeoutFallback(this.socket.timeout(UPLOAD_TIMEOUT_MS).emitWithAck('player:skin', image));
   }
 
   shoot(payload: ShootPayload): Promise<Result<ShotResult>> {

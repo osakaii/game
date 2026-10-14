@@ -98,39 +98,59 @@ describe('GameService', () => {
   });
 });
 
-describe('GameService.paint', () => {
+/** Минимальный «PNG» 512×512: сигнатура + заголовок IHDR. Сервер смотрит только на них. */
+function fakePng(size = 512, extraBytes = 0): Uint8Array {
+  const bytes = new Uint8Array(33 + extraBytes);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  new DataView(bytes.buffer).setUint32(16, size);
+  new DataView(bytes.buffer).setUint32(20, size);
+  return bytes;
+}
+
+describe('GameService.uploadSkin', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('paints in lobby and broadcasts the change', () => {
-    const { game, room, phases } = setup(2);
-    game.paint(room, 'p0', ['head', 'torso'], '#123456');
-    expect(room.member('p0')!.colors.head).toBe('#123456');
-    expect(room.member('p0')!.colors.legLeft).toBe('#f2f2f2');
-    expect(phases).toEqual(['lobby']);
+  it('stores the skin in lobby, bumps the revision and announces it', () => {
+    const { game, room, events } = setup(2);
+    const announced: string[] = [];
+    events.skin.subscribe((e) => announced.push(e.playerId));
+
+    const revision = game.uploadSkin(room, 'p0', fakePng(), 5000);
+    expect(revision).toBe(1);
+    expect(room.toSnapshot().players[0].skin).toEqual({ base: 'default', revision: 1, hasImage: true });
+    expect(announced).toEqual(['p0']);
   });
 
-  it('rate-limits paint spam', () => {
+  it('rejects wrong format, wrong size and oversized files', () => {
     const { game, room } = setup(2);
-    game.paint(room, 'p0', ['head'], '#111111', 1000);
-    expect(() => game.paint(room, 'p0', ['head'], '#222222', 1010)).toThrowError(/RATE_LIMITED/);
-    expect(() => game.paint(room, 'p0', ['head'], '#222222', 1100)).not.toThrow();
+    const text = new TextEncoder().encode('definitely not an image, just some text here');
+    expect(() => game.uploadSkin(room, 'p0', text, 5000)).toThrowError(/PNG or WebP/);
+    expect(() => game.uploadSkin(room, 'p0', fakePng(1024), 7000)).toThrowError(/512x512/);
+    expect(() => game.uploadSkin(room, 'p0', fakePng(512, 500 * 1024), 9000)).toThrowError(/too large/);
   });
 
-  it('lets only hiders paint while hiding, nobody while seeking', () => {
+  it('limits upload frequency', () => {
     const { game, room } = setup(2);
+    game.uploadSkin(room, 'p0', fakePng(), 5000);
+    expect(() => game.uploadSkin(room, 'p0', fakePng(), 5500)).toThrowError(/RATE_LIMITED/);
+    expect(() => game.uploadSkin(room, 'p0', fakePng(), 6100)).not.toThrow();
+  });
+
+  it('round start resets skins: hiders to white, seekers to uniform; only hiders may paint', () => {
+    const { game, room } = setup(2);
+    game.uploadSkin(room, 'p0', fakePng(), 5000);
     game.start(room, 'p0');
     const seeker = room.allMembers().find((m) => m.role === 'seeker')!;
     const hider = room.allMembers().find((m) => m.role === 'hider')!;
-    expect(seeker.colors.head).toBe('#d62828');
+    expect(seeker.skin).toMatchObject({ base: 'seeker', image: null });
+    expect(hider.skin).toMatchObject({ base: 'default', image: null });
 
-    expect(() => game.paint(room, seeker.id, ['head'], '#ffffff')).toThrowError(/PAINT_NOT_ALLOWED/);
-    expect(() => game.paint(room, hider.id, ['head'], '#00ff00')).not.toThrow();
+    expect(() => game.uploadSkin(room, seeker.id, fakePng(), Date.now() + 2000)).toThrowError(/PAINT_NOT_ALLOWED/);
+    expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 2000)).not.toThrow();
 
     vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
-    expect(() => game.paint(room, hider.id, ['torso'], '#00ff00', Date.now() + 1000)).toThrowError(
-      /PAINT_NOT_ALLOWED/,
-    );
+    expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 5000)).toThrowError(/PAINT_NOT_ALLOWED/);
   });
 });
 
@@ -202,7 +222,7 @@ describe('GameService.shoot', () => {
 
     ctx.game.shoot(ctx.room, seeker.id, { x: 0, y: 1.5, z: 13 }, { x: 0, y: 0, z: -1 });
     expect(caught.role).toBe('seeker');
-    expect(caught.colors.head).toBe('#d62828');
+    expect(caught.skin).toMatchObject({ base: 'seeker', image: null });
     expect(ctx.room.netPlayers().some((p) => p.id === caught.id)).toBe(true);
 
     // Основной ищущий ушёл — помощник остаётся, раунд продолжается.

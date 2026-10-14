@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BODY_ZONES, PLAYER, defaultBodyColors, type BodyColors, type BodyZone } from '@mecha/shared';
+import { BODY_ZONES, PLAYER, skinBaseColor, type BodyZone, type SkinBase } from '@mecha/shared';
 import { graphics } from '../platform/graphics';
 import { applyAtlasUVs, getSkinAtlas } from '../skin/atlas';
 import { CHARACTER_PARTS } from '../skin/character-parts';
@@ -39,7 +39,7 @@ export class PlayerModel {
    */
   readonly skin = new SkinTexture(getSkinAtlas());
   private readonly material = new THREE.MeshLambertMaterial({ map: this.skin.texture });
-  private colors: BodyColors = defaultBodyColors();
+  private base: SkinBase = 'default';
 
   private readonly body = new THREE.Group();
   private readonly upper = new THREE.Group();
@@ -51,7 +51,6 @@ export class PlayerModel {
   private walkPhase = 0;
   private crouchAmount = 0;
   private ghost = false;
-  private debugPattern = false;
   private studioPose = false;
 
   constructor() {
@@ -93,26 +92,18 @@ export class PlayerModel {
     );
     this.shadow.rotation.x = -Math.PI / 2;
     this.root.add(this.body, this.shadow);
-    for (const zone of BODY_ZONES) this.skin.fillPart(zone, this.colors[zone]);
+    this.setBase('default');
   }
 
-  setZoneColor(zone: BodyZone, color: string): void {
-    this.colors[zone] = color;
-    this.skin.fillPart(zone, color);
+  /** Нарисовать основу кожи (белую или форму ищущего) — до первой картинки или после сброса. */
+  setBase(base: SkinBase): void {
+    this.base = base;
+    for (const zone of BODY_ZONES) this.skin.fillPart(zone, skinBaseColor(base, zone));
   }
 
-  /** Возвращает true, если раскраска изменилась. */
-  setColors(colors: BodyColors): boolean {
-    let changed = this.debugPattern;
-    for (const zone of BODY_ZONES) {
-      // Перерисовываем только изменившиеся части: каждая перерисовка — загрузка текстуры в видеопамять.
-      if (this.colors[zone] !== colors[zone] || this.debugPattern) {
-        this.setZoneColor(zone, colors[zone]);
-        changed = true;
-      }
-    }
-    this.debugPattern = false;
-    return changed;
+  /** Наложить картинку кожи, пришедшую по сети. Она покрывает весь атлас целиком. */
+  applySkinImage(image: CanvasImageSource): void {
+    this.skin.drawImage(image);
   }
 
   /**
@@ -128,16 +119,10 @@ export class PlayerModel {
     this.studioPose = enabled;
   }
 
-  /** Текущий цвет зоны как #rrggbb — то, что сейчас видно на экране. */
-  colorOf(zone: BodyZone): string {
-    return this.colors[zone];
-  }
-
   /** Отладка атласа: шахматка со стрелками «вверх» вместо раскраски. */
   showDebugPattern(enabled: boolean): void {
-    this.debugPattern = enabled;
     if (enabled) this.skin.drawDebugPattern();
-    else for (const zone of BODY_ZONES) this.skin.fillPart(zone, this.colors[zone]);
+    else this.setBase(this.base);
   }
 
   /** Освободить видеопамять: текстура кожи у каждого игрока своя. */

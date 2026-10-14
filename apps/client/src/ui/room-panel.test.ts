@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, defaultBodyColors, type PlayerInfo, type RoomSnapshot } from '@mecha/shared';
+import { DEFAULT_SETTINGS, type PlayerInfo, type RoomSnapshot } from '@mecha/shared';
 import { RoomPanel } from './room-panel';
 
 function setup() {
@@ -21,7 +21,7 @@ const player = (id: string, nickname: string, extra: Partial<PlayerInfo> = {}): 
   nickname,
   role: null,
   found: false,
-  colors: defaultBodyColors(),
+  skin: { base: 'default', revision: 0, hasImage: false },
   connected: true,
   score: 0,
   roundPoints: 0,

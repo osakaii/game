@@ -2,11 +2,13 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import type { Subscription } from 'rxjs';
 import {
   GAME_RULES,
+  MAX_SKIN_BYTES,
   PLAYER,
+  SKIN_SIZE,
   canPaint,
+  detectSkinImage,
   canShoot,
   resolveSeekerCount,
-  type BodyZone,
   type GameResult,
   type RoomSettings,
   type ShotResult,
@@ -20,10 +22,10 @@ import { resolveShot } from './shot';
 import { shuffle } from './shuffle';
 
 /**
- * Минимальный интервал между покрасками (мс). Каждая покраска — рассылка room:state всей комнате,
- * без лимита один клиент в цикле мог бы завалить сервер и всех игроков.
+ * Минимальный интервал между загрузками кожи (мс). Каждая загрузка — до 400 КБ на каждого игрока комнаты:
+ * без лимита один клиент в цикле забил бы канал всем.
  */
-const PAINT_INTERVAL_MS = 50;
+const SKIN_UPLOAD_INTERVAL_MS = 1000;
 
 /**
  * Луч приходит из камеры клиента, а камера висит за спиной игрока (до ~4.5 м + высота плеч).
@@ -102,14 +104,28 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.events.changed.next(room);
   }
 
-  paint(room: Room, playerId: string, zones: readonly BodyZone[], color: string, now = Date.now()): void {
+  /**
+   * Загрузка кожи. Картинку не декодируем — только проверяем, что это действительно
+   * PNG/WebP нужного размера, и что игроку сейчас можно краситься.
+   */
+  uploadSkin(room: Room, playerId: string, bytes: Uint8Array, now = Date.now()): number {
     const member = room.member(playerId);
     if (!member) throw new GameError('ROOM_NOT_FOUND');
     if (!canPaint(room.phase, member.role)) throw new GameError('PAINT_NOT_ALLOWED');
-    if (now - member.paintedAt < PAINT_INTERVAL_MS) throw new GameError('RATE_LIMITED');
+    if (now - member.skin.uploadedAt < SKIN_UPLOAD_INTERVAL_MS) throw new GameError('RATE_LIMITED');
+    if (bytes.byteLength > MAX_SKIN_BYTES) throw new GameError('INVALID_INPUT', 'skin image too large');
 
-    room.paint(member, zones, color, now);
+    const info = detectSkinImage(bytes);
+    if (!info) throw new GameError('INVALID_INPUT', 'skin must be PNG or WebP');
+    if (info.width !== SKIN_SIZE || info.height !== SKIN_SIZE) {
+      throw new GameError('INVALID_INPUT', `skin must be ${SKIN_SIZE}x${SKIN_SIZE}`);
+    }
+
+    // Копия: буфер из сокета принадлежит socket.io, храним свой.
+    room.setSkinImage(member, Buffer.from(bytes), now);
+    this.events.skin.next({ room, playerId });
     this.events.changed.next(room);
+    return member.skin.revision;
   }
 
   /**

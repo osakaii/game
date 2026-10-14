@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { MAP_IDS } from './world/maps.js';
 
 /** Варианты для интерфейса. Сервер принимает любые значения в пределах схемы. */
-export const HIDE_SECONDS_OPTIONS = [20, 40, 60] as const;
+/** Свободная покраска кистью дольше, чем тык в зоны, — поэтому на прятки больше времени. */
+export const HIDE_SECONDS_OPTIONS = [40, 60, 90] as const;
 export const SEEK_SECONDS_OPTIONS = [90, 150, 240] as const;
 export const SEEKER_OPTIONS = ['auto', 1, 2, 3] as const;
 export const FOUND_MODE_OPTIONS = ['helper', 'ghost'] as const;
@@ -24,7 +25,7 @@ export type UpdateSettingsPayload = z.input<typeof UpdateSettingsSchema>;
 
 export const DEFAULT_SETTINGS: RoomSettings = {
   mapId: 'playroom',
-  hideSeconds: 40,
+  hideSeconds: 60,
   seekSeconds: 150,
   seekers: 'auto',
   foundMode: 'helper',

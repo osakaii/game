@@ -18,6 +18,7 @@ import {
   type GameSocket,
 } from '../common/socket-types';
 import { SessionService } from '../session/session.service';
+import { emitRoomSkins } from './emit-skins';
 import type { Room } from './room';
 import { RoomEvents } from './room-events';
 import { RoomsService } from './rooms.service';
@@ -101,6 +102,7 @@ export class RoomsGateway implements OnGatewayInit {
     const playerId = playerIdOf(client);
     const { x, y, z } = room.member(playerId)!.state;
     this.events.teleported.next({ playerId, position: { x, y, z } });
+    emitRoomSkins(client, room);
     return room.toSnapshot();
   }
 

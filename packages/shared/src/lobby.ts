@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { BodyColors } from './body.js';
 import type { GameResult, Role, RoomPhase } from './game.js';
 import type { RoomSettings } from './settings.js';
+import type { SkinState } from './skin.js';
 
 export const MAX_PLAYERS = 8;
 export const NICKNAME_MAX_LENGTH = 16;
@@ -43,7 +43,7 @@ export interface PlayerInfo {
   role: Role | null;
   /** Прячущегося нашли (этап 6). */
   found: boolean;
-  colors: BodyColors;
+  skin: SkinState;
   /** false — связь пропала, ждём переподключения. */
   connected: boolean;
   /** Очки за все раунды в этой комнате. */

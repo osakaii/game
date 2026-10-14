@@ -166,6 +166,30 @@ export class SkinPainter {
     return `#${[this.pixel[0], this.pixel[1], this.pixel[2]].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
   }
 
+  /**
+   * Кожа целиком как сжатая картинка — для отправки по сети.
+   * Пиксели читаем с видеокарты (уже в sRGB), переворачиваем по вертикали
+   * (в WebGL строка 0 — низ, в картинке — верх) и сжимаем браузерным кодеком.
+   */
+  async exportImage(): Promise<Blob> {
+    const size = this.target.width;
+    const pixels = new Uint8ClampedArray(size * size * 4);
+    this.renderer.readRenderTargetPixels(this.target, 0, 0, size, size, pixels);
+
+    const flipped = new Uint8ClampedArray(pixels.length);
+    const row = size * 4;
+    for (let y = 0; y < size; y++) flipped.set(pixels.subarray(y * row, (y + 1) * row), (size - 1 - y) * row);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    canvas.getContext('2d')!.putImageData(new ImageData(flipped, size, size), 0, 0);
+    // WebP с потерями, но высоким качеством: ~50–120 КБ вместо ~1 МБ сырых пикселей.
+    // Safari до недавних версий не умеет кодировать WebP и молча отдаёт PNG — сервер примет и его.
+    return new Promise((resolve, reject) =>
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('encode failed'))), 'image/webp', 0.92),
+    );
+  }
+
   dispose(): void {
     this.target.dispose();
     this.clearHistory(this.undoStack);

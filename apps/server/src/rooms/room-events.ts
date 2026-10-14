@@ -25,6 +25,8 @@ export class RoomEvents {
   readonly playerLeft = new Subject<Room>();
   /** Сервер переставил игрока. */
   readonly teleported = new Subject<TeleportEvent>();
+  /** Игрок загрузил новую кожу — разослать остальным. */
+  readonly skin = new Subject<{ room: Room; playerId: string }>();
   /** Ищущий проверил место. */
   readonly shot = new Subject<{ room: Room; shot: ShotEvent }>();
 }

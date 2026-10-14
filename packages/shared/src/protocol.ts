@@ -11,8 +11,8 @@
  * Новая карта меняет APP_VERSION, но не протокол. Новое поле в сообщении — меняет оба.
  */
 import { z } from 'zod';
-import type { PaintPayload } from './body.js';
 import type { UpdateSettingsPayload } from './settings.js';
+import type { SkinImageEvent } from './skin.js';
 import type { BuildInfo } from './version.js';
 import type {
   CreateRoomPayload,
@@ -31,7 +31,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -75,6 +75,8 @@ export interface ServerToClientEvents {
   'world:snapshot': (snapshot: WorldSnapshot) => void;
   'player:teleport': (position: TeleportPayload) => void;
   'seek:shot': (shot: ShotEvent) => void;
+  /** Кожа игрока: после его загрузки или при входе в комнату (все кожи сразу). */
+  'player:skin': (event: SkinImageEvent) => void;
 }
 
 export interface ClientToServerEvents {
@@ -87,6 +89,7 @@ export interface ClientToServerEvents {
   'game:start': (ack: (result: EmptyResult) => void) => void;
   /** Только хост, только в лобби. */
   'room:settings': (payload: UpdateSettingsPayload, ack: (result: EmptyResult) => void) => void;
-  'player:paint': (payload: PaintPayload, ack: (result: EmptyResult) => void) => void;
+  /** Своя кожа целиком — сжатая картинка (бинарные данные, не JSON). */
+  'player:skin': (image: ArrayBuffer, ack: (result: Result<{ revision: number }>) => void) => void;
   'seek:shoot': (payload: ShootPayload, ack: (result: Result<ShotResult>) => void) => void;
 }

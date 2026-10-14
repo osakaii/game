@@ -4,9 +4,6 @@ import {
   MAX_PLAYERS,
   SCORING,
   buildColliders,
-  defaultBodyColors,
-  seekerBodyColors,
-  type BodyZone,
   type Aabb,
   type GameResult,
   type MapDef,
@@ -17,6 +14,7 @@ import {
   type RoomPhase,
   type RoomSettings,
   type RoomSnapshot,
+  type SkinBase,
   type Vec3,
 } from '@mecha/shared';
 
@@ -24,12 +22,13 @@ import type { AirState } from '../movement/air-check';
 import { PositionHistory } from '../movement/position-history';
 
 /** Игрок внутри комнаты: публичные данные + последнее принятое сервером состояние. */
-export interface RoomMember extends PlayerInfo {
+// Omit: в room:state уходит лёгкое SkinState без картинки, а на сервере кожа хранит и саму картинку.
+export interface RoomMember extends Omit<PlayerInfo, 'skin'> {
   state: PlayerState;
   /** Серверное время (мс), когда state последний раз был принят. */
   stateAt: number;
-  /** Когда игрок последний раз красился — для ограничения частоты. */
-  paintedAt: number;
+  /** Кожа: основа + последняя загруженная картинка (как прислал клиент, сжатая). */
+  skin: { base: SkinBase; revision: number; image: Buffer | null; uploadedAt: number };
   /** Когда ищущий может проверять снова (серверное время, мс). */
   nextShotAt: number;
   score: number;
@@ -144,8 +143,7 @@ export class Room {
       nickname: this.uniqueNickname(nickname),
       role: null,
       found: false,
-      colors: defaultBodyColors(),
-      paintedAt: 0,
+      skin: { base: 'default', revision: 0, image: null, uploadedAt: 0 },
       nextShotAt: 0,
       connected: true,
       score: 0,
@@ -182,7 +180,7 @@ export class Room {
       m.nextShotAt = 0;
       m.roundPoints = 0;
       // Раскраска из лобби не переносится в раунд: все прячутся с нуля за отведённое время.
-      m.colors = m.role === 'seeker' ? seekerBodyColors() : defaultBodyColors();
+      this.resetSkin(m, m.role === 'seeker' ? 'seeker' : 'default');
     }
     this.result = null;
     this.setPhase('hiding', hidingEndsAt);
@@ -206,7 +204,7 @@ export class Room {
     for (const m of this.members.values()) {
       m.role = null;
       m.found = false;
-      m.colors = defaultBodyColors();
+      this.resetSkin(m, 'default');
     }
     this.result = null;
     this.setPhase('lobby', null);
@@ -225,7 +223,7 @@ export class Room {
     by.roundPoints += SCORING.seekerFind;
     if (this._settings.foundMode === 'helper') {
       member.role = 'seeker';
-      member.colors = seekerBodyColors();
+      this.resetSkin(member, 'seeker');
     }
   }
 
@@ -239,9 +237,13 @@ export class Room {
     return this.allMembers().filter((m) => m.role === 'hider' && !m.found);
   }
 
-  paint(member: RoomMember, zones: readonly BodyZone[], color: string, now = Date.now()): void {
-    for (const zone of zones) member.colors[zone] = color;
-    member.paintedAt = now;
+  /** Вернуть кожу к основе (без картинки). Ревизия растёт — клиенты поймут, что старая картинка неактуальна. */
+  resetSkin(member: RoomMember, base: SkinBase): void {
+    member.skin = { base, revision: member.skin.revision + 1, image: null, uploadedAt: member.skin.uploadedAt };
+  }
+
+  setSkinImage(member: RoomMember, image: Buffer, now = Date.now()): void {
+    member.skin = { ...member.skin, revision: member.skin.revision + 1, image, uploadedAt: now };
   }
 
   /**
@@ -274,12 +276,12 @@ export class Room {
       result: this.result,
       settings: { ...this._settings },
       round: this.round,
-      players: this.allMembers().map(({ id, nickname, role, found, colors, connected, score, roundPoints }) => ({
+      players: this.allMembers().map(({ id, nickname, role, found, skin, connected, score, roundPoints }) => ({
         id,
         nickname,
         role,
         found,
-        colors: { ...colors },
+        skin: { base: skin.base, revision: skin.revision, hasImage: skin.image !== null },
         connected,
         score,
         roundPoints,

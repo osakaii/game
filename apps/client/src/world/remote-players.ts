@@ -3,6 +3,7 @@ import {
   INTERPOLATION_DELAY_MS,
   type PlayerInfo,
   type RoomSnapshot,
+  type SkinState,
   type WorldSnapshot,
 } from '@mecha/shared';
 import { RemotePlayer } from '../player/remote-player';
@@ -14,6 +15,11 @@ export class RemotePlayers {
   /** Ники, роли и цвета из room:state. Позиции приходят отдельно, в world:snapshot. */
   private infos = new Map<string, PlayerInfo>();
   private isLabelVisible: (id: string) => boolean = () => true;
+  /**
+   * Картинки кож, пришедшие по сети. Храним отдельно от моделей: картинка может прийти раньше,
+   * чем модель игрока появится (модель создаётся по первому снимку позиций).
+   */
+  private readonly skinImages = new Map<string, { revision: number; image: ImageBitmap }>();
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -49,6 +55,7 @@ export class RemotePlayers {
   applyRoom(room: RoomSnapshot | null, myId: string | null): void {
     if (!room) {
       this.infos.clear();
+      this.skinImages.clear();
       this.clear();
       return;
     }
@@ -66,8 +73,38 @@ export class RemotePlayers {
   private applyInfo(player: RemotePlayer) {
     const info = this.infos.get(player.id);
     player.setNickname(info?.nickname ?? '…');
-    if (info) player.setColors(info.colors);
+    if (info) this.applySkin(player, info.skin);
     player.setLabelVisible(this.isLabelVisible(player.id));
+  }
+
+  /** Новая кожа игрока из сети (уже декодированная картинка). */
+  setSkinImage(playerId: string, revision: number, image: ImageBitmap): void {
+    const known = this.skinImages.get(playerId);
+    if (known && known.revision >= revision) return; // опоздавшая старая картинка
+    this.skinImages.set(playerId, { revision, image });
+    const player = this.players.get(playerId);
+    const info = this.infos.get(playerId);
+    if (player && info) this.applySkin(player, info.skin);
+  }
+
+  /**
+   * Что рисовать на модели: основу (картинки нет) или картинку нужной ревизии.
+   * Если room:state уже знает о новой картинке, а сама она ещё в пути — ждём её, не мигая основой.
+   */
+  private applySkin(player: RemotePlayer, skin: SkinState) {
+    if (!skin.hasImage) {
+      if (player.skinRevision !== skin.revision) {
+        player.model.setBase(skin.base);
+        player.skinRevision = skin.revision;
+        this.skinImages.delete(player.id);
+      }
+      return;
+    }
+    const cached = this.skinImages.get(player.id);
+    if (cached && cached.revision >= skin.revision && player.skinRevision !== cached.revision) {
+      player.model.applySkinImage(cached.image);
+      player.skinRevision = cached.revision;
+    }
   }
 
   render(serverNow: number, frameDt: number): void {

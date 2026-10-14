@@ -8,7 +8,6 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import {
-  PaintSchema,
   ShootSchema,
   UpdateSettingsSchema,
   type EmptyResult,
@@ -17,7 +16,13 @@ import {
 } from '@mecha/shared';
 import { GameError, parseInput, respond } from '../common/game-error';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
-import { GATEWAY_OPTIONS, playerIdOf, type GameServer, type GameSocket } from '../common/socket-types';
+import {
+  GATEWAY_OPTIONS,
+  playerIdOf,
+  playerRoom,
+  type GameServer,
+  type GameSocket,
+} from '../common/socket-types';
 import { RoomEvents } from '../rooms/room-events';
 import { RoomsService } from '../rooms/rooms.service';
 import { GameService } from './game.service';
@@ -36,6 +41,12 @@ export class GameGateway implements OnGatewayInit {
 
   afterInit() {
     this.events.shot.subscribe(({ room, shot }) => this.server.to(room.code).emit('seek:shot', shot));
+    // Новую кожу — всем в комнате, кроме автора: у него она и так на экране.
+    this.events.skin.subscribe(({ room, playerId }) => {
+      const { revision, image } = room.member(playerId)?.skin ?? {};
+      if (!image || revision === undefined) return;
+      this.server.to(room.code).except(playerRoom(playerId)).emit('player:skin', { playerId, revision, image });
+    });
   }
 
   @SubscribeMessage('seek:shoot')
@@ -72,15 +83,15 @@ export class GameGateway implements OnGatewayInit {
     });
   }
 
-  @SubscribeMessage('player:paint')
-  @RateLimit(15, 20)
-  paint(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): EmptyResult {
+  @SubscribeMessage('player:skin')
+  @RateLimit(2, 3)
+  skin(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): Result<{ revision: number }> {
     return respond(() => {
-      const { zones, color } = parseInput(PaintSchema, body);
+      // Бинарные данные socket.io отдаёт как Buffer (это Uint8Array). Всё остальное — мусор.
+      if (!(body instanceof Uint8Array)) throw new GameError('INVALID_INPUT', 'skin must be binary');
       const room = this.rooms.roomOf(playerIdOf(client));
       if (!room) throw new GameError('ROOM_NOT_FOUND');
-      this.game.paint(room, playerIdOf(client), zones, color);
-      return null;
+      return { revision: this.game.uploadSkin(room, playerIdOf(client), body) };
     });
   }
 }

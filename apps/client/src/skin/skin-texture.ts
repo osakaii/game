@@ -37,6 +37,14 @@ export class SkinTexture {
     this.texture.needsUpdate = true; // перезалить картинку в видеопамять
   }
 
+  /** Картинка кожи целиком (из сети). Она уже в раскладке атласа: рисуем один в один. */
+  drawImage(image: CanvasImageSource): void {
+    if (!this.ctx) return;
+    this.ctx.clearRect(0, 0, this.atlas.size, this.atlas.size);
+    this.ctx.drawImage(image, 0, 0, this.atlas.size, this.atlas.size);
+    this.texture.needsUpdate = true;
+  }
+
   /**
    * Отладочный узор: шахматка, подпись грани и стрелка «вверх по текстуре».
    * На модели сразу видно, нет ли растяжений (клетки квадратные) и куда смотрит «верх» каждой грани.

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, groundHeightAt, type BodyColors, type NetPlayer } from '@mecha/shared';
+import { PLAYER, groundHeightAt, type NetPlayer } from '@mecha/shared';
 import type { WorldGeometry } from '../world/active-map';
 import { createNameLabel, disposeNameLabel } from './name-label';
 import { PlayerModel } from './player-model';
@@ -25,6 +25,8 @@ export class RemotePlayer {
   readonly model = new PlayerModel();
   private readonly samples: Sample[] = [];
   private label: THREE.Sprite | null = null;
+  /** Какая ревизия кожи сейчас нарисована на модели (-1 — ещё никакая, стоит основа по умолчанию). */
+  skinRevision = -1;
   private nickname = '';
 
   constructor(
@@ -42,16 +44,6 @@ export class RemotePlayer {
     this.label = createNameLabel(nickname);
     this.label.position.y = PLAYER.height + 0.3;
     this.model.root.add(this.label);
-  }
-
-  /** Сравниваем строкой, чтобы не трогать материалы, если цвета не менялись. */
-  private colorsKey = '';
-
-  setColors(colors: BodyColors): void {
-    const key = JSON.stringify(colors);
-    if (key === this.colorsKey) return;
-    this.colorsKey = key;
-    this.model.setColors(colors);
   }
 
   /** В прятках ники соперников скрыты: табличка над головой выдала бы спрятавшегося. */

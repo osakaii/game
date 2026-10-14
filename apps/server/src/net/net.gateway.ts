@@ -12,6 +12,7 @@ import { PROTOCOL_VERSION, SessionIdSchema, type PingPayload, type PongPayload }
 import { BUILD_INFO } from '../common/build-info';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import { GATEWAY_OPTIONS, playerRoom, type GameServer, type GameSocket } from '../common/socket-types';
+import { emitRoomSkins } from '../rooms/emit-skins';
 import { RoomEvents } from '../rooms/room-events';
 import { RoomsService } from '../rooms/rooms.service';
 import { SessionService } from '../session/session.service';
@@ -73,6 +74,7 @@ export class NetGateway implements OnGatewayInit, OnGatewayConnection, OnGateway
       this.events.changed.next(room);
       const { x, y, z } = member.state;
       this.events.teleported.next({ playerId, position: { x, y, z } });
+      emitRoomSkins(client, room);
     }
     this.logger.log(`${resumed ? 'reconnected' : 'connected'} ${playerId} (sockets: ${this.server.engine.clientsCount})`);
   }

@@ -12,11 +12,11 @@ export function table(x: number, z: number, w: number, d: number, h: number, col
   const lx = w / 2 - leg / 2;
   const lz = d / 2 - leg / 2;
   return [
-    { x, z, y: h - top, w, h: top, d, color },
-    { x: x - lx, z: z - lz, w: leg, h: h - top, d: leg, color },
-    { x: x + lx, z: z - lz, w: leg, h: h - top, d: leg, color },
-    { x: x - lx, z: z + lz, w: leg, h: h - top, d: leg, color },
-    { x: x + lx, z: z + lz, w: leg, h: h - top, d: leg, color },
+    { x, z, y: h - top, w, h: top, d, color, surface: 'wood', shape: 'rounded', round: 0.04 },
+    { x: x - lx, z: z - lz, w: leg, h: h - top, d: leg, color, surface: 'wood' },
+    { x: x + lx, z: z - lz, w: leg, h: h - top, d: leg, color, surface: 'wood' },
+    { x: x - lx, z: z + lz, w: leg, h: h - top, d: leg, color, surface: 'wood' },
+    { x: x + lx, z: z + lz, w: leg, h: h - top, d: leg, color, surface: 'wood' },
   ];
 }
 

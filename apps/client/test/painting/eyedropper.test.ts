@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { Eyedropper } from '../../src/painting/eyedropper';
+import { surfaceColor, surfaceTexture } from '../../src/world/surfaces';
 
 /** Raycaster — чистая математика, WebGL не нужен. Вместо canvas — объект с размерами. */
 const fakeCanvas = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 100 }) } as HTMLCanvasElement;
@@ -23,5 +24,20 @@ describe('Eyedropper', () => {
 
   it('returns null when nothing is hit', () => {
     expect(setup().pick(2, 2)).toBeNull();
+  });
+
+  it('on a patterned surface returns the pattern color exactly where the ray hit', () => {
+    const camera = new THREE.PerspectiveCamera(60, 2, 0.1, 100);
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    const surface = surfaceTexture('stripes')!;
+    const material = new THREE.MeshLambertMaterial({ color: '#4f9d69', map: surface.texture });
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), material);
+    wall.updateMatrixWorld();
+    const eyedropper = new Eyedropper(camera, fakeCanvas, { obstacles: [wall] });
+    // Центр экрана — центр плоскости, UV (0.5, 0.5).
+    const expected = `#${surfaceColor(surface, 0.5, 0.5, material.color).getHexString()}`;
+    expect(eyedropper.pick(100, 50)).toBe(expected);
   });
 });

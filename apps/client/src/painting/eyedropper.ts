@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { WorldGeometry } from '../world/active-map';
+import { surfaceColor, type SurfaceTexture } from '../world/surfaces';
 
 /**
  * Пипетка: луч из камеры через точку касания -> первый предмет -> цвет его материала.
@@ -7,6 +8,9 @@ import type { WorldGeometry } from '../world/active-map';
  * Почему цвет материала, а не пиксель с экрана: пиксель уже освещён (тень, блик).
  * Если покрасить себя освещённым цветом, свет ляжет второй раз и персонаж станет темнее или светлее фона.
  * А одинаковый материал при одинаковом освещении выглядит одинаково — это и есть маскировка.
+ *
+ * У предметов с рисунком (паркет, обои) берём цвет рисунка именно в точке касания: тёмный шов
+ * между досками и светлая доска — разные цвета, и пипетка честно отдаёт тот, в который попали.
  */
 export class Eyedropper {
   private readonly raycaster = new THREE.Raycaster();
@@ -28,7 +32,9 @@ export class Eyedropper {
     if (!hit || !(hit.object instanceof THREE.Mesh)) return null;
     const material = hit.object.material;
     if (!(material instanceof THREE.MeshLambertMaterial)) return null;
+    const surface = material.map?.userData.surface as SurfaceTexture | undefined;
+    const color = surface && hit.uv ? surfaceColor(surface, hit.uv.x, hit.uv.y, material.color) : material.color;
     // getHexString переводит цвет обратно в sRGB — ровно ту строку, что записана в карте.
-    return `#${material.color.getHexString()}`;
+    return `#${color.getHexString()}`;
   }
 }

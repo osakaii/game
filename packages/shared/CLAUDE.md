@@ -18,7 +18,7 @@
 | `skin.ts` | Кожа: `SKIN_SIZE=512`, лимит байт, `SkinBase` (`default`/`seeker`, рисуется локально), `SkinState`, `detectSkinImage` (PNG/WebP по магическим байтам) |
 | `body.ts` | `BODY_ZONES` — 14 частей тела (кости скелета и коробки атласа на клиенте; порядок = индекс в коже) |
 | `version.ts` | `APP_VERSION`, `BuildInfo`, `isUpdateAvailable` |
-| `world/*` | Карты как данные (коробки AABB): `map.ts` типы, `builders.ts` (стол, стул, дерево…), `playroom/kitchen/garden.ts`, реестр `maps.ts` |
+| `world/*` | Карты как данные: `map.ts` (`MapBox` с формой/поверхностью/`solid`/`hidden`, `mapBoxes`, `buildColliders` — только твёрдые), `props.ts` (предметы-мебель → блоки, поворот 0/90/180/270, `seededRandom` для одинаковых у всех деталей), `builders.ts`, `playroom/kitchen/garden.ts`, реестр `maps.ts` |
 
 ## События протокола
 C→S: `net:ping`, `room:create|join|leave|settings`, `game:start`, `player:state` (20 Гц, volatile), `player:skin` (бинарная картинка), `seek:shoot`.

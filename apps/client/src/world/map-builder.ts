@@ -8,8 +8,9 @@ import { surfaceTexture } from './surfaces';
  * Строит меши карты из MapDef: группу для сцены и список объектов, которые загораживают камеру
  * и в которые попадает луч пипетки (стены, мебель, пол).
  *
- * Главное для телефона — мало вызовов отрисовки. Сотни блоков склеиваются в несколько больших сеток:
- * по одной на пару «поверхность + цвет» (у них общий материал). Карта статична, склеить можно один раз.
+ * Главное для телефона — мало вызовов отрисовки. Сотни блоков склеиваются в несколько больших сеток —
+ * по одной на поверхность. Цвет блока хранится в его вершинах (vertex colors), поэтому сотни разных
+ * цветов (корешки книг!) не плодят материалы. Карта статична, склеить можно один раз.
  */
 export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THREE.Object3D[] } {
   const obstacles: THREE.Object3D[] = [];
@@ -25,24 +26,23 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
   group.add(floor);
   obstacles.push(floor);
 
-  // Блоки по материалам: ключ «поверхность|цвет» -> геометрии в мировых координатах.
-  const batches = new Map<string, { surface: SurfaceId; color: string; parts: THREE.BufferGeometry[] }>();
+  // Блоки по поверхностям -> геометрии в мировых координатах, цвет — в вершинах.
+  const batches = new Map<SurfaceId, THREE.BufferGeometry[]>();
   for (const box of mapBoxes(map)) {
     if (box.hidden) continue;
     const surface = box.surface ?? 'paint';
-    const key = `${surface}|${box.color}`;
-    let batch = batches.get(key);
-    if (!batch) {
-      batch = { surface, color: box.color, parts: [] };
-      batches.set(key, batch);
+    let parts = batches.get(surface);
+    if (!parts) {
+      parts = [];
+      batches.set(surface, parts);
     }
-    batch.parts.push(boxGeometry(box));
+    parts.push(boxGeometry(box));
   }
 
-  for (const { surface, color, parts } of batches.values()) {
+  for (const [surface, parts] of batches) {
     const merged = mergeGeometries(parts);
     for (const part of parts) part.dispose();
-    const mesh = new THREE.Mesh(merged, materialFor(surface, color));
+    const mesh = new THREE.Mesh(merged, materialFor(surface, '#ffffff', true));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
@@ -61,20 +61,26 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
 function boxGeometry(box: MapBox): THREE.BufferGeometry {
   let geometry: THREE.BufferGeometry;
   switch (box.shape ?? 'box') {
+    // Детализация — по размеру: ручке шкафа и мячику хватит нескольких граней, дивану нужно больше.
+    // На телефоне треугольники не бесплатны, а мелочь издалека всё равно выглядит круглой.
     case 'rounded': {
       const radius = Math.min(box.round ?? 0.05, box.w / 2, box.h / 2, box.d / 2);
-      geometry = new RoundedBoxGeometry(box.w, box.h, box.d, 3, radius);
+      geometry = new RoundedBoxGeometry(box.w, box.h, box.d, radius >= 0.06 ? 3 : 2, radius);
       break;
     }
-    case 'cylinder':
+    case 'cylinder': {
       // Единичный цилиндр, растянутый в коробку блока: овальный, если w ≠ d.
-      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 20);
+      const size = Math.max(box.w, box.d);
+      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, size < 0.1 ? 8 : size < 0.4 ? 14 : 20);
       geometry.scale(box.w, box.h, box.d);
       break;
-    case 'sphere':
-      geometry = new THREE.SphereGeometry(0.5, 20, 14);
+    }
+    case 'sphere': {
+      const small = Math.max(box.w, box.h, box.d) < 0.3;
+      geometry = new THREE.SphereGeometry(0.5, small ? 10 : 18, small ? 7 : 12);
       geometry.scale(box.w, box.h, box.d);
       break;
+    }
     default:
       geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
   }
@@ -84,6 +90,11 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
   const flat = geometry.index ? geometry.toNonIndexed() : geometry;
   if (flat !== geometry) geometry.dispose();
   applyWorldUVs(flat, box.surface ?? 'paint');
+  // Цвет блока — в каждой вершине (линейный, как его ждёт шейдер). Материал общий, белый.
+  const color = new THREE.Color(box.color);
+  const colors = new Float32Array(flat.getAttribute('position').count * 3);
+  for (let i = 0; i < colors.length; i += 3) colors.set([color.r, color.g, color.b], i);
+  flat.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   return flat;
 }
 
@@ -122,6 +133,6 @@ function applyWorldUVs(geometry: THREE.BufferGeometry, surface: SurfaceId) {
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 }
 
-function materialFor(surface: SurfaceId, color: string): THREE.MeshLambertMaterial {
-  return new THREE.MeshLambertMaterial({ color, map: surfaceTexture(surface)?.texture ?? null });
+function materialFor(surface: SurfaceId, color: string, vertexColors = false): THREE.MeshLambertMaterial {
+  return new THREE.MeshLambertMaterial({ color, vertexColors, map: surfaceTexture(surface)?.texture ?? null });
 }

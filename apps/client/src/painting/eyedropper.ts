@@ -32,8 +32,11 @@ export class Eyedropper {
     if (!hit || !(hit.object instanceof THREE.Mesh)) return null;
     const material = hit.object.material;
     if (!(material instanceof THREE.MeshLambertMaterial)) return null;
+    // Цвет блока: у склеенной карты — в вершинах (все вершины блока одного цвета), иначе — в материале.
+    const colors = hit.object.geometry.getAttribute('color');
+    const tint = material.vertexColors && colors && hit.face ? new THREE.Color().fromBufferAttribute(colors, hit.face.a).multiply(material.color) : material.color;
     const surface = material.map?.userData.surface as SurfaceTexture | undefined;
-    const color = surface && hit.uv ? surfaceColor(surface, hit.uv.x, hit.uv.y, material.color) : material.color;
+    const color = surface && hit.uv ? surfaceColor(surface, hit.uv.x, hit.uv.y, tint) : tint;
     // getHexString переводит цвет обратно в sRGB — ровно ту строку, что записана в карте.
     return `#${color.getHexString()}`;
   }

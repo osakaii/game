@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { boxToAabb, buildColliders, mapBoxes, type MapDef } from '../../src/world/map.js';
-import { PROP_IDS, placeProp, type PropPlacement } from '../../src/world/props.js';
+import { PROP_IDS, placeProp, type PropPlacement } from '../../src/world/props/index.js';
+import { PLAYER } from '../../src/physics.js';
+import { POSE_RULES } from '../../src/poses.js';
 
 /** Габариты набора блоков (вид сверху). */
 function footprint(placement: PropPlacement) {
@@ -14,11 +16,36 @@ function footprint(placement: PropPlacement) {
 }
 
 describe('props', () => {
-  it.each(PROP_IDS)('%s stands on the floor and has something solid', (prop) => {
+  /** Украшения на стену: только вид, столкновений у них нет намеренно. */
+  const WALL_DECOR = new Set(['mirror']);
+
+  it.each(PROP_IDS)('%s is built from the floor up and is solid where it should be', (prop) => {
     const boxes = placeProp({ prop, x: 0, z: 0 });
     expect(boxes.length).toBeGreaterThan(0);
     expect(Math.min(...boxes.map((b) => b.y ?? 0))).toBeCloseTo(0, 6);
-    expect(boxes.some((b) => b.solid !== false)).toBe(true);
+    expect(boxes.some((b) => b.solid !== false)).toBe(!WALL_DECOR.has(prop));
+  });
+
+  it.each(PROP_IDS)('%s has sane sizes (no negative or giant parts)', (prop) => {
+    for (const b of placeProp({ prop, x: 0, z: 0 })) {
+      expect(Math.min(b.w, b.h, b.d), prop).toBeGreaterThan(0);
+      expect(Math.max(b.w, b.h, b.d), prop).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('a bed leaves room underneath to hide lying flat', () => {
+    const solids = placeProp({ prop: 'bed', x: 0, z: 0 }).filter((b) => b.solid !== false && b.w > 0.3 && b.d > 0.3);
+    const underside = Math.min(...solids.map((b) => b.y ?? 0));
+    expect(underside).toBeGreaterThan(POSE_RULES.flat.height);
+  });
+
+  it('a bathtub is hollow and wider inside than a player', () => {
+    const parts = placeProp({ prop: 'bathtub', x: 0, z: 0 }).filter((b) => b.solid !== false);
+    const walls = parts.filter((b) => b.h > 0.3);
+    const front = Math.min(...walls.filter((b) => b.w > 1).map((b) => b.z));
+    const back = Math.max(...walls.filter((b) => b.w > 1).map((b) => b.z));
+    const rim = walls[0].d;
+    expect(back - front - rim).toBeGreaterThan(2 * PLAYER.radius);
   });
 
   it('rotating by 90° swaps the footprint: a sofa along X becomes a sofa along Z', () => {

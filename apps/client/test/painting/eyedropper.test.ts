@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { Eyedropper } from '../../src/painting/eyedropper';
+import { buildMapGroup } from '../../src/world/map-builder';
 import { surfaceColor, surfaceTexture } from '../../src/world/surfaces';
 
 /** Raycaster — чистая математика, WebGL не нужен. Вместо canvas — объект с размерами. */
@@ -39,5 +40,28 @@ describe('Eyedropper', () => {
     // Центр экрана — центр плоскости, UV (0.5, 0.5).
     const expected = `#${surfaceColor(surface, 0.5, 0.5, material.color).getHexString()}`;
     expect(eyedropper.pick(100, 50)).toBe(expected);
+  });
+
+  it('on a merged map picks the color of the block under the ray, not of the shared material', () => {
+    const camera = new THREE.PerspectiveCamera(60, 2, 0.1, 100);
+    camera.position.set(0, 1, 5);
+    camera.lookAt(0, 1, 0);
+    camera.updateMatrixWorld();
+    // Два блока разного цвета на одной поверхности склеятся в одну сетку с белым материалом.
+    const { obstacles } = buildMapGroup({
+      id: 't',
+      name: 't',
+      width: 10,
+      depth: 10,
+      floorColor: '#ffffff',
+      boxes: [
+        { x: 0, z: 0, w: 1, h: 2, d: 1, color: '#e63946' },
+        { x: 3, z: 0, w: 1, h: 2, d: 1, color: '#2a9d8f' },
+      ],
+      spawns: [],
+      seekerSpawns: [],
+    });
+    const eyedropper = new Eyedropper(camera, fakeCanvas, { obstacles });
+    expect(eyedropper.pick(100, 50)).toBe('#e63946');
   });
 });

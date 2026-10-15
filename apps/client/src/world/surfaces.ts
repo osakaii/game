@@ -31,18 +31,16 @@ interface Generator {
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 const GENERATORS: Record<Exclude<SurfaceId, 'paint'>, Generator> = {
-  /** Доски вдоль u: у каждой свой оттенок, волокна — растянутый шум, между досками тёмный шов. */
+  /**
+   * Дерево мебели: только волокна — длинные мягкие полосы вдоль u, без досок и швов
+   * (швы на дверце шкафа выглядели бы как вагонка). Доски — это «паркет».
+   */
   wood: {
     size: 128,
-    tile: 1,
+    tile: 0.9,
     paint: (x, y, size, noise) => {
-      const boards = 4;
-      const board = Math.floor((y / size) * boards);
-      const inBoard = ((y / size) * boards) % 1;
-      if (inBoard < 0.03) return 0.62;
-      const shade = noise(board * 7.1, 0.5) * 0.1;
-      const grain = Math.sin((x / size) * 40 + noise(x * 0.05, y * 0.6) * 6) * 0.04;
-      return 0.86 + shade + grain;
+      const grain = Math.sin((y / size) * Math.PI * 14 + noise(x * 0.15, y * 1.5) * 3) * 0.035;
+      return 0.9 + grain + (noise(x * 0.5, y * 2) - 0.5) * 0.06;
     },
   },
   /** Паркет «ёлочкой» упрощённо: ряды плашек со сдвигом на половину, у каждой плашки свой тон. */
@@ -121,6 +119,16 @@ const GENERATORS: Record<Exclude<SurfaceId, 'paint'>, Generator> = {
       const bx = (x + (row % 2) * (brickW / 2)) % brickW;
       if (y % rowH < 2 || bx < 2) return 0.96;
       return 0.72 + noise(Math.floor((x + (row % 2) * (brickW / 2)) / brickW) * 4.7, row * 3.1) * 0.18;
+    },
+  },
+  /** Мрамор: светлый фон и тонкие извилистые прожилки (синус от координаты + шум). */
+  marble: {
+    size: 128,
+    tile: 1,
+    paint: (x, y, size, noise) => {
+      const t = (x + y * 0.6) / size;
+      const vein = Math.abs(Math.sin(t * Math.PI * 3 + noise(x * 0.4, y * 0.4) * 5));
+      return 0.97 - Math.pow(1 - vein, 10) * 0.28 + (noise(x, y) - 0.5) * 0.03;
     },
   },
 };

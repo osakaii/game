@@ -1,5 +1,5 @@
 import type { Vec3 } from '../math.js';
-import { placeProp, type PropPlacement } from './props.js';
+import { placeProp, type PropPlacement } from './props/index.js';
 
 /**
  * Форма блока — только для вида. Столкновения у любой формы — по её коробке (AABB):
@@ -11,7 +11,7 @@ export type Shape = 'box' | 'rounded' | 'cylinder' | 'sphere';
  * Поверхность — процедурная текстура на клиенте (рисунок светлый, цвет блока его тонирует).
  * 'paint' — ровная краска без рисунка. Узор важен для игры: на пёстром прятаться легче, чем на гладком.
  */
-export const SURFACES = ['paint', 'wood', 'parquet', 'tiles', 'stripes', 'dots', 'fabric', 'carpet', 'brick'] as const;
+export const SURFACES = ['paint', 'wood', 'parquet', 'tiles', 'stripes', 'dots', 'fabric', 'carpet', 'brick', 'marble'] as const;
 export type SurfaceId = (typeof SURFACES)[number];
 
 /**
@@ -50,7 +50,7 @@ export interface MapDef {
   floorSurface?: SurfaceId;
   /** Простые блоки: стены, ящики. */
   boxes: MapBox[];
-  /** Предметы (мебель): каждый сам раскладывается на блоки, см. props.ts. */
+  /** Предметы (мебель): каждый сам раскладывается на блоки, см. props/index.ts. */
   props?: PropPlacement[];
   /** Точки появления в лобби и для прячущихся. */
   spawns: Vec3[];

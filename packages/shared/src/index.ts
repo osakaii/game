@@ -12,7 +12,7 @@ export * from './pose-hitboxes.js';
 export * from './physics.js';
 export * from './raycast.js';
 export * from './world/map.js';
-export * from './world/props.js';
+export * from './world/props/index.js';
 export * from './world/playroom.js';
 export * from './world/kitchen.js';
 export * from './world/garden.js';

@@ -3,7 +3,7 @@ import { PLAYROOM, buildColliders, type PlayerState } from '@mecha/shared';
 import { checkAirborne, type AirState } from '../../src/movement/air-check';
 
 const colliders = buildColliders(PLAYROOM);
-const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: y === 0, crouching: false });
+const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: y === 0, crouching: false, pose: 'none' });
 const fresh = (): AirState => ({ since: null, takeoffY: 0 });
 
 describe('checkAirborne', () => {

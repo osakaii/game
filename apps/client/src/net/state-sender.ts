@@ -31,6 +31,7 @@ export class StateSender {
       yaw: roundCm(player.facing),
       grounded: player.state.grounded,
       crouching: player.state.crouching,
+      pose: player.state.pose,
     };
     if (this.sinceLastSend < IDLE_HEARTBEAT && this.last && sameState(state, this.last)) return;
 
@@ -53,6 +54,7 @@ function sameState(a: PlayerState, b: PlayerState): boolean {
     a.z === b.z &&
     a.yaw === b.yaw &&
     a.grounded === b.grounded &&
-    a.crouching === b.crouching
+    a.crouching === b.crouching &&
+    a.pose === b.pose
   );
 }

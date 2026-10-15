@@ -94,4 +94,18 @@ describe('Controls', () => {
     expect(controls.crouch).toBe(true);
     expect(q('#crouch-button').classList.contains('active')).toBe(true);
   });
+
+  it('number keys pick poses, the same key again or 0 stands up', () => {
+    const { controls } = setup();
+    const changes: string[] = [];
+    controls.onPoseChange = (pose) => changes.push(pose);
+    const key = (code: string) => window.dispatchEvent(new KeyboardEvent('keydown', { code }));
+    key('Digit1');
+    expect(controls.pose).toBe('flat');
+    key('Digit1');
+    expect(controls.pose).toBe('none');
+    key('Digit6');
+    key('Digit0');
+    expect(changes).toEqual(['flat', 'none', 'statue', 'none']);
+  });
 });

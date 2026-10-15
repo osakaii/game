@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, groundHeightAt, type NetPlayer } from '@mecha/shared';
+import { PLAYER, groundHeightAt, type NetPlayer, type Pose } from '@mecha/shared';
 import type { WorldGeometry } from '../world/active-map';
 import { createNameLabel, disposeNameLabel } from './name-label';
 import { PlayerModel } from './player-model';
@@ -12,6 +12,7 @@ interface Sample {
   yaw: number;
   grounded: boolean;
   crouching: boolean;
+  pose: Pose;
 }
 
 const MAX_SAMPLES = 20;
@@ -62,6 +63,7 @@ export class RemotePlayer {
       yaw: state.yaw,
       grounded: state.grounded,
       crouching: state.crouching,
+      pose: state.pose,
     });
     if (this.samples.length > MAX_SAMPLES) this.samples.shift();
   }
@@ -93,6 +95,7 @@ export class RemotePlayer {
 
     const speed = span > 0 ? Math.hypot(b.x - a.x, b.z - a.z) / (span / 1000) : 0;
     this.model.setCrouch(b.crouching, frameDt);
+    this.model.setPose(b.pose);
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), b.grounded);
     const p = root.position;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { PLAYER } from '@mecha/shared';
+import { PLAYER, POSES, POSE_RULES } from '@mecha/shared';
 import { PlayerModel } from '../../src/player/player-model';
 
 /** Габариты тела по настоящим (позированным) вершинам — сравниваем с хитбоксом физики. */
@@ -36,6 +36,29 @@ describe('PlayerModel', () => {
     expect(box.min.y).toBeLessThan(0.03);
     // И не вылезает далеко за цилиндр физики.
     expect(Math.max(box.max.z, -box.min.z)).toBeLessThan(PLAYER.radius + 0.25);
+  });
+
+  // Высота позы в shared — это и потолок для физики, и хитбокс для выстрела. Модель обязана в неё влезать,
+  // иначе ищущий видит руку, торчащую из-под кровати, а попасть по ней не может.
+  it.each(POSES)('pose "%s" fits its height and rests on the floor', (pose) => {
+    const model = new PlayerModel();
+    model.setPose(pose);
+    settle(model, false);
+    const box = boundsOf(model);
+    expect(box.max.y).toBeLessThanOrEqual(POSE_RULES[pose].height + 0.05);
+    expect(box.min.y).toBeGreaterThan(-0.04);
+    expect(box.min.y).toBeLessThan(0.04);
+  });
+
+  it('crawling moves the limbs, a still pose keeps them (almost) still', () => {
+    const limbs = (model: PlayerModel) => model.bones.upperArmLeft.rotation.toArray().slice(0, 3) as number[];
+    const crawling = new PlayerModel();
+    crawling.setPose('crawl');
+    settle(crawling, false);
+    const before = limbs(crawling);
+    for (let i = 0; i < 20; i++) crawling.animate(1 / 60, 0.3, true);
+    const after = limbs(crawling);
+    expect(Math.abs(after[0] - before[0])).toBeGreaterThan(0.05);
   });
 
   it('is one draw call: a single skinned mesh with a bone per body part', () => {

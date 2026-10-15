@@ -152,7 +152,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     const rewindTo = Math.min(now, Math.max(viewTime, now - MAX_REWIND_MS));
     const targets = room.activeHiders().map((m) => {
       const past = m.history.at(rewindTo) ?? m.state;
-      return { id: m.id, position: past, crouching: past.crouching };
+      return { id: m.id, position: past, crouching: past.crouching, pose: past.pose };
     });
     const hit = resolveShot(origin, dir, room.colliders, targets, SHOT_RAY_LENGTH);
 

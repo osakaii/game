@@ -1,3 +1,4 @@
+import { POSES, type Pose } from '@mecha/shared';
 import { Keyboard } from './keyboard';
 import { VirtualJoystick } from './virtual-joystick';
 
@@ -30,6 +31,10 @@ export class Controls {
    * водить джойстиком и камерой неудобно, пальцев не хватает.
    */
   crouch = false;
+  /** Выбранная поза. Физика может её не принять (низко над головой) — тогда пробует снова каждый шаг. */
+  pose: Pose = 'none';
+  /** Поза сменилась (выбором или сбросом из-за движения) — интерфейс перерисовывает кнопку. */
+  onPoseChange: ((pose: Pose) => void) | null = null;
   private readonly crouchButton: HTMLElement;
 
   private readonly joystick: VirtualJoystick;
@@ -55,6 +60,11 @@ export class Controls {
     this.joystick = new VirtualJoystick(el.joystickBase, el.joystickKnob);
     this.keyboard.onJump = () => (this.jumpQueued = true);
     this.keyboard.onCrouch = () => this.toggleCrouch();
+    // 1–6 — позы по порядку, 0 или X — встать. Повторное нажатие той же цифры тоже встаёт.
+    this.keyboard.onPose = (index) => {
+      const pose = index === null ? 'none' : POSES[index];
+      if (pose) this.setPose(pose === this.pose ? 'none' : pose);
+    };
     this.crouchButton = el.crouchButton;
     el.crouchButton.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -98,6 +108,12 @@ export class Controls {
     const jump = this.jumpQueued && this.enabled;
     this.jumpQueued = false;
     return jump;
+  }
+
+  setPose(pose: Pose): void {
+    if (pose === this.pose) return;
+    this.pose = pose;
+    this.onPoseChange?.(pose);
   }
 
   toggleCrouch(): void {

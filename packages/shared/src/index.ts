@@ -7,6 +7,7 @@ export * from './net-state.js';
 export * from './math.js';
 export * from './body.js';
 export * from './skin.js';
+export * from './poses.js';
 export * from './physics.js';
 export * from './raycast.js';
 export * from './world/map.js';

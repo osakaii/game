@@ -32,6 +32,14 @@ describe('PositionHistory', () => {
     expect(h.at(1000)).toMatchObject({ x: 5, crouching: true });
   });
 
+  it('keeps the pose of the nearest record (a pose is not a number)', () => {
+    const h = new PositionHistory();
+    h.push(1000, { ...pos(0), pose: 'none' });
+    h.push(1100, { ...pos(1), pose: 'flat' });
+    expect(h.at(1020)?.pose).toBe('none');
+    expect(h.at(1080)?.pose).toBe('flat');
+  });
+
   it('returns null when empty', () => {
     expect(new PositionHistory().at(0)).toBeNull();
   });

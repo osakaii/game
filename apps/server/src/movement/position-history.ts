@@ -1,4 +1,4 @@
-import type { PlayerState } from '@mecha/shared';
+import type { Pose } from '@mecha/shared';
 
 interface Sample {
   t: number;
@@ -6,6 +6,7 @@ interface Sample {
   y: number;
   z: number;
   crouching: boolean;
+  pose: Pose;
 }
 
 /** 1 секунда при 20 пакетах в секунду — с запасом больше максимальной перемотки. */
@@ -16,6 +17,7 @@ export interface HistoricPosition {
   y: number;
   z: number;
   crouching: boolean;
+  pose: Pose;
 }
 
 /**
@@ -28,10 +30,10 @@ export interface HistoricPosition {
 export class PositionHistory {
   private readonly samples: Sample[] = [];
 
-  push(t: number, state: Pick<PlayerState, 'x' | 'y' | 'z' | 'crouching'>): void {
+  push(t: number, state: { x: number; y: number; z: number; crouching: boolean; pose?: Pose }): void {
     const last = this.samples.at(-1);
     if (last && t < last.t) return;
-    this.samples.push({ t, x: state.x, y: state.y, z: state.z, crouching: state.crouching });
+    this.samples.push({ t, x: state.x, y: state.y, z: state.z, crouching: state.crouching, pose: state.pose ?? 'none' });
     if (this.samples.length > CAPACITY) this.samples.shift();
   }
 
@@ -53,8 +55,9 @@ export class PositionHistory {
           x: a.x + (b.x - a.x) * k,
           y: a.y + (b.y - a.y) * k,
           z: a.z + (b.z - a.z) * k,
-          // Присед — не число, интерполировать нечего: берём ближайшую запись.
+          // Присед и поза — не числа, интерполировать нечего: берём ближайшую запись.
           crouching: k < 0.5 ? a.crouching : b.crouching,
+          pose: k < 0.5 ? a.pose : b.pose,
         };
       }
     }

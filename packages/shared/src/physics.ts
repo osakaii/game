@@ -1,4 +1,5 @@
 import { clamp, type Vec3 } from './math.js';
+import { POSE_RULES, cancelsPose, type Pose } from './poses.js';
 import type { Aabb } from './world/map.js';
 
 /**
@@ -29,8 +30,22 @@ export const PLAYER = {
   crouchSpeed: 2.5,
 } as const;
 
-export function playerHeight(crouching: boolean): number {
-  return crouching ? PLAYER.crouchHeight : PLAYER.height;
+/** Что определяет рост и скорость тела: присед и поза. Поза важнее приседа. */
+export interface BodyStance {
+  crouching: boolean;
+  pose?: Pose;
+}
+
+/** Высота тела: для столкновений с потолком, проверки сервера и хитбокса. */
+export function bodyHeight(stance: BodyStance): number {
+  if (stance.pose && stance.pose !== 'none') return POSE_RULES[stance.pose].height;
+  return stance.crouching ? PLAYER.crouchHeight : PLAYER.height;
+}
+
+/** Наибольшая горизонтальная скорость в этом положении тела (м/с). */
+export function moveSpeed(stance: BodyStance): number {
+  if (stance.pose && stance.pose !== 'none') return POSE_RULES[stance.pose].speed;
+  return stance.crouching ? PLAYER.crouchSpeed : PLAYER.walkSpeed;
 }
 
 export interface PlayerPhysicsState {
@@ -38,14 +53,17 @@ export interface PlayerPhysicsState {
   velocity: Vec3;
   grounded: boolean;
   crouching: boolean;
+  pose: Pose;
 }
 
-/** Желаемое направление в мировых координатах (длина 0..1), прыжок и желание присесть. */
+/** Желаемое направление в мировых координатах (длина 0..1), прыжок, присед и поза. */
 export interface MoveInput {
   dirX: number;
   dirZ: number;
   jump: boolean;
   crouch: boolean;
+  /** Какую позу игрок выбрал (по умолчанию — никакую). */
+  pose?: Pose;
 }
 
 const EPS = 1e-4;
@@ -58,10 +76,11 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   //    персонаж «вырос» бы сквозь столешницу.
   if (input.crouch) {
     state.crouching = true;
-  } else if (state.crouching && !penetratesColliders(state.position, colliders, EPS, PLAYER.height)) {
+  } else if (state.crouching && !penetratesColliders(state.position, colliders, EPS, bodyHeight({ crouching: false, pose: state.pose }))) {
     state.crouching = false;
   }
-  const speed = state.crouching ? PLAYER.crouchSpeed : PLAYER.walkSpeed;
+  updatePose(state, input, colliders);
+  const speed = moveSpeed(state);
 
   // 1. Горизонтальная скорость плавно стремится к желаемой.
   let dirX = input.dirX;
@@ -83,8 +102,8 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
     v.z += (diffZ / diffLen) * maxDelta;
   }
 
-  // 2. Прыжок (не из приседа) и гравитация.
-  if (input.jump && state.grounded && !state.crouching) {
+  // 2. Прыжок (не из приседа и не из позы) и гравитация.
+  if (input.jump && state.grounded && !state.crouching && state.pose === 'none') {
     v.y = PLAYER.jumpSpeed;
     state.grounded = false;
   }
@@ -101,6 +120,22 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   resolveVertical(state, prevY, colliders);
 }
 
+/**
+ * Смена позы. Принять позу можно только стоя на земле; поза «на месте» снимается движением или прыжком.
+ * Если новая поза выше текущей (встать из «пластом»), над головой должно быть свободно — как с приседом.
+ */
+function updatePose(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[]): void {
+  let wanted: Pose = input.pose ?? 'none';
+  if (wanted !== 'none' && (!state.grounded || cancelsPose(wanted, input))) wanted = 'none';
+  if (wanted === state.pose) return;
+
+  const nextHeight = bodyHeight({ crouching: state.crouching, pose: wanted });
+  if (nextHeight > bodyHeight(state) && penetratesColliders(state.position, colliders, EPS, nextHeight)) return;
+  state.pose = wanted;
+  // В позу «на месте» замираем сразу, а не доезжаем по инерции.
+  if (wanted !== 'none' && POSE_RULES[wanted].speed === 0) state.velocity.x = state.velocity.z = 0;
+}
+
 function resolveHorizontal(state: PlayerPhysicsState, colliders: readonly Aabb[]): void {
   const p = state.position;
   const v = state.velocity;
@@ -108,7 +143,7 @@ function resolveHorizontal(state: PlayerPhysicsState, colliders: readonly Aabb[]
 
   for (const b of colliders) {
     const feet = p.y;
-    const head = feet + playerHeight(state.crouching);
+    const head = feet + bodyHeight(state);
     // Нет пересечения по высоте (блок над головой или мы стоим на нём) — не мешает.
     if (head <= b.minY || feet >= b.maxY - EPS) continue;
 
@@ -170,7 +205,7 @@ function resolveVertical(state: PlayerPhysicsState, prevY: number, colliders: re
   const v = state.velocity;
   // Чуть меньший радиус — чтобы не «зацепиться» за верх стены, вдоль которой скользим.
   const r = PLAYER.radius * 0.95;
-  const height = playerHeight(state.crouching);
+  const height = bodyHeight(state);
   state.grounded = false;
 
   if (p.y <= 0) {

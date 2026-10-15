@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYER, PLAYROOM, buildColliders, type PlayerState } from '@mecha/shared';
+import { PLAYER, PLAYROOM, POSE_RULES, buildColliders, type PlayerState, type Pose } from '@mecha/shared';
 import { validateMove } from '../../src/movement/move-validator';
 
 const colliders = buildColliders(PLAYROOM);
-const at = (x: number, y: number, z: number, crouching = false): PlayerState => ({
+const at = (x: number, y: number, z: number, crouching = false, pose: Pose = 'none'): PlayerState => ({
   x,
   y,
   z,
   yaw: 0,
   grounded: true,
   crouching,
+  pose,
 });
 const check = (prev: PlayerState, next: PlayerState, ms: number) =>
   validateMove(prev, next, ms, PLAYROOM, colliders).ok;
@@ -47,5 +48,22 @@ describe('validateMove', () => {
   it('allows crouching under the table but not standing inside it', () => {
     expect(check(at(3, 0, -9.4, true), at(3, 0, -9, true), 200)).toBe(true);
     expect(check(at(3, 0, -9.4, true), at(3, 0, -9, false), 200)).toBe(false);
+  });
+
+  it('allows lying flat under the table but not sitting up there', () => {
+    expect(check(at(3, 0, -9, false, 'flat'), at(3, 0, -8.8, false, 'flat'), 300)).toBe(true);
+    expect(check(at(3, 0, -9, false, 'flat'), at(3, 0, -8.8, false, 'sit'), 300)).toBe(false);
+  });
+
+  it('holds crawling to crawling speed', () => {
+    const crawl = POSE_RULES.crawl.speed;
+    expect(check(at(0, 0, 6, false, 'crawl'), at(crawl * 0.5, 0, 6, false, 'crawl'), 500)).toBe(true);
+    expect(check(at(0, 0, 6, false, 'crawl'), at(PLAYER.walkSpeed * 0.5, 0, 6, false, 'crawl'), 500)).toBe(false);
+  });
+
+  it('a standing-still pose may not slide around', () => {
+    expect(check(at(0, 0, 6, false, 'statue'), at(1.5, 0, 6, false, 'statue'), 500)).toBe(false);
+    // Но переход «шёл → замер» между пакетами — честный.
+    expect(check(at(0, 0, 6), at(PLAYER.walkSpeed * 0.05, 0, 6, false, 'statue'), 50)).toBe(true);
   });
 });

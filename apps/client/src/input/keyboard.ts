@@ -3,6 +3,8 @@ export class Keyboard {
   private readonly pressed = new Set<string>();
   onJump?: () => void;
   onCrouch?: () => void;
+  /** Номер позы 0..5 (клавиши 1–6) или null — встать (0 или X). */
+  onPose?: (index: number | null) => void;
 
   constructor() {
     window.addEventListener('keydown', (e) => {
@@ -11,6 +13,9 @@ export class Keyboard {
       this.pressed.add(e.code);
       if (e.code === 'Space') this.onJump?.();
       if (e.code === 'KeyC') this.onCrouch?.();
+      const digit = /^Digit([0-6])$/.exec(e.code);
+      if (digit) this.onPose?.(digit[1] === '0' ? null : Number(digit[1]) - 1);
+      if (e.code === 'KeyX') this.onPose?.(null);
     });
     window.addEventListener('keyup', (e) => this.pressed.delete(e.code));
     // Окно потеряло фокус — keyup уже не придёт, иначе персонаж «залипнет» в движении.

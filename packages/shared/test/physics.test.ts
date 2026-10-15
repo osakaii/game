@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { vec3, type Vec3 } from '../src/math.js';
-import { PHYSICS_DT, PLAYER, penetratesColliders, stepPlayer, supportHeight, type PlayerPhysicsState } from '../src/physics.js';
+import { PHYSICS_DT, PLAYER, bodyHeight, penetratesColliders, stepPlayer, supportHeight, type PlayerPhysicsState } from '../src/physics.js';
+import { POSE_RULES, type Pose } from '../src/poses.js';
 import { buildColliders } from '../src/world/map.js';
 import { PLAYROOM } from '../src/world/playroom.js';
 
@@ -14,11 +15,12 @@ function simulate(
   seconds: number,
   jumpAtTick = -1,
   crouch = false,
-  state: PlayerPhysicsState = { position: { ...start }, velocity: vec3(), grounded: true, crouching: false },
+  state: PlayerPhysicsState = { position: { ...start }, velocity: vec3(), grounded: true, crouching: false, pose: 'none' },
+  pose: Pose = 'none',
 ): PlayerPhysicsState {
   const ticks = Math.round(seconds / PHYSICS_DT);
   for (let i = 0; i < ticks; i++) {
-    stepPlayer(state, { dirX, dirZ, jump: i === jumpAtTick, crouch }, colliders, PHYSICS_DT);
+    stepPlayer(state, { dirX, dirZ, jump: i === jumpAtTick, crouch, pose }, colliders, PHYSICS_DT);
   }
   return state;
 }
@@ -91,6 +93,56 @@ describe('crouching', () => {
   it('cannot jump while crouching', () => {
     const s = simulate(vec3(0, 0, 6), 0, 0, 0.3, 2, true);
     expect(s.position.y).toBe(0);
+  });
+});
+
+describe('poses', () => {
+  const fresh = (x: number, z: number): PlayerPhysicsState => ({
+    position: vec3(x, 0, z),
+    velocity: vec3(),
+    grounded: true,
+    crouching: false,
+    pose: 'none',
+  });
+
+  it('crawls flat under the table, at crawling speed', () => {
+    const s = simulate(vec3(3, 0, -11), 0, 1, 2, -1, false, fresh(3, -11), 'flat');
+    expect(s.pose).toBe('flat');
+    expect(bodyHeight(s)).toBe(POSE_RULES.flat.height);
+    expect(s.position.z).toBeGreaterThan(-9.5); // уже под столешницей
+    expect(s.position.z).toBeLessThan(-11 + POSE_RULES.flat.speed * 2 + 0.01);
+  });
+
+  it('cannot get up under the table, gets up once out', () => {
+    const under = simulate(vec3(3, 0, -11), 0, 1, 2.5, -1, false, fresh(3, -11), 'flat');
+    const stuck = simulate(under.position, 0, 0, 0.3, -1, false, under, 'none');
+    expect(stuck.pose).toBe('flat');
+    const out = simulate(stuck.position, 0, -1, 4, -1, false, stuck, 'none');
+    expect(out.pose).toBe('none');
+  });
+
+  it('a standing-still pose freezes in place and walking ends it', () => {
+    const s = simulate(vec3(0, 0, 6), 1, 0, 0.3); // разбежался
+    simulate(s.position, 0, 0, 0.1, -1, false, s, 'statue');
+    expect(s.pose).toBe('statue');
+    expect(Math.hypot(s.velocity.x, s.velocity.z)).toBe(0); // замер сразу, без скольжения
+    simulate(s.position, 1, 0, 0.1, -1, false, s, 'statue');
+    expect(s.pose).toBe('none');
+  });
+
+  it('jumping ends any pose and works on the same press', () => {
+    const s = simulate(vec3(0, 0, 6), 0, 0, 0.1, -1, false, fresh(0, 6), 'crawl');
+    expect(s.pose).toBe('crawl');
+    simulate(s.position, 0, 0, 0.1, 0, false, s, 'crawl');
+    expect(s.pose).toBe('none');
+    expect(s.position.y).toBeGreaterThan(0);
+  });
+
+  it('cannot strike a pose in mid-air', () => {
+    const s = simulate(vec3(0, 0, 6), 0, 0, 0.1, 0);
+    simulate(s.position, 0, 0, 0.05, -1, false, s, 'sit');
+    expect(s.grounded).toBe(false);
+    expect(s.pose).toBe('none');
   });
 });
 

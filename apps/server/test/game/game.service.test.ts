@@ -267,6 +267,16 @@ describe('GameService.shoot', () => {
     const result = game.shoot(room, seeker.id, { ...origin, y: 1.3 }, { x: 0, y: 0, z: -1 });
     expect(result.hitPlayerId).toBeNull();
   });
+
+  it('a hider lying flat is missed by a shot at knee height, hit by a shot at the floor', () => {
+    const { game, room, seeker, hider, origin } = seekingRound();
+    hider.state = { ...hider.state, pose: 'flat' };
+    hider.history.push(Date.now(), hider.state);
+    // «Пластом» тело ниже 0.5 м: луч на 0.7 м проходит над ним, на 0.3 м — попадает.
+    expect(game.shoot(room, seeker.id, { ...origin, y: 0.7 }, { x: 0, y: 0, z: -1 }).hitPlayerId).toBeNull();
+    vi.advanceTimersByTime(5000);
+    expect(game.shoot(room, seeker.id, { ...origin, y: 0.3 }, { x: 0, y: 0, z: -1 }).hitPlayerId).toBe(hider.id);
+  });
 });
 
 describe('GameService settings, scoring and rotation', () => {

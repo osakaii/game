@@ -1,4 +1,4 @@
-import { PLAYER, penetratesColliders, playerHeight, type MapDef, type PlayerState, type Aabb } from '@mecha/shared';
+import { PLAYER, bodyHeight, moveSpeed, penetratesColliders, type MapDef, type PlayerState, type Aabb } from '@mecha/shared';
 
 /**
  * Насколько щедро прощаем расхождения. Сеть неровная: пакеты приходят пачками,
@@ -32,8 +32,11 @@ export function validateMove(
     return { ok: false, reason: 'out of bounds' };
   }
 
+  // Скорость — по положению тела: ползком медленнее, в позе «на месте» — только запас на джиттер.
+  // Берём большую из двух: поза могла смениться между пакетами (шёл → лёг).
   const horizontal = Math.hypot(next.x - prev.x, next.z - prev.z);
-  if (horizontal > PLAYER.walkSpeed * SPEED_TOLERANCE * dt + DISTANCE_SLACK) {
+  const speed = Math.max(moveSpeed(prev), moveSpeed(next));
+  if (horizontal > speed * SPEED_TOLERANCE * dt + DISTANCE_SLACK) {
     return { ok: false, reason: `too fast: ${horizontal.toFixed(2)} m in ${dt.toFixed(3)} s` };
   }
 
@@ -44,8 +47,8 @@ export function validateMove(
     return { ok: false, reason: `vertical speed: ${up.toFixed(2)} m` };
   }
 
-  // Высота — по заявленному состоянию: «стою» внутри столешницы — отказ, «сижу» под ней — можно.
-  if (penetratesColliders(next, colliders, WALL_TOLERANCE, playerHeight(next.crouching))) {
+  // Высота — по заявленному состоянию: «стою» внутри столешницы — отказ, «сижу» или «лежу» под ней — можно.
+  if (penetratesColliders(next, colliders, WALL_TOLERANCE, bodyHeight(next))) {
     return { ok: false, reason: 'inside wall' };
   }
 

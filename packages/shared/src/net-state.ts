@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PoseSchema } from './poses.js';
 
 /** Сколько раз в секунду клиент шлёт свою позицию. */
 export const CLIENT_STATE_RATE = 20;
@@ -18,6 +19,7 @@ export const PlayerStateSchema = z.object({
   yaw: z.number(),
   grounded: z.boolean(),
   crouching: z.boolean(),
+  pose: PoseSchema.default('none'),
 });
 export type PlayerState = z.output<typeof PlayerStateSchema>;
 

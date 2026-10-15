@@ -11,7 +11,8 @@
 | `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих |
 | `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING` |
 | `net-state.ts` | Позиции: `PlayerStateSchema`, `WorldSnapshot`, частоты (20 Гц), `INTERPOLATION_DELAY_MS`, схема выстрела `ShootSchema` |
-| `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
+| `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед, поза), `bodyHeight`/`moveSpeed` (по приседу и позе), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
+| `poses.ts` | Позы: `POSES`, `POSE_RULES` (высота, скорость ползком; 0 — «на месте»), `cancelsPose` (движение/прыжок снимают позу) |
 | `raycast.ts` | Луч vs AABB (slab), хитбокс игрока, `surfaceNormalAt` |
 | `skin.ts` | Кожа: `SKIN_SIZE=512`, лимит байт, `SkinBase` (`default`/`seeker`, рисуется локально), `SkinState`, `detectSkinImage` (PNG/WebP по магическим байтам) |
 | `body.ts` | `BODY_ZONES` — 14 частей тела (кости скелета и коробки атласа на клиенте; порядок = индекс в коже) |
@@ -24,4 +25,5 @@ S→C: `net:welcome`, `room:state` (полный снимок комнаты п�
 
 ## Подводные камни
 - Физика и карты общие: сервер валидирует движение тем же `stepPlayer`/`penetratesColliders`. Меняешь физику — проверь `move-validator`/`air-check` на сервере.
+- Высота позы в `POSE_RULES` = потолок для физики и хитбокс. Модель клиента обязана в неё влезать (тест `player-model`): меняешь углы позы — тест скажет, если рука вылезла.
 - `version.test.ts` читает `package.json` всех пакетов и `CHANGELOG.md` — версию меняй только через `pnpm release`.

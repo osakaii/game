@@ -2,6 +2,8 @@ import './style.css';
 import {
   PHYSICS_DT,
   PLAYROOM,
+  bodyHeight,
+  cancelsPose,
   MAPS,
   canMove,
   canPaint,
@@ -29,6 +31,7 @@ import { SeekerControls } from './seek/seeker-controls';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
+import { PoseWheel } from './ui/pose-wheel';
 import { MenuScreen } from './ui/menu-screen';
 import { StudioToolbar } from './ui/studio-toolbar';
 import { PhaseHud } from './ui/phase-hud';
@@ -63,6 +66,7 @@ const controls = new Controls({
   jumpButton: $('#jump-button'),
   crouchButton: $('#crouch-button'),
 });
+new PoseWheel($<HTMLButtonElement>('#pose-button'), $('#pose-wheel'), controls);
 
 // ---------- Сеть и лобби ----------
 
@@ -273,7 +277,7 @@ updateControlsEnabled();
 // ---------- Игровой цикл ----------
 
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
-const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false };
+const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false, pose: 'none' };
 
 // Экран загрузки висит, пока не нарисован первый кадр: бандл скачан, сцена собрана.
 let firstFrame = true;
@@ -294,7 +298,10 @@ startFixedStepLoop(PHYSICS_DT, {
     moveInput.dirZ = f.z * axis.y + f.x * axis.x;
     moveInput.jump = controls.consumeJump();
     moveInput.crouch = controls.enabled && controls.crouch;
+    moveInput.pose = controls.pose;
     player.fixedUpdate(moveInput, dt);
+    // Поза «на месте» снята движением или прыжком — снимаем и выбор, иначе персонаж снова ляжет, едва остановится.
+    if (cancelsPose(controls.pose, moveInput)) controls.setPose('none');
     if (lobby.room) stateSender.update(dt, player);
   },
   render(alpha, frameDt) {
@@ -305,7 +312,8 @@ startFixedStepLoop(PHYSICS_DT, {
     skinPainter.update(frameDt);
     remotePlayers.render(network.clock.now(), frameDt);
     if (studio.active) studio.update(player.renderPosition);
-    else followCamera.update(player.renderPosition, frameDt, player.state.crouching);
+    // Присел или лёг — камера опускается следом: видно, что под столом.
+    else followCamera.update(player.renderPosition, frameDt, bodyHeight(player.state) < 1.2);
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;

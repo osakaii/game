@@ -29,6 +29,7 @@ import { PlayerModel } from './player/player-model';
 import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
+import { SeekerEffects } from './seek/seeker-effects';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
@@ -42,6 +43,7 @@ import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
+import { ShotFx } from './world/shot-fx';
 import { Splats } from './world/splats';
 import { applyShadows, createSceneContext, setRenderScale } from './world/scene-setup';
 import { PerfGovernor } from './core/perf-governor';
@@ -185,19 +187,6 @@ const perfGovernor = new PerfGovernor(graphics.shadows ? 2 : 1, (level) => {
   toast('Графика упрощена для плавности');
 });
 
-network.on('shot', (shot) => {
-  gameSounds.onShot(shot, player.state.position);
-  if (shot.point) splats.add(shot.point, !!shot.hitPlayerId);
-  if (!shot.hitPlayerId) return;
-  if (shot.hitPlayerId === network.playerId) {
-    const helper = lobby.room?.settings.foundMode === 'helper';
-    toast(helper ? 'Тебя нашли! Теперь ты помогаешь искать' : 'Тебя нашли! Теперь ты призрак — наблюдай');
-  } else {
-    const nickname = lobby.room?.players.find((p) => p.id === shot.hitPlayerId)?.nickname ?? 'Игрок';
-    toast(`${nickname} найден!`);
-  }
-});
-
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
   menu.setOnline(state === 'online');
@@ -219,6 +208,34 @@ network.on('outdated', () => updateBanner.showRequired());
 // ---------- Синхронизация игроков ----------
 
 const remotePlayers = new RemotePlayers(scene, activeMap);
+
+// ---------- Выстрелы: картинка, звук, вибрация ----------
+
+const shotFx = new ShotFx(scene);
+const seekerEffects = new SeekerEffects({
+  controls: seekerControls,
+  player,
+  remotePlayers,
+  shotFx,
+  sfx,
+  camera: followCamera,
+  world: activeMap,
+  myId: () => network.playerId,
+});
+network.on('shot', (shot) => seekerEffects.onServerShot(shot));
+// Пятно, звук и «найден!» — когда капля долетела, а не когда пришёл пакет: так видно причину и следствие.
+seekerEffects.onImpact = (shot, impact) => {
+  gameSounds.onShot(shot, player.state.position);
+  splats.add(impact.point, impact.hit);
+  if (!shot.hitPlayerId) return;
+  if (shot.hitPlayerId === network.playerId) {
+    const helper = lobby.room?.settings.foundMode === 'helper';
+    toast(helper ? 'Тебя нашли! Теперь ты помогаешь искать' : 'Тебя нашли! Теперь ты призрак — наблюдай');
+  } else {
+    const nickname = lobby.room?.players.find((p) => p.id === shot.hitPlayerId)?.nickname ?? 'Игрок';
+    toast(`${nickname} найден!`);
+  }
+};
 const stateSender = new StateSender((state) => network.sendPlayerState(state));
 
 network.on('snapshot', (snapshot) => remotePlayers.applySnapshot(snapshot, network.playerId));
@@ -248,6 +265,8 @@ lobby.on('room', (room) => {
   skinSync.onRoom();
   // Призрак — только в режиме ghost. Помощник ищущих остаётся обычным, в форме ищущего.
   player.model.setGhost(!!lobby.me?.found && lobby.me.role === 'hider');
+  // Ищущий в раунде держит краскомёт — и свой персонаж тоже, его видно со спины.
+  player.model.setArmed(!!room && (room.phase === 'hiding' || room.phase === 'seeking') && lobby.myRole === 'seeker');
   // Фаза сменилась на поиск или вышли из комнаты — Мастерская закрывается сама.
   if (studio.active && !canUseStudio()) closeStudio();
   renderPaintToggle();
@@ -327,6 +346,7 @@ startFixedStepLoop(PHYSICS_DT, {
     seekerControls.update(serverNow);
     gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);
+    shotFx.update(frameDt);
   },
 });
 
@@ -352,5 +372,5 @@ if (import.meta.env.DEV) {
     PlayerModel.showHitboxes = !PlayerModel.showHitboxes;
   });
 
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, controls, sceneContext, splats, followCamera } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, seekerEffects, shotFx, controls, sceneContext, splats, followCamera } });
 }

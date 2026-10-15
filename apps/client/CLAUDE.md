@@ -9,11 +9,11 @@
 | `core/` | `Emitter` (типизированный observer), `fixed-step-loop` (физика 60 Гц + рендер с интерполяцией), `perf-governor` (автокачество: тени → лёгкая краска + 1× разрешение, только вниз) |
 | `net/` | `Network` (обёртка socket.io: запросы с таймаутом → `Result`, события), `ServerClock` (смещение часов по пингу), `StateSender` (своя позиция 20 Гц), `session-id` (секрет сессии в sessionStorage) |
 | `lobby/` | `Lobby` (состояние комнаты, гонки room:state vs ack, переподключение), `invite` (?room=CODE, Web Share) |
-| `world/` | `scene-setup` (renderer, свет, тени), `ActiveMap` (текущая карта; потребители читают живые `colliders/obstacles` через `WorldGeometry`), `map-builder`, `RemotePlayers` (чужие игроки, кэш кож по ревизии), `splats` (пятна проверок) |
+| `world/` | `ShotFx` (вспышка, летящая капля, брызги-InstancedMesh; свой выстрел летит в предсказанную точку и доворачивает к серверной), `scene-setup` (renderer, свет, тени), `ActiveMap` (текущая карта; потребители читают живые `colliders/obstacles` через `WorldGeometry`), `map-builder`, `RemotePlayers` (чужие игроки, кэш кож по ревизии), `splats` (пятна проверок) |
 | `player/` | `PlayerModel` (SkinnedMesh на скелете из 14 костей + глаза; суставы — пружины к целевой позе; шаг, ползание, присед, прыжок, дыхание, манекен, призрак), `body-poses` (все позы как углы суставов: стойка, присед, прыжок, Мастерская, 6 поз пряток), `LocalPlayer` (физика из shared + интерполяция), `RemotePlayer` (интерполяция снимков, serverNow−100 мс), `name-label` |
 | `camera/` | Камера от третьего лица (не уходит в стены) |
 | `input/` | `Controls` (pointer events: джойстик слева, камера справа, тап; присед/прыжок; выбранная поза + `onPoseChange`), клавиатура (1–6 позы, 0/X встать) |
-| `seek/` | `SeekerControls` — тап → луч из камеры → `seek:shoot` (+`viewTime` для lag compensation) |
+| `seek/` | `SeekerControls` — тап → луч из камеры → `seek:shoot` (+`viewTime`), события `fire`/`result`; `SeekerEffects` — ощущения выстрела (разворот, отдача, звук, вибрация, кольцо перезарядки, крестик, чужие выстрелы) |
 | `skin/` | **Тело и кожа**: `character-parts` (скелет: размеры, скругления, суставы; `restJoint/restCenter`, `paintMask`, `mirrorPart`), `rounded-box` (плоская грань → скруглённая поверхность), `body-geometry` (всё тело одной геометрией в позе покоя, skinIndex = часть), `atlas` (UV-атлас 512², плотность одинакова, side faces: «вверх текстуры» = вверх мира), `position-map` (тексель → точка в позе покоя + нормаль), `skin-texture` (canvas-кожа: основа/картинка из сети) |
 | `paint/` | **Покраска своего персонажа** — см. ниже |
 | `painting/eyedropper.ts` | Пипетка по миру: цвет МАТЕРИАЛА под лучом (не освещённый пиксель) |
@@ -43,6 +43,10 @@ SkinSync: после паузы и высыхания → WebP → network.uploa
 - Поза «на месте» снята движением — `main.ts` сбрасывает и выбор (`cancelsPose`), иначе персонаж снова лёг бы при остановке.
 - Новая поза: id в `POSES` + правило в `POSE_RULES` (shared) → углы в `POSE_LIBRARY` → подпись/значок в `POSE_LABELS` → `pnpm hitboxes`. Оси суставов описаны в `body-poses.ts`.
 - Хитбоксы: `test/player/pose-hitboxes.test.ts` меряет модель (`holdStance` — без пружин и дыхания, детерминированно) и сверяет с `shared/src/pose-hitboxes.ts` через `toMatchFileSnapshot`. Dev-клавиша H — `hitbox-debug.ts`.
+
+## Выстрел
+- Отклик сразу по тапу (предсказание), итог — от сервера: `seek:shot` подтверждает свои капли по порядку (`ShotFx.confirmOwn`), отказ ack → `cancelOwn` (капля пшикает). Пятно/звук/«найден» — в `onImpact`, когда капля долетела.
+- Краскомёт (`player/blaster.ts`) висит на кости `handRight`; рука держит его в `PlayerModel.holdBlaster`, отдача — толчок скорости пружин (`fire`). Цвет краски ищущих — `SEEKER_PAINT`.
 
 ## Подводные камни
 - Перед `canvas.toDataURL()`/`readPixels` рисуй кадр в том же синхронном коде.

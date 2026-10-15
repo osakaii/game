@@ -540,6 +540,112 @@ input:focus {
   }
 }
 
+/* Кольцо перезарядки над местом тапа: обводка «дорисовывается» за время перезарядки, потом гаснет. */
+.cooldown-ring {
+  position: fixed;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  pointer-events: none;
+  animation: cooldown-out 0.25s ease-in var(--cooldown) forwards;
+}
+
+.cooldown-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* начало обводки — сверху, как у часов */
+}
+
+.cooldown-ring circle {
+  fill: none;
+  stroke: #ff3d7f;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.6));
+  animation: cooldown-fill var(--cooldown) linear forwards;
+}
+
+@keyframes cooldown-fill {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes cooldown-out {
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Крестик попадания: четыре чёрточки, разлетающиеся от центра. */
+.hit-marker {
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  pointer-events: none;
+  background:
+    linear-gradient(45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%) center / 100% 100% no-repeat,
+    linear-gradient(-45deg, transparent 46%, #fff 46%, #fff 54%, transparent 54%) center / 100% 100% no-repeat;
+  /* Середину вырезаем: крестик не закрывает того, в кого попали. */
+  mask: radial-gradient(circle, transparent 7px, #000 8px);
+  filter: drop-shadow(0 0 3px #ff3d7f);
+  animation: hit-marker 0.45s ease-out forwards;
+}
+
+@keyframes hit-marker {
+  0% {
+    transform: scale(0.4) rotate(-20deg);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.25) rotate(0deg);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.float-text {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  margin-top: -26px;
+  pointer-events: none;
+  font-weight: 800;
+  white-space: nowrap;
+  text-shadow: 0 2px 6px rgb(0 0 0 / 0.6);
+  animation: float-up 0.9s ease-out forwards;
+}
+
+.float-text.hit {
+  font-size: 22px;
+  color: #ffd166;
+}
+
+.float-text.miss {
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.8);
+}
+
+@keyframes float-up {
+  0% {
+    transform: translate(-50%, -60%) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    transform: translate(-50%, -100%) scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -190%) scale(1);
+    opacity: 0;
+  }
+}
+
 #player-list li.offline {
   opacity: 0.45;
 }

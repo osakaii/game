@@ -25,6 +25,8 @@ export class LocalPlayer {
   private readonly prevPosition: Vec3;
   /** Начальный разворот — спиной к камере (камера по умолчанию смотрит на -Z). */
   private facingAngle = Math.PI;
+  private aimYaw = 0;
+  private aimTime = 0;
 
   constructor(
     spawn: Vec3,
@@ -39,6 +41,15 @@ export class LocalPlayer {
   /** Куда смотрит модель (рад) — отправляем на сервер, чтобы другие видели разворот. */
   get facing(): number {
     return this.facingAngle;
+  }
+
+  /**
+   * Развернуться к цели (выстрел): ненадолго взгляд важнее направления бега.
+   * Угол уходит на сервер — остальные видят, куда повернулся ищущий.
+   */
+  faceTowards(yaw: number, seconds = 0.6): void {
+    this.aimYaw = yaw;
+    this.aimTime = seconds;
   }
 
   /** Сервер поставил нас в точку: спавн или откат. Без интерполяции — мгновенно. */
@@ -68,7 +79,12 @@ export class LocalPlayer {
 
     const { x: vx, z: vz } = this.state.velocity;
     const speed = Math.hypot(vx, vz);
-    if (speed > 0.3) {
+    if (this.aimTime > 0) {
+      // Разворот к цели быстрый, но не мгновенный — видно движение, а не телепорт.
+      this.aimTime -= frameDt;
+      this.facingAngle = rotateTowards(this.facingAngle, this.aimYaw, TURN_SPEED * 3 * frameDt);
+      root.rotation.y = this.facingAngle;
+    } else if (speed > 0.3) {
       // Модель смотрит по +Z, поворот на atan2(x, z) разворачивает её в сторону движения.
       const target = Math.atan2(vx, vz);
       this.facingAngle = rotateTowards(this.facingAngle, target, TURN_SPEED * frameDt);

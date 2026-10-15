@@ -44,6 +44,21 @@ export class Sfx {
     this.tone(160, 0.15, { volume: 0.4 * volume, slideTo: 60 });
   }
 
+  /**
+   * Выстрел краскомёта: пневматический «пфт» (короткий шипящий выдох) + низкий «чпок» со спадом.
+   * volume 0..1 — чужой выстрел вдалеке тише.
+   */
+  shoot(volume = 1): void {
+    this.noise(0.07, 0.35 * volume, 4200);
+    this.tone(420, 0.09, { type: 'triangle', volume: 0.3 * volume, slideTo: 110 });
+  }
+
+  /** Подтверждение попадания у стреляющего: звонкий «дзынь» поверх арпеджио «найден». */
+  hitConfirm(): void {
+    this.tone(1568, 0.12, { type: 'square', volume: 0.08 });
+    this.tone(2093, 0.18, { type: 'triangle', volume: 0.12, delay: 0.05 });
+  }
+
   /** Кого-то нашли: короткое восходящее арпеджио. */
   found(): void {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, { type: 'triangle', delay: i * 0.07, volume: 0.25 }));

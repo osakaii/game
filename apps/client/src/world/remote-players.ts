@@ -15,6 +15,8 @@ export class RemotePlayers {
   /** Ники, роли и цвета из room:state. Позиции приходят отдельно, в world:snapshot. */
   private infos = new Map<string, PlayerInfo>();
   private isLabelVisible: (id: string) => boolean = () => true;
+  /** Идёт раунд — ищущие держат краскомёты. */
+  private inGame = false;
   /**
    * Картинки кож, пришедшие по сети. Храним отдельно от моделей: картинка может прийти раньше,
    * чем модель игрока появится (модель создаётся по первому снимку позиций).
@@ -65,6 +67,7 @@ export class RemotePlayers {
     const roles = new Map(room.players.map((p) => [p.id, p.role]));
     const myRole = myId ? roles.get(myId) : null;
     const inGame = room.phase === 'hiding' || room.phase === 'seeking';
+    this.inGame = inGame;
     this.isLabelVisible = (id) => !inGame || roles.get(id) === myRole;
 
     for (const player of this.players.values()) this.applyInfo(player);
@@ -75,6 +78,17 @@ export class RemotePlayers {
     player.setNickname(info?.nickname ?? '…');
     if (info) this.applySkin(player, info.skin);
     player.setLabelVisible(this.isLabelVisible(player.id));
+    player.model.setArmed(this.inGame && info?.role === 'seeker');
+  }
+
+  /** Модель чужого игрока (чтобы показать его выстрел из его краскомёта). */
+  get(id: string): RemotePlayer | undefined {
+    return this.players.get(id);
+  }
+
+  /** Тела чужих игроков — для предсказания, куда полетит своя капля краски. */
+  meshes(): THREE.Object3D[] {
+    return [...this.players.values()].map((p) => p.model.mesh);
   }
 
   /** Новая кожа игрока из сети (уже декодированная картинка). */

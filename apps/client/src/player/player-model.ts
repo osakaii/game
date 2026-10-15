@@ -6,6 +6,7 @@ import { getSkinAtlas } from '../skin/atlas';
 import { buildBodyGeometry } from '../skin/body-geometry';
 import { CHARACTER_PARTS, HIP_Y, PART_ORDER, partIndex } from '../skin/character-parts';
 import { CROUCH, JUMP, POSE_LIBRARY, STAND, STUDIO, type BodyPose } from './body-poses';
+import { Blaster } from './blaster';
 import { geometryFor, hitboxLines } from './hitbox-debug';
 import { roundBoxPoint } from '../skin/rounded-box';
 import { SkinTexture } from '../skin/skin-texture';
@@ -63,6 +64,13 @@ export class PlayerModel {
   private readonly velocity = new Float32Array(CHANNELS);
   private pose: Pose = 'none';
   private hitboxView: THREE.LineSegments | null = null;
+  private blaster: Blaster | null = null;
+  /** Сколько ещё держать руку с краскомётом нацеленной (с) и под каким углом к горизонту. */
+  private aimTime = 0;
+  private aimPitch = 0;
+  /** Перезарядка для бака краски: сколько прошло и сколько всего (с). */
+  private reloadElapsed = 1;
+  private reloadTotal = 1;
   private walkPhase = 0;
   private breathPhase = Math.random() * Math.PI * 2; // у всех своё дыхание — толпа не «дышит хором»
   private crouching = false;
@@ -144,6 +152,7 @@ export class PlayerModel {
 
   /** Освободить видеопамять: текстура кожи у каждого игрока своя. */
   dispose(): void {
+    this.setArmed(false);
     this.skin.dispose();
     this.material.dispose();
     this.eyeMaterial.dispose();
@@ -178,6 +187,57 @@ export class PlayerModel {
   /** Присесть или встать. Переход плавный — его делает animate. */
   setCrouch(crouching: boolean, _dt?: number): void {
     this.crouching = crouching;
+  }
+
+  /** Ищущий держит краскомёт в правой руке. Видят все — так понятно, кто ищет. */
+  setArmed(armed: boolean): void {
+    if (armed === !!this.blaster) return;
+    if (armed) {
+      this.blaster = new Blaster();
+      // Ось краскомёта +Z (куда стреляет) должна смотреть вдоль кисти, от локтя к пальцам — это −Y кости.
+      this.blaster.root.rotation.x = Math.PI / 2;
+      this.blaster.root.position.set(0, -0.06, 0.02);
+      // Игрушечный масштаб: крупнее настоящего — силуэт ищущего читается издалека и со спины.
+      this.blaster.root.scale.setScalar(1.5);
+      this.bones.handRight.add(this.blaster.root);
+    } else {
+      this.blaster!.root.removeFromParent();
+      this.blaster = null;
+    }
+  }
+
+  get armed(): boolean {
+    return !!this.blaster;
+  }
+
+  /**
+   * Выстрел: рука вытягивается к цели (pitch — угол к горизонту, рад), отдача подбрасывает руку и корпус.
+   * Отдача — это толчок скорости суставам-пружинам: они сами отыграют назад, с лёгким покачиванием.
+   * reload — сколько секунд бак будет наполняться (видно, когда можно стрелять снова).
+   */
+  fire(pitch: number, reload: number): void {
+    this.aimTime = 0.9;
+    this.aimPitch = pitch;
+    this.velocity[partIndex('upperArmRight') * 3] -= 7;
+    this.velocity[partIndex('forearmRight') * 3] -= 4;
+    this.velocity[partIndex('torso') * 3] -= 1.6;
+    this.velocity[partIndex('head') * 3] -= 1;
+    this.reloadElapsed = 0;
+    this.reloadTotal = Math.max(0.1, reload);
+    this.blaster?.setPaintLevel(0);
+  }
+
+  /** Сервер сообщил настоящую перезарядку (попадание короче промаха) — бак наполняется за это время. */
+  setReload(seconds: number): void {
+    this.reloadTotal = Math.max(0.1, this.reloadElapsed + seconds);
+  }
+
+  /** Где кончик сопла в мире — оттуда летит краска. false — краскомёта нет. */
+  muzzlePosition(target: THREE.Vector3): boolean {
+    if (!this.blaster) return false;
+    this.root.updateMatrixWorld(true);
+    this.blaster.muzzle.getWorldPosition(target);
+    return true;
   }
 
   /** Поза для пряток ('none' — обычное состояние). Переход плавный — его делает animate. */
@@ -215,9 +275,37 @@ export class PlayerModel {
       this.addWalk(dt, speed01);
       this.addBreath(dt, 1);
     }
+    if (this.blaster) this.holdBlaster(dt);
     this.integrate(Math.min(dt, 0.1), spring);
     this.writeBones();
     this.updateHitboxView();
+  }
+
+  /**
+   * Правая рука держит краскомёт: в обычной стойке — у пояса стволом вперёд,
+   * после выстрела — вытянута к цели. В позе и в Мастерской рука свободна (поза важнее).
+   */
+  private holdBlaster(dt: number): void {
+    this.reloadElapsed += dt;
+    this.blaster!.setPaintLevel(this.reloadElapsed / this.reloadTotal);
+    if (this.aimTime > 0) this.aimTime -= dt;
+    if (this.studioPose || this.pose !== 'none') return;
+    const arm = partIndex('upperArmRight') * 3;
+    const forearm = partIndex('forearmRight') * 3;
+    const hand = partIndex('handRight') * 3;
+    if (this.aimTime > 0) {
+      // Рука прямая, направлена к цели: −π/2 — горизонтально вперёд, больше по модулю — выше.
+      this.target[arm] = -Math.PI / 2 - this.aimPitch;
+      this.target[arm + 2] = 0.04; // чуть наружу — бак краскомёта не заходит в голову
+      this.target[forearm] = 0;
+      this.target[hand] = 0;
+    } else {
+      // Наготове: локоть у бока, предплечье горизонтально — ствол у пояса смотрит вперёд.
+      this.target[arm] = -0.25;
+      this.target[arm + 2] = 0.18;
+      this.target[forearm] = -1.3;
+      this.target[hand] = 0;
+    }
   }
 
   private updateHitboxView(): void {

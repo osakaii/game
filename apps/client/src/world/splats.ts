@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { surfaceNormalAt } from '@mecha/shared';
+import { SEEKER_PAINT } from '../player/blaster';
 import type { WorldGeometry } from './active-map';
 
 const DECAL_LIFETIME = 8; // с — пятно на поверхности
@@ -71,7 +72,7 @@ export class Splats {
   private createDecal(point: { x: number; y: number; z: number }): THREE.Mesh {
     const normal = surfaceNormalAt(point, this.world.colliders);
     const material = new THREE.MeshLambertMaterial({
-      color: '#d62828',
+      color: SEEKER_PAINT, // цвет краски ищущих — как в баке краскомёта
       map: this.texture,
       transparent: true,
       depthWrite: false,

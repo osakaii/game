@@ -1,31 +1,54 @@
 import * as THREE from 'three';
-import { INTERPOLATION_DELAY_MS, canShoot } from '@mecha/shared';
+import { INTERPOLATION_DELAY_MS, canShoot, type ShotResult } from '@mecha/shared';
+import { Emitter } from '../core/emitter';
 import type { Lobby } from '../lobby/lobby';
 import type { Network } from '../net/network';
 import { $ } from '../ui/dom';
 import { errorMessage } from '../ui/error-messages';
 import { toast } from '../ui/toast';
 
+/** Тап-выстрел: где на экране и какой луч из камеры. id связывает выстрел с ответом сервера. */
+export interface FireEvent {
+  id: number;
+  x: number;
+  y: number;
+  origin: THREE.Vector3;
+  direction: THREE.Vector3;
+}
+
+export interface FireResult {
+  fire: FireEvent;
+  /** null — сервер отказал (перезарядка, не та фаза, нет связи). */
+  result: ShotResult | null;
+  /** Сколько ждать до следующего выстрела (мс). */
+  cooldownMs: number;
+}
+
 /**
  * Ищущий касается подозрительного места -> луч из камеры через точку касания -> сервер.
  *
  * Клиент НЕ решает, попал ли он: отправляет только луч (origin + направление).
  * Сервер проверит пересечение по своим позициям и своей карте.
+ *
+ * Картинка и звук — не здесь: события fire (сразу по тапу) и result (ответ сервера) слушает SeekerEffects.
  */
-export class SeekerControls {
+export class SeekerControls extends Emitter<{ fire: FireEvent; result: FireResult }> {
   private readonly raycaster = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
   private readonly hint = $('#seek-hint');
   private nextShotAt = 0;
   private pending = false;
   private hintText = '';
+  private nextId = 1;
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
     private readonly canvas: HTMLCanvasElement,
     private readonly network: Network,
     private readonly lobby: Lobby,
-  ) {}
+  ) {
+    super();
+  }
 
   get active(): boolean {
     const room = this.lobby.room;
@@ -41,6 +64,9 @@ export class SeekerControls {
     this.ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.camera);
     const { origin, direction } = this.raycaster.ray;
+    const fire: FireEvent = { id: this.nextId++, x: clientX, y: clientY, origin: origin.clone(), direction: direction.clone() };
+    // Отклик — сразу, не дожидаясь сервера: вспышка, отдача, звук. Итог придёт с ответом.
+    this.emit('fire', fire);
 
     this.pending = true;
     const result = await this.network.shoot({
@@ -53,11 +79,12 @@ export class SeekerControls {
 
     if (!result.ok) {
       if (result.error !== 'RATE_LIMITED') toast(errorMessage(result.error));
+      this.emit('result', { fire, result: null, cooldownMs: Math.max(0, this.nextShotAt - this.network.clock.now()) });
       return;
     }
     this.nextShotAt = result.data.nextShotAt;
+    this.emit('result', { fire, result: result.data, cooldownMs: Math.max(0, this.nextShotAt - this.network.clock.now()) });
     if (!result.data.point) toast('Слишком далеко');
-    else if (!result.data.hitPlayerId) toast('Мимо');
   }
 
   /** Каждый кадр: подсказка и индикатор перезарядки. */

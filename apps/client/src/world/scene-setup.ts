@@ -55,6 +55,8 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
 
   function resize() {
     const { clientWidth: w, clientHeight: h } = canvas;
+    // Скрытая вкладка или свёрнутое окно дают 0×0: 0/0 = NaN испортил бы камеру до следующего resize.
+    if (w === 0 || h === 0) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.fov = fovForAspect(camera.aspect);

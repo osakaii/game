@@ -1,5 +1,6 @@
 import { clamp, type Vec3 } from './math.js';
-import { POSE_RULES, cancelsPose, type Pose } from './poses.js';
+import { BODY_HITBOXES } from './pose-hitboxes.js';
+import { POSE_RULES, cancelsPose, stanceKey, type Pose } from './poses.js';
 import type { Aabb } from './world/map.js';
 
 /**
@@ -118,6 +119,57 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   const prevY = state.position.y;
   state.position.y += v.y * dt;
   resolveVertical(state, prevY, colliders);
+}
+
+/** Голове или ступням можно чуть коснуться стены — так прижиматься к ней естественнее. */
+const BODY_WALL_SLACK = 0.06;
+
+/**
+ * Лёжа тело длиннее цилиндра физики: голова и ноги торчат за его радиус вдоль направления взгляда.
+ * Цилиндр не пускает в стену только середину тела, поэтому концы проверяем отдельно: голова ушла
+ * в стену — отодвигаемся назад, ступни — вперёд. Длина тела берётся из хитбоксов позы,
+ * то есть из той же модели, которую видят игроки.
+ *
+ * yaw нужен извне: направление взгляда знает клиент (физике оно не нужно для ходьбы).
+ */
+export function keepBodyOutOfWalls(state: PlayerPhysicsState, yaw: number, colliders: readonly Aabb[]): void {
+  if (state.pose === 'none') return;
+  let front = 0;
+  let back = 0;
+  for (const box of BODY_HITBOXES[stanceKey(state)]) {
+    front = Math.max(front, box[5] - BODY_WALL_SLACK);
+    back = Math.max(back, -box[2] - BODY_WALL_SLACK);
+  }
+  const p = state.position;
+  const fx = Math.sin(yaw);
+  const fz = Math.cos(yaw);
+  const top = p.y + bodyHeight(state);
+  let moved = false;
+
+  for (const [reach, sign] of [
+    [front, 1],
+    [back, -1],
+  ] as const) {
+    if (reach <= PLAYER.radius) continue;
+    for (const b of colliders) {
+      // Низкое (ковёр, ступенька) не мешает — на него тело просто ложится.
+      if (b.maxY <= p.y + PLAYER.stepHeight || b.minY >= top) continue;
+      const x = p.x + fx * reach * sign;
+      const z = p.z + fz * reach * sign;
+      if (x <= b.minX || x >= b.maxX || z <= b.minZ || z >= b.maxZ) continue;
+      // Конец тела внутри блока: сколько пройти назад вдоль тела, чтобы выйти из него.
+      const dx = -fx * sign;
+      const dz = -fz * sign;
+      const tx = dx > 1e-6 ? (b.maxX - x) / dx : dx < -1e-6 ? (b.minX - x) / dx : Infinity;
+      const tz = dz > 1e-6 ? (b.maxZ - z) / dz : dz < -1e-6 ? (b.minZ - z) / dz : Infinity;
+      const t = Math.min(tx, tz) + 0.01;
+      p.x += dx * t;
+      p.z += dz * t;
+      moved = true;
+    }
+  }
+  // Отодвинулись — середина тела могла упереться в другое препятствие.
+  if (moved) resolveHorizontal(state, colliders);
 }
 
 /**

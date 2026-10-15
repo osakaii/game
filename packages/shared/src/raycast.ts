@@ -1,5 +1,7 @@
 import type { Vec3 } from './math.js';
-import { PLAYER, bodyHeight, type BodyStance } from './physics.js';
+import type { BodyStance } from './physics.js';
+import { BODY_HITBOXES } from './pose-hitboxes.js';
+import { stanceKey } from './poses.js';
 import type { Aabb } from './world/map.js';
 
 /**
@@ -40,19 +42,51 @@ export function rayAabb(origin: Vec3, dir: Vec3, box: Aabb, maxT: number): numbe
 const AXES = ['x', 'y', 'z'] as const;
 
 /**
- * Коробка игрока для попаданий. Чуть шире модели: ищущий видит прячущегося
- * с задержкой интерполяции, а палец на телефоне — не снайперский прицел.
+ * Запас вокруг каждой части тела (м). Ищущий видит прячущегося с задержкой интерполяции,
+ * тело чуть шевелится (дыхание, шаг), а палец на телефоне — не снайперский прицел.
  */
-export function playerHitbox(position: Vec3, stance: BodyStance = { crouching: false }, inflate = 0.08): Aabb {
-  const r = PLAYER.radius + inflate;
-  return {
-    minX: position.x - r,
-    maxX: position.x + r,
-    minY: position.y,
-    maxY: position.y + bodyHeight(stance) + inflate,
-    minZ: position.z - r,
-    maxZ: position.z + r,
-  };
+export const HIT_INFLATE = 0.07;
+
+/**
+ * Попал ли луч в игрока — по коробкам частей тела его текущей позы (BODY_HITBOXES).
+ *
+ * Коробки заданы в системе игрока, а игрок повёрнут на yaw. Вместо того чтобы поворачивать
+ * 14 коробок (повёрнутая коробка уже не AABB, slab-метод для неё не работает), поворачиваем
+ * один луч в обратную сторону — в систему игрока. Поворот не меняет длин, поэтому t общий.
+ *
+ * Возвращает t первого касания или null.
+ */
+export function rayHitsBody(
+  origin: Vec3,
+  dir: Vec3,
+  position: Vec3,
+  yaw: number,
+  stance: BodyStance,
+  maxT: number,
+  inflate = HIT_INFLATE,
+): number | null {
+  // Модель повёрнута как three.js rotation.y: мир = Ry(yaw) · локальное. Обратно — Ry(-yaw).
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  const ox = origin.x - position.x;
+  const oz = origin.z - position.z;
+  const localOrigin = { x: cos * ox - sin * oz, y: origin.y - position.y, z: sin * ox + cos * oz };
+  const localDir = { x: cos * dir.x - sin * dir.z, y: dir.y, z: sin * dir.x + cos * dir.z };
+
+  let best: number | null = null;
+  for (const [minX, minY, minZ, maxX, maxY, maxZ] of BODY_HITBOXES[stanceKey(stance)]) {
+    const box = {
+      minX: minX - inflate,
+      minY: minY - inflate,
+      minZ: minZ - inflate,
+      maxX: maxX + inflate,
+      maxY: maxY + inflate,
+      maxZ: maxZ + inflate,
+    };
+    const t = rayAabb(localOrigin, localDir, box, best ?? maxT);
+    if (t !== null && (best === null || t < best)) best = t;
+  }
+  return best;
 }
 
 /**

@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BODY_ZONES, PLAYER, POSE_RULES, skinBaseColor, type BodyZone, type Pose, type SkinBase } from '@mecha/shared';
+import { BODY_ZONES, PLAYER, POSE_RULES, skinBaseColor, stanceKey, type BodyZone, type Pose, type SkinBase, type StanceKey } from '@mecha/shared';
 import { graphics } from '../platform/graphics';
 import { getSkinAtlas } from '../skin/atlas';
 import { buildBodyGeometry } from '../skin/body-geometry';
 import { CHARACTER_PARTS, HIP_Y, PART_ORDER, partIndex } from '../skin/character-parts';
 import { CROUCH, JUMP, POSE_LIBRARY, STAND, STUDIO, type BodyPose } from './body-poses';
+import { geometryFor, hitboxLines } from './hitbox-debug';
 import { roundBoxPoint } from '../skin/rounded-box';
 import { SkinTexture } from '../skin/skin-texture';
 
@@ -38,6 +39,8 @@ const SPRING_STEP = 1 / 60;
  * + дыхание) и подтягиваем к ней суставы пружинами.
  */
 export class PlayerModel {
+  /** Отладка: показывать коробки попаданий у всех персонажей (dev, клавиша H). */
+  static showHitboxes = false;
   readonly root = new THREE.Group();
   /** Всё тело одной сеткой: один вызов отрисовки на персонажа. */
   readonly mesh: THREE.SkinnedMesh;
@@ -59,6 +62,7 @@ export class PlayerModel {
   private readonly target = new Float32Array(CHANNELS);
   private readonly velocity = new Float32Array(CHANNELS);
   private pose: Pose = 'none';
+  private hitboxView: THREE.LineSegments | null = null;
   private walkPhase = 0;
   private breathPhase = Math.random() * Math.PI * 2; // у всех своё дыхание — толпа не «дышит хором»
   private crouching = false;
@@ -181,6 +185,17 @@ export class PlayerModel {
     this.pose = pose;
   }
 
+  /**
+   * Мгновенно встать в положение — без пружин, шага и дыхания. Результат всегда одинаковый:
+   * по нему генерируются хитбоксы поз (см. test/player/pose-hitboxes.test.ts).
+   */
+  holdStance(key: StanceKey): void {
+    this.applyPose(key === 'stand' ? STAND : key === 'crouch' ? CROUCH : POSE_LIBRARY[key]);
+    this.current.set(this.target);
+    this.velocity.fill(0);
+    this.writeBones();
+  }
+
   /** Каждый кадр. speed01 — горизонтальная скорость 0..1 от скорости ходьбы. */
   animate(dt: number, speed01: number, grounded: boolean): void {
     let spring = SPRING_WALK;
@@ -202,6 +217,20 @@ export class PlayerModel {
     }
     this.integrate(Math.min(dt, 0.1), spring);
     this.writeBones();
+    this.updateHitboxView();
+  }
+
+  private updateHitboxView(): void {
+    if (!PlayerModel.showHitboxes) {
+      if (this.hitboxView) this.hitboxView.visible = false;
+      return;
+    }
+    if (!this.hitboxView) {
+      this.hitboxView = hitboxLines('stand');
+      this.root.add(this.hitboxView);
+    }
+    this.hitboxView.visible = true;
+    this.hitboxView.geometry = geometryFor(stanceKey({ crouching: this.crouching, pose: this.pose }));
   }
 
   // ---------- Позы ----------

@@ -22,9 +22,9 @@
 | `rooms/emit-skins.ts` | Отправить все кожи комнаты одному сокету (вход/переподключение) |
 | `game/game.service.ts` | Автомат фаз (таймеры на объект Room), очередь ведущих, победа, настройки, `shoot` (lag compensation ≤300 мс), `uploadSkin` |
 | `game/game.gateway.ts` | `game:start`, `room:settings`, `seek:shoot`, `player:skin` |
-| `game/shot.ts` | Ближайшее пересечение луча (пол, карта, прячущиеся) — стены закрывают |
+| `game/shot.ts` | Ближайшее пересечение луча (пол, карта, прячущиеся по `rayHitsBody`: поза + yaw) — стены закрывают |
 | `movement/movement.gateway.ts` | Приём `player:state`: заморозка ищущих, `validateMove`, `checkAirborne`, история; 20 Гц снимки (ищущим в прятках — без прячущихся, призраки скрыты) |
-| `movement/move-validator.ts`, `air-check.ts`, `position-history.ts` | Античит скорости/стен/полёта, история позиций для перемотки |
+| `movement/move-validator.ts`, `air-check.ts`, `position-history.ts` | Античит скорости (по позе)/стен (рост по позе)/полёта, история позиций (с yaw, приседом, позой) для перемотки |
 
 ## Подводные камни
 - `RoomMember extends Omit<PlayerInfo,'skin'>`: на сервере кожа хранит Buffer, клиенту уходит `SkinState`.

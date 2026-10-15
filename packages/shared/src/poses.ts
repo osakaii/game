@@ -38,3 +38,14 @@ export function cancelsPose(pose: Pose, input: { dirX: number; dirZ: number; jum
   if (input.jump) return true;
   return POSE_RULES[pose].speed === 0 && Math.hypot(input.dirX, input.dirZ) > MOVE_DEADZONE;
 }
+
+/**
+ * Положение тела для хитбоксов: стоит, присел или одна из поз.
+ * Прыжок и ходьба используют коробки стойки — с запасом (inflate) они покрывают и размах рук.
+ */
+export type StanceKey = 'stand' | 'crouch' | PoseId;
+
+export function stanceKey(stance: { crouching: boolean; pose?: Pose }): StanceKey {
+  if (stance.pose && stance.pose !== 'none') return stance.pose;
+  return stance.crouching ? 'crouch' : 'stand';
+}

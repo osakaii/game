@@ -1,9 +1,11 @@
-import { playerHitbox, rayAabb, type Aabb, type Pose, type Vec3 } from '@mecha/shared';
+import { rayAabb, rayHitsBody, type Aabb, type Pose, type Vec3 } from '@mecha/shared';
 
 export interface ShotTarget {
   id: string;
   position: Vec3;
-  /** Присевший или лежащий ниже — и попасть в него труднее. */
+  /** Куда смотрит (рад): лежащий вдоль стены и поперёк неё — разные коробки в мире. */
+  yaw?: number;
+  /** Присед и поза задают форму тела — по ней и считается попадание. */
   crouching?: boolean;
   pose?: Pose;
 }
@@ -38,7 +40,8 @@ export function resolveShot(
     if (t !== null && (!best || t < best.t)) best = { t, playerId: null };
   }
   for (const target of targets) {
-    const t = rayAabb(origin, dir, playerHitbox(target.position, { crouching: !!target.crouching, pose: target.pose }), maxT);
+    const stance = { crouching: !!target.crouching, pose: target.pose };
+    const t = rayHitsBody(origin, dir, target.position, target.yaw ?? 0, stance, maxT);
     if (t !== null && (!best || t < best.t)) best = { t, playerId: target.id };
   }
   return best;

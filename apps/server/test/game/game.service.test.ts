@@ -277,6 +277,24 @@ describe('GameService.shoot', () => {
     vi.advanceTimersByTime(5000);
     expect(game.shoot(room, seeker.id, { ...origin, y: 0.3 }, { x: 0, y: 0, z: -1 }).hitPlayerId).toBe(hider.id);
   });
+
+  it('hits the legs of a lying hider where they really are — the body turns with yaw', () => {
+    const { game, room, seeker, hider } = seekingRound();
+    // Луч в точку на полу в 0.8 м слева от прячущегося: там его ноги, если он лежит головой на +X.
+    const origin = { x: -0.8, y: 1.5, z: 9 };
+    const target = { x: -0.8, y: 0.15, z: 4 };
+    const length = Math.hypot(target.x - origin.x, target.y - origin.y, target.z - origin.z);
+    const dir = { x: 0, y: (target.y - origin.y) / length, z: (target.z - origin.z) / length };
+
+    hider.state = { ...hider.state, pose: 'flat', yaw: 0 }; // лежит вдоль Z — слева пусто
+    hider.history.push(Date.now(), hider.state);
+    expect(game.shoot(room, seeker.id, origin, dir).hitPlayerId).toBeNull();
+
+    vi.advanceTimersByTime(5000);
+    hider.state = { ...hider.state, yaw: Math.PI / 2 }; // развернулся: ноги теперь на −X
+    hider.history.push(Date.now(), hider.state);
+    expect(game.shoot(room, seeker.id, origin, dir).hitPlayerId).toBe(hider.id);
+  });
 });
 
 describe('GameService settings, scoring and rotation', () => {

@@ -3,6 +3,7 @@ import {
   PLAYER,
   copyVec3,
   groundHeightAt,
+  keepBodyOutOfWalls,
   stepPlayer,
   vec3,
   type MoveInput,
@@ -50,6 +51,7 @@ export class LocalPlayer {
   fixedUpdate(input: MoveInput, dt: number): void {
     copyVec3(this.prevPosition, this.state.position);
     stepPlayer(this.state, input, this.world.colliders, dt);
+    keepBodyOutOfWalls(this.state, this.facingAngle, this.world.colliders);
   }
 
   render(alpha: number, frameDt: number): void {

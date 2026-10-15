@@ -41,7 +41,8 @@ SkinSync: после паузы и высыхания → WebP → network.uploa
 ## Позы
 - Поза = выбор игрока (`controls.pose`) → `MoveInput.pose` → `stepPlayer` решает, принять ли (на земле, над головой свободно) → `state.pose` → сеть (`PlayerState.pose`) → чужие модели.
 - Поза «на месте» снята движением — `main.ts` сбрасывает и выбор (`cancelsPose`), иначе персонаж снова лёг бы при остановке.
-- Новая поза: id в `POSES` + правило в `POSE_RULES` (shared) → углы в `POSE_LIBRARY` → подпись/значок в `POSE_LABELS`. Оси суставов описаны в `body-poses.ts`.
+- Новая поза: id в `POSES` + правило в `POSE_RULES` (shared) → углы в `POSE_LIBRARY` → подпись/значок в `POSE_LABELS` → `pnpm hitboxes`. Оси суставов описаны в `body-poses.ts`.
+- Хитбоксы: `test/player/pose-hitboxes.test.ts` меряет модель (`holdStance` — без пружин и дыхания, детерминированно) и сверяет с `shared/src/pose-hitboxes.ts` через `toMatchFileSnapshot`. Dev-клавиша H — `hitbox-debug.ts`.
 
 ## Подводные камни
 - Перед `canvas.toDataURL()`/`readPixels` рисуй кадр в том же синхронном коде.

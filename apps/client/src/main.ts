@@ -25,6 +25,7 @@ import { PaintStudio } from './paint/paint-studio';
 import { SkinPainter } from './paint/skin-painter';
 import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
+import { PlayerModel } from './player/player-model';
 import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
@@ -343,6 +344,12 @@ if (import.meta.env.DEV) {
     canvas.id = 'atlas-debug';
     if (atlasDebug) document.body.append(canvas);
     else canvas.remove();
+  });
+
+  // Клавиша H — коробки попаданий у всех персонажей: ровно то, по чему сервер считает выстрел.
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyH' || (e.target as HTMLElement).tagName === 'INPUT') return;
+    PlayerModel.showHitboxes = !PlayerModel.showHitboxes;
   });
 
   Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, controls, sceneContext, splats, followCamera } });

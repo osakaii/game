@@ -11,9 +11,10 @@
 | `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих |
 | `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING` |
 | `net-state.ts` | Позиции: `PlayerStateSchema`, `WorldSnapshot`, частоты (20 Гц), `INTERPOLATION_DELAY_MS`, схема выстрела `ShootSchema` |
-| `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед, поза), `bodyHeight`/`moveSpeed` (по приседу и позе), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
-| `poses.ts` | Позы: `POSES`, `POSE_RULES` (высота, скорость ползком; 0 — «на месте»), `cancelsPose` (движение/прыжок снимают позу) |
-| `raycast.ts` | Луч vs AABB (slab), хитбокс игрока, `surfaceNormalAt` |
+| `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед, поза), `bodyHeight`/`moveSpeed` (по приседу и позе), `keepBodyOutOfWalls` (лёжа: голова/ноги не в стене, длина — из хитбоксов), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
+| `poses.ts` | Позы: `POSES`, `POSE_RULES` (высота, скорость ползком; 0 — «на месте»), `cancelsPose` (движение/прыжок снимают позу), `stanceKey` (stand/crouch/поза — ключ хитбоксов) |
+| `raycast.ts` | Луч vs AABB (slab), `rayHitsBody` (луч в систему игрока по −yaw → коробки частей тела позы + `HIT_INFLATE`), `surfaceNormalAt` |
+| `pose-hitboxes.ts` | **Сгенерировано** (`pnpm hitboxes`): `BODY_HITBOXES[stance]` — 14 коробок частей тела в системе игрока. Руками не править |
 | `skin.ts` | Кожа: `SKIN_SIZE=512`, лимит байт, `SkinBase` (`default`/`seeker`, рисуется локально), `SkinState`, `detectSkinImage` (PNG/WebP по магическим байтам) |
 | `body.ts` | `BODY_ZONES` — 14 частей тела (кости скелета и коробки атласа на клиенте; порядок = индекс в коже) |
 | `version.ts` | `APP_VERSION`, `BuildInfo`, `isUpdateAvailable` |

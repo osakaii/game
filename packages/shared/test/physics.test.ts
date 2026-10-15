@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { vec3, type Vec3 } from '../src/math.js';
-import { PHYSICS_DT, PLAYER, bodyHeight, penetratesColliders, stepPlayer, supportHeight, type PlayerPhysicsState } from '../src/physics.js';
+import {
+  PHYSICS_DT,
+  PLAYER,
+  bodyHeight,
+  keepBodyOutOfWalls,
+  penetratesColliders,
+  stepPlayer,
+  supportHeight,
+  type PlayerPhysicsState,
+} from '../src/physics.js';
+import { BODY_HITBOXES } from '../src/pose-hitboxes.js';
 import { POSE_RULES, type Pose } from '../src/poses.js';
 import { buildColliders } from '../src/world/map.js';
 import { PLAYROOM } from '../src/world/playroom.js';
@@ -143,6 +153,36 @@ describe('poses', () => {
     simulate(s.position, 0, 0, 0.05, -1, false, s, 'sit');
     expect(s.grounded).toBe(false);
     expect(s.pose).toBe('none');
+  });
+});
+
+describe('keepBodyOutOfWalls', () => {
+  const lying = (z: number): PlayerPhysicsState => ({
+    position: vec3(0, 0, z),
+    velocity: vec3(),
+    grounded: true,
+    crouching: false,
+    pose: 'flat',
+  });
+  const head = Math.max(...BODY_HITBOXES.flat.map((b) => b[5]));
+  const wall = PLAYROOM.depth / 2; // стена по периметру начинается здесь
+
+  it('pulls a lying player back when the head went into the wall', () => {
+    const s = lying(wall - PLAYER.radius); // цилиндр у стены, голова — внутри неё
+    keepBodyOutOfWalls(s, 0, colliders); // смотрит на +Z, в стену
+    expect(s.position.z + head).toBeLessThanOrEqual(wall + 0.07);
+  });
+
+  it('lying sideways along the wall is fine — nothing moves', () => {
+    const s = lying(wall - PLAYER.radius);
+    keepBodyOutOfWalls(s, Math.PI / 2, colliders);
+    expect(s.position.z).toBeCloseTo(wall - PLAYER.radius, 6);
+  });
+
+  it('does nothing when standing', () => {
+    const s = { ...lying(wall - PLAYER.radius), pose: 'none' as const };
+    keepBodyOutOfWalls(s, 0, colliders);
+    expect(s.position.z).toBeCloseTo(wall - PLAYER.radius, 6);
   });
 });
 

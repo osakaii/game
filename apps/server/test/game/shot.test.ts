@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYROOM, buildColliders, vec3 } from '@mecha/shared';
+import { HIT_INFLATE, PLAYROOM, buildColliders, vec3 } from '@mecha/shared';
 import { resolveShot } from '../../src/game/shot';
 
 const colliders = buildColliders(PLAYROOM);
@@ -8,7 +8,8 @@ describe('resolveShot', () => {
   it('hits a hider in the open', () => {
     const hit = resolveShot(vec3(0, 1, 10), vec3(0, 0, -1), colliders, [{ id: 'h', position: vec3(0, 0, 6) }], 40);
     expect(hit?.playerId).toBe('h');
-    expect(hit?.t).toBeCloseTo(10 - 6 - 0.43, 1);
+    // Луч на высоте 1 м упирается в грудь: передняя грань торса (половина его толщины, 0.16) + запас.
+    expect(hit?.t).toBeCloseTo(10 - 6 - 0.16 - HIT_INFLATE, 1);
   });
 
   it('does not hit a hider behind the pillar', () => {

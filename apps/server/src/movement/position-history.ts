@@ -5,6 +5,7 @@ interface Sample {
   x: number;
   y: number;
   z: number;
+  yaw: number;
   crouching: boolean;
   pose: Pose;
 }
@@ -16,6 +17,7 @@ export interface HistoricPosition {
   x: number;
   y: number;
   z: number;
+  yaw: number;
   crouching: boolean;
   pose: Pose;
 }
@@ -30,10 +32,18 @@ export interface HistoricPosition {
 export class PositionHistory {
   private readonly samples: Sample[] = [];
 
-  push(t: number, state: { x: number; y: number; z: number; crouching: boolean; pose?: Pose }): void {
+  push(t: number, state: { x: number; y: number; z: number; yaw?: number; crouching: boolean; pose?: Pose }): void {
     const last = this.samples.at(-1);
     if (last && t < last.t) return;
-    this.samples.push({ t, x: state.x, y: state.y, z: state.z, crouching: state.crouching, pose: state.pose ?? 'none' });
+    this.samples.push({
+      t,
+      x: state.x,
+      y: state.y,
+      z: state.z,
+      yaw: state.yaw ?? 0,
+      crouching: state.crouching,
+      pose: state.pose ?? 'none',
+    });
     if (this.samples.length > CAPACITY) this.samples.shift();
   }
 
@@ -55,6 +65,8 @@ export class PositionHistory {
           x: a.x + (b.x - a.x) * k,
           y: a.y + (b.y - a.y) * k,
           z: a.z + (b.z - a.z) * k,
+          // Угол — по кратчайшей дуге: из 179° в −179° через 180°, а не через 0°.
+          yaw: a.yaw + Math.atan2(Math.sin(b.yaw - a.yaw), Math.cos(b.yaw - a.yaw)) * k,
           // Присед и поза — не числа, интерполировать нечего: берём ближайшую запись.
           crouching: k < 0.5 ? a.crouching : b.crouching,
           pose: k < 0.5 ? a.pose : b.pose,

@@ -17,7 +17,7 @@ function footprint(placement: PropPlacement) {
 
 describe('props', () => {
   /** Украшения на стену: только вид, столкновений у них нет намеренно. */
-  const WALL_DECOR = new Set(['mirror', 'painting']);
+  const WALL_DECOR = new Set(['mirror', 'painting', 'window', 'ceilingLamp']);
 
   it.each(PROP_IDS)('%s is built from the floor up and is solid where it should be', (prop) => {
     const boxes = placeProp({ prop, x: 0, z: 0 });

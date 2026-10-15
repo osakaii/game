@@ -1,4 +1,5 @@
 import { BODY_ZONES, type BodyZone } from '@mecha/shared';
+import type { Caps } from './rounded-box';
 
 /** Размер коробки части тела (м): ширина по X, высота по Y, глубина по Z. */
 export interface PartSize {
@@ -28,6 +29,8 @@ export interface PartDef {
   joint: Point3;
   /** Центр коробки относительно своего сустава. */
   center: Point3;
+  /** Плоские торцы там, где сегмент вплотную стыкуется с соседом (локоть, колено, запястье). */
+  caps?: Caps;
 }
 
 /** Высота таза над землёй в позе покоя — от него растут торс и ноги. */
@@ -35,27 +38,73 @@ export const HIP_Y = 0.6;
 
 const p = (x: number, y: number, z: number): Point3 => ({ x, y, z });
 
-/** Рука или нога одной стороны: side = -1 — левая (−X), +1 — правая. */
+/**
+ * Рука или нога одной стороны: side = -1 — левая (−X), +1 — правая.
+ *
+ * Конечность — трубка одного сечения, разрезанная суставами на сегменты. В суставе торцы плоские
+ * и совпадают точь-в-точь, а вершины торца привязаны к обеим костям пополам (см. body-geometry) —
+ * поэтому шва не видно ни у прямой, ни у согнутой руки. Скруглены только свободные концы:
+ * плечо и бедро (они утоплены в торс) и кончик кисти.
+ */
 function limbs(side: -1 | 1, s: 'Left' | 'Right'): Partial<Record<BodyZone, PartDef>> {
+  const ARM = 0.14;
+  const LEG = 0.19;
   return {
-    [`upperArm${s}`]: { size: { w: 0.15, h: 0.26, d: 0.16 }, radius: 0.07, parent: 'torso', joint: p(0.335 * side, 0.45, 0), center: p(0, -0.1, 0) },
-    [`forearm${s}`]: { size: { w: 0.14, h: 0.22, d: 0.15 }, radius: 0.065, parent: `upperArm${s}`, joint: p(0, -0.21, 0), center: p(0, -0.09, 0) },
-    [`hand${s}`]: { size: { w: 0.11, h: 0.13, d: 0.13 }, radius: 0.05, parent: `forearm${s}`, joint: p(0, -0.19, 0), center: p(0, -0.06, 0) },
-    [`thigh${s}`]: { size: { w: 0.19, h: 0.3, d: 0.21 }, radius: 0.085, parent: null, joint: p(0.115 * side, 0, 0), center: p(0, -0.13, 0) },
-    [`shin${s}`]: { size: { w: 0.17, h: 0.26, d: 0.18 }, radius: 0.075, parent: `thigh${s}`, joint: p(0, -0.27, 0), center: p(0, -0.115, 0) },
+    [`upperArm${s}`]: {
+      size: { w: ARM, h: 0.21 + ARM / 2, d: ARM },
+      radius: ARM / 2,
+      parent: 'torso',
+      joint: p(0.28 * side, 0.45, 0),
+      center: p(0, (ARM / 2 - 0.21) / 2, 0),
+      caps: { flatBottom: true },
+    },
+    [`forearm${s}`]: {
+      size: { w: ARM, h: 0.19, d: ARM },
+      radius: ARM / 2,
+      parent: `upperArm${s}`,
+      joint: p(0, -0.21, 0),
+      center: p(0, -0.095, 0),
+      caps: { flatTop: true, flatBottom: true },
+    },
+    [`hand${s}`]: {
+      size: { w: ARM, h: 0.15, d: ARM },
+      radius: ARM / 2,
+      parent: `forearm${s}`,
+      joint: p(0, -0.19, 0),
+      center: p(0, -0.075, 0),
+      caps: { flatTop: true },
+    },
+    [`thigh${s}`]: {
+      size: { w: LEG, h: 0.27 + LEG / 2, d: LEG },
+      radius: LEG / 2,
+      parent: null,
+      joint: p(0.115 * side, 0, 0),
+      center: p(0, (LEG / 2 - 0.27) / 2, 0),
+      caps: { flatBottom: true },
+    },
+    // Голень уходит нижним скруглённым концом в стопу.
+    [`shin${s}`]: {
+      size: { w: LEG, h: 0.27, d: LEG },
+      radius: LEG / 2,
+      parent: `thigh${s}`,
+      joint: p(0, -0.27, 0),
+      center: p(0, -0.135, 0),
+      caps: { flatTop: true },
+    },
     // Стопа вынесена вперёд: персонаж устойчиво стоит, и видно, куда он смотрит.
-    [`foot${s}`]: { size: { w: 0.17, h: 0.09, d: 0.26 }, radius: 0.04, parent: `shin${s}`, joint: p(0, -0.24, 0), center: p(0, -0.045, 0.045) },
+    [`foot${s}`]: { size: { w: 0.18, h: 0.09, d: 0.27 }, radius: 0.044, parent: `shin${s}`, joint: p(0, -0.24, 0), center: p(0, -0.045, 0.045) },
   } as Partial<Record<BodyZone, PartDef>>;
 }
 
 /**
  * Форма персонажа — единственное место, где заданы части тела и суставы.
  * Модель, атлас кожи, карта позиций и кисть строятся отсюда: поменяешь здесь — поменяется везде.
- * Пропорции «игрушечные»: большая круглая голова, короткие конечности — так персонаж мягче и симпатичнее.
+ * Пропорции «игрушечные»: большая почти круглая голова, торс-«фасолина», короткие мягкие конечности.
+ * Соседние части заходят друг в друга — тело выглядит цельным, без щелей на шее, плечах и бёдрах.
  */
 export const CHARACTER_PARTS: Record<BodyZone, PartDef> = {
-  head: { size: { w: 0.48, h: 0.46, d: 0.44 }, radius: 0.19, parent: 'torso', joint: p(0, 0.52, 0), center: p(0, 0.235, 0) },
-  torso: { size: { w: 0.5, h: 0.52, d: 0.32 }, radius: 0.13, parent: null, joint: p(0, 0, 0), center: p(0, 0.26, 0) },
+  head: { size: { w: 0.48, h: 0.46, d: 0.45 }, radius: 0.21, parent: 'torso', joint: p(0, 0.52, 0), center: p(0, 0.235, 0) },
+  torso: { size: { w: 0.5, h: 0.58, d: 0.34 }, radius: 0.16, parent: null, joint: p(0, 0, 0), center: p(0, 0.25, 0) },
   ...limbs(-1, 'Left'),
   ...limbs(1, 'Right'),
 } as Record<BodyZone, PartDef>;
@@ -124,3 +173,25 @@ export function paintMask(part: BodyZone, center: Point3, radius: number): numbe
 export function partsLinked(a: BodyZone, b: BodyZone): boolean {
   return a === b || paintLink(a) === b || paintLink(b) === a;
 }
+
+/** Сустав между частью и её соседом «выше по цепочке» (родителем или торсом для ног). */
+export interface JointLink {
+  child: BodyZone;
+  parent: BodyZone;
+  /** Точка сустава в позе покоя. */
+  at: Point3;
+  /** Ребёнок ниже сустава (руки, ноги) или выше (голова над шеей). */
+  childBelow: boolean;
+}
+
+/**
+ * Суставы, у которых вершины привязаны к обеим костям: внутри конечностей (локоть, запястье, колено, лодыжка).
+ * Плечи, бёдра и шея — жёсткие: скруглённый конец утоплен в торс или голову, как шаровой шарнир,
+ * и тянуть за рукой бок торса незачем.
+ */
+export const JOINT_LINKS: readonly JointLink[] = PART_ORDER.flatMap((child) => {
+  const parent = paintLink(child);
+  if (!parent || parent === 'torso') return [];
+  const at = restJoint(child);
+  return [{ child, parent, at, childBelow: restCenter(child).y < at.y }];
+});

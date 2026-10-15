@@ -30,6 +30,7 @@ interface PartOptions {
   surface?: SurfaceId;
   solid?: boolean;
   hidden?: boolean;
+  glow?: boolean;
 }
 
 /** Деталь: центр по X/Z, низ по Y, размеры. Коротко, чтобы описание предмета читалось как чертёж. */

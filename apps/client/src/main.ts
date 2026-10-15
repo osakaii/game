@@ -55,7 +55,7 @@ const sceneContext = createSceneContext(canvas);
 const { renderer, scene, camera, sun } = sceneContext;
 
 // Карта по умолчанию, пока не вошли в комнату. Потом — та, что выбрал хост.
-const activeMap = new ActiveMap(scene, sun);
+const activeMap = new ActiveMap(scene, sun, sceneContext.renderer);
 activeMap.load(PLAYROOM);
 
 const player = new LocalPlayer(PLAYROOM.spawns[0], activeMap);

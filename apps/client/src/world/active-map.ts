@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildColliders, type Aabb, type MapDef } from '@mecha/shared';
 import { buildMapGroup } from './map-builder';
+import { refreshShadows } from './scene-setup';
 
 /** То, что нужно физике (коллайдеры) и лучам камеры/пипетки (меши) — без знания о смене карт. */
 export interface WorldGeometry {
@@ -22,6 +23,7 @@ export class ActiveMap implements WorldGeometry {
   constructor(
     private readonly scene: THREE.Scene,
     private readonly sun: THREE.DirectionalLight,
+    private readonly renderer?: THREE.WebGLRenderer,
   ) {}
 
   get current(): MapDef | null {
@@ -41,6 +43,8 @@ export class ActiveMap implements WorldGeometry {
     this.def = def;
     this.scene.background = new THREE.Color(def.skyColor ?? '#9ad1ff');
     this.fitShadowCamera(def);
+    // Тени запечены: новая карта — новая карта теней (один раз, на следующем кадре).
+    if (this.renderer) refreshShadows({ renderer: this.renderer });
     return true;
   }
 

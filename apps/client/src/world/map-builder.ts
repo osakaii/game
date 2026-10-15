@@ -27,14 +27,34 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
   group.add(floor);
   obstacles.push(floor);
 
+  // Потолок — плоскость «лицом» вниз: изнутри видно, сверху нет. Тень от него не падает,
+  // иначе солнце не попало бы в комнаты; зато камера в него упирается, как в стену.
+  if (map.ceiling) {
+    const ceilingGeometry = new THREE.PlaneGeometry(map.width, map.depth);
+    ceilingGeometry.rotateX(Math.PI / 2);
+    ceilingGeometry.translate(0, map.ceiling.height, 0);
+    // Без освещения: снизу на потолок светит только «земляной» рассеянный свет, и он вышел бы бурым.
+    // Ровный светлый цвет — как у настоящего белого потолка в светлой комнате.
+    const ceiling = new THREE.Mesh(ceilingGeometry, new THREE.MeshBasicMaterial({ color: map.ceiling.color }));
+    ceiling.name = 'ceiling';
+    group.add(ceiling);
+    obstacles.push(ceiling);
+  }
+
   // Блоки по поверхностям -> геометрии в мировых координатах, цвет — в вершинах.
   const batches = new Map<SurfaceId, THREE.BufferGeometry[]>();
+  const glowing: THREE.BufferGeometry[] = [];
   const canvases: MapBox[] = [];
   for (const box of mapBoxes(map)) {
     if (box.hidden) continue;
     // Холсты картин — отдельно: у каждого свой сюжет, они собираются в общий атлас.
     if (box.art !== undefined) {
       canvases.push(box);
+      continue;
+    }
+    // Светящееся (стекло окон, плафоны) — без освещения, одной сеткой.
+    if (box.glow) {
+      glowing.push(boxGeometry(box));
       continue;
     }
     const surface = box.surface ?? 'paint';
@@ -54,6 +74,14 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
     mesh.receiveShadow = true;
     group.add(mesh);
     obstacles.push(mesh);
+  }
+
+  if (glowing.length) {
+    const glow = new THREE.Mesh(mergeGeometries(glowing), new THREE.MeshBasicMaterial({ vertexColors: true }));
+    for (const part of glowing) part.dispose();
+    glow.name = 'glow';
+    group.add(glow);
+    obstacles.push(glow);
   }
 
   const paintings = buildPaintings(canvases);

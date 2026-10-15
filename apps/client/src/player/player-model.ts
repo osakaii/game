@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BODY_ZONES, PLAYER, POSE_RULES, skinBaseColor, stanceKey, type BodyZone, type Pose, type SkinBase, type StanceKey } from '@mecha/shared';
-import { graphics } from '../platform/graphics';
 import { getSkinAtlas } from '../skin/atlas';
 import { buildBodyGeometry } from '../skin/body-geometry';
 import { CHARACTER_PARTS, HIP_Y, PART_ORDER, partIndex } from '../skin/character-parts';
@@ -101,7 +100,9 @@ export class PlayerModel {
     // (лёжа, руки вверх) — иначе луч кисти или камера «теряли» бы руку, вышедшую за старые границы.
     this.mesh.boundingBox = new THREE.Box3(new THREE.Vector3(-1.1, -0.2, -1.1), new THREE.Vector3(1.1, 2, 1.1));
     this.mesh.boundingSphere = this.mesh.boundingBox.getBoundingSphere(new THREE.Sphere());
-    this.mesh.castShadow = true;
+    // Тени карты запечены, персонаж в них не попадает как «отбрасывающий» — под ним круглая тень.
+    // Но тень карты на нём видна: под столом он темнеет вместе со всем вокруг.
+    this.mesh.receiveShadow = true;
     this.mesh.name = 'body';
 
     this.bones.head.add(this.createEyes());
@@ -168,7 +169,6 @@ export class PlayerModel {
     this.ghost = ghost;
     this.body.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
-      if (object === this.mesh) object.castShadow = !ghost; // у призрака нет тени
       const material = object.material as THREE.Material;
       if (material.transparent === ghost) return;
       material.transparent = ghost;
@@ -178,9 +178,9 @@ export class PlayerModel {
     });
   }
 
-  /** Круглая тень лежит на опоре под персонажем (в прыжке остаётся внизу). Видна, только если настоящие тени выключены. */
+  /** Круглая тень лежит на опоре под персонажем (в прыжке остаётся внизу). У призрака тени нет. */
   setShadowGround(groundY: number): void {
-    this.shadow.visible = !graphics.shadows && !this.ghost;
+    this.shadow.visible = !this.ghost;
     this.shadow.position.y = groundY - this.root.position.y + 0.01;
   }
 

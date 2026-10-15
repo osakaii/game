@@ -75,7 +75,37 @@ const painting = (x: number, z: number, rot: PropPlacement['rot'], length = 0.9,
   color,
 });
 
+/** Окно на внешней стене, «лицом» в комнату. */
+const windowAt = (x: number, z: number, rot: PropPlacement['rot'], length = 1.4, accent?: string): PropPlacement => ({
+  prop: 'window',
+  x,
+  z,
+  rot,
+  length,
+  accent,
+});
+
+/** Люстра под потолком в центре комнаты. */
+const lampIn = (room: Room): PropPlacement => ({
+  prop: 'ceilingLamp',
+  x: (room.x0 + room.x1) / 2,
+  z: (room.z0 + room.z1) / 2,
+  y: WALL_H - 0.62, // стойка 0.62 м упирается в потолок
+});
+
 const PROPS: PropPlacement[] = [
+  // ---------- Окна (шторы — тайник: за ними можно встать) и люстры ----------
+  windowAt(-0.8, face(-HALF_D, 1, true) + 0.04, 0, 1.0, '#90e0ef'),
+  windowAt(8.5, face(-HALF_D, 1, true) + 0.04, 0, 1.4, '#ffafcc'),
+  windowAt(face(-HALF_W, 1, true) + 0.04, -4.4, 90, 1.4, '#f4a261'),
+  windowAt(face(HALF_W, -1, true) - 0.04, -6.5, 270, 1.2, '#ffafcc'),
+  windowAt(-7.6, face(HALF_D, -1, true) - 0.04, 180, 1.6, '#e07a5f'),
+  windowAt(-3, face(HALF_D, -1, true) - 0.04, 180, 1.0, '#e07a5f'),
+  windowAt(5.2, face(HALF_D, -1, true) - 0.04, 180, 1.4, '#cdb4db'),
+  windowAt(face(-HALF_W, 1, true) + 0.04, 8, 90, 1.2, '#e07a5f'),
+  windowAt(face(HALF_W, -1, true) - 0.04, 2.4, 270, 1.2, '#cdb4db'),
+  ...Object.values(ROOMS).map(lampIn),
+
   // ---------- Кухня ----------
   { prop: 'fridge', x: -12.55, z: -9.62 },
   { prop: 'kitchenCounter', x: -10.6, z: -9.69, length: 2.4 },
@@ -110,12 +140,12 @@ const PROPS: PropPlacement[] = [
   // ---------- Детская ----------
   { prop: 'bed', x: 11.85, z: -8.93, length: 1.1, color: '#f4a261', accent: '#ffd6a5' },
   { prop: 'nightstand', x: 10.85, z: -9.7, length: 0.45, color: '#f4a261' },
-  { prop: 'toyBox', x: 7.5, z: -9.65 },
+  { prop: 'toyBox', x: 6.2, z: -9.65 },
   { prop: 'beanbag', x: 5.2, z: -5.2, color: '#e76f51' },
   { prop: 'beanbag', x: 6.3, z: -4.3, color: '#4cc9f0', length: 0.8 },
   { prop: 'desk', x: face(3, 1) + 0.33, z: -8.4, rot: 90, length: 1.2, accent: '#4361ee' },
   { prop: 'chair', x: 4.3, z: -8.4, rot: 270, color: '#4361ee', accent: '#f72585' },
-  { prop: 'bookshelf', x: face(HALF_W, -1, true) - 0.2, z: -4.8, rot: 270, length: 1.4, color: '#ffffff' },
+  { prop: 'bookshelf', x: face(HALF_W, -1, true) - 0.2, z: -4.3, rot: 270, length: 1.4, color: '#ffffff' },
   { prop: 'rug', x: 8.6, z: -5.6, length: 3, color: '#b5179e' },
   { prop: 'cardboardBox', x: 12.4, z: -2.65, length: 0.6 },
   { prop: 'cardboardBox', x: 12.4, z: -2.65, y: 0.48, length: 0.5, color: '#b88a4f' },
@@ -147,11 +177,10 @@ const PROPS: PropPlacement[] = [
   { prop: 'bookshelf', x: face(2, -1) - 0.2, z: 4.2, rot: 270, length: 1.4 },
   { prop: 'bookshelf', x: face(2, -1) - 0.2, z: 5.6, rot: 270, length: 1.4 },
   { prop: 'tallPlant', x: 1.3, z: 9.45 },
-  { prop: 'plant', x: -7.3, z: 9.6 },
   { prop: 'table', x: -3.2, z: 5.8, length: 1.6, color: '#8a5a35' },
   { prop: 'chair', x: -3.6, z: 5.05 },
   { prop: 'chair', x: -2.8, z: 6.55, rot: 180 },
-  { prop: 'bookshelf', x: -1.6, z: face(HALF_D, -1, true) - 0.22, rot: 180, length: 1.4, color: '#6b4f3a' },
+  { prop: 'bookshelf', x: -1.2, z: face(HALF_D, -1, true) - 0.22, rot: 180, length: 1.4, color: '#6b4f3a' },
   { prop: 'beanbag', x: -0.8, z: 2.6, color: '#ffb703' },
   { prop: 'cardboardBox', x: -12.45, z: 2.1, length: 0.7 },
   { prop: 'cardboardBox', x: -11.7, z: 2.0, length: 0.55, color: '#b88a4f' },
@@ -191,6 +220,7 @@ export const APARTMENT: MapDef = {
   skyColor: '#cfe8ff',
   floorColor: '#b08968',
   floorSurface: 'parquet',
+  ceiling: { height: WALL_H, color: '#fbf7f0' },
   boxes: [
     ...perimeterWalls(WIDTH, DEPTH, WALL_H, '#e9e4dc'),
     ...buildWalls(LINES, { surface: 'paint', color: '#e9e4dc' }),

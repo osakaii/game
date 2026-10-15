@@ -31,7 +31,8 @@ export class Eyedropper {
     const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
     if (!hit || !(hit.object instanceof THREE.Mesh)) return null;
     const material = hit.object.material;
-    if (!(material instanceof THREE.MeshLambertMaterial)) return null;
+    // Светящееся (стекло окна, плафон) — MeshBasicMaterial: у него тоже есть цвет и цвет вершин.
+    if (!(material instanceof THREE.MeshLambertMaterial || material instanceof THREE.MeshBasicMaterial)) return null;
     // Цвет блока: у склеенной карты — в вершинах (все вершины блока одного цвета), иначе — в материале.
     const colors = hit.object.geometry.getAttribute('color');
     const tint = material.vertexColors && colors && hit.face ? new THREE.Color().fromBufferAttribute(colors, hit.face.a).multiply(material.color) : material.color;

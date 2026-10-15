@@ -33,7 +33,7 @@ export function buildPositionMap(atlas: SkinAtlas): PositionMap {
 
   for (const r of atlas.rects) {
     const number = partIndex(r.part) + 1;
-    const { size, radius } = CHARACTER_PARTS[r.part];
+    const { size, radius, caps } = CHARACTER_PARTS[r.part];
     const origin = restCenter(r.part);
     // Проходим и по отступу: там «размазан» край грани (u, v зажаты в [0, 1]),
     // поэтому кисть у самого ребра закрасит и отступ — шва при фильтрации не будет.
@@ -42,7 +42,7 @@ export function buildPositionMap(atlas: SkinAtlas): PositionMap {
         if (tx < 0 || ty < 0 || tx >= mapSize || ty >= mapSize) continue;
         const u = clamp01((tx + 0.5 - r.x) / r.w);
         const v = 1 - clamp01((ty + 0.5 - r.y) / r.h); // на атласе y вниз, в UV v вверх
-        const { point: p, normal: n } = roundBoxPoint(facePoint(size, r.face, u, v), size, radius);
+        const { point: p, normal: n } = roundBoxPoint(facePoint(size, r.face, u, v), size, radius, caps, r.face === 'py' || r.face === 'ny');
         const row = mapSize - 1 - ty; // строка WebGL-текстуры: 0 — низ
         const i = (row * mapSize + tx) * 4;
         data[i] = origin.x + p.x;

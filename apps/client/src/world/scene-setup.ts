@@ -34,20 +34,27 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   renderer.setPixelRatio(dpr);
   // Тени: сцена рисуется ещё раз «глазами солнца» в текстуру глубины (shadow map).
   // PCF — сглаживание краёв тени, дешевле PCFSoft. Включение — по настройке игрока.
+  //
+  // Тени «запечены»: карта и солнце неподвижны, поэтому карта теней считается один раз при загрузке
+  // карты (refreshShadows), а не каждый кадр. Это убирает второй рендер всей карты из каждого кадра —
+  // для телефона самая большая экономия. Персонажи тени не отбрасывают (под ними — круглая тень),
+  // но получают её: под столом персонаж темнеет вместе со всем вокруг.
   renderer.shadowMap.enabled = graphics.shadows;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  renderer.shadowMap.autoUpdate = false;
 
   const scene = new THREE.Scene();
   // Цвет неба задаёт карта (ActiveMap.load).
 
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 120);
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#8a7a66', 1.4));
-  const sun = new THREE.DirectionalLight('#ffffff', 1.6);
+  // Тёплый рассеянный свет сверху и чуть более холодный снизу: уютно, как днём в квартире.
+  scene.add(new THREE.HemisphereLight('#fff6ea', '#8a7a66', 1.45));
+  const sun = new THREE.DirectionalLight('#fff1dc', 1.55);
   sun.position.set(8, 14, 6);
   sun.castShadow = graphics.shadows;
-  // 1024² — компромисс для телефонов: чётко на 30-метровой карте, без лишней видеопамяти.
-  sun.shadow.mapSize.set(1024, 1024);
+  // Карта теней считается раз за карту — можно позволить 2048²: тени чёткие и на 30-метровой карте.
+  sun.shadow.mapSize.set(2048, 2048);
   // bias/normalBias убирают «полосатость» (shadow acne) — поверхность не затеняет саму себя.
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.03;
@@ -68,10 +75,6 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   return { renderer, scene, camera, sun };
 }
 
-/**
- * Включить/выключить тени на лету. Шейдеры материалов с тенями и без — разные,
- * поэтому всем материалам ставим needsUpdate: three.js пересоберёт их на следующем кадре.
- */
 /** Рендер в меньшем разрешении (1× вместо 2×) — вчетверо меньше пикселей на кадр. */
 export function setRenderScale(context: SceneContext, pixelRatio: number): void {
   context.renderer.setPixelRatio(pixelRatio);
@@ -79,10 +82,21 @@ export function setRenderScale(context: SceneContext, pixelRatio: number): void 
   context.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
 }
 
-export function applyShadows({ renderer, scene, sun }: SceneContext, enabled: boolean): void {
+/**
+ * Включить/выключить тени на лету. Шейдеры материалов с тенями и без — разные,
+ * поэтому всем материалам ставим needsUpdate: three.js пересоберёт их на следующем кадре.
+ */
+export function applyShadows(context: SceneContext, enabled: boolean): void {
+  const { renderer, scene, sun } = context;
   renderer.shadowMap.enabled = enabled;
   sun.castShadow = enabled;
   scene.traverse((object) => {
     if (object instanceof THREE.Mesh) (object.material as THREE.Material).needsUpdate = true;
   });
+  refreshShadows(context);
+}
+
+/** Пересчитать запечённые тени на следующем кадре: карта сменилась или тени включили. */
+export function refreshShadows({ renderer }: Pick<SceneContext, 'renderer'>): void {
+  renderer.shadowMap.needsUpdate = true;
 }

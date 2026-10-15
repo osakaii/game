@@ -12,12 +12,43 @@ import type { PartSize, Point3 } from './character-parts';
  * Главное: каждая точка плоской грани переходит в одну точку скруглённой поверхности.
  * Поэтому выкройка (атлас) остаётся прежней — меняется только то, где на теле лежит тексель.
  */
-export function roundBoxPoint(flat: Point3, size: PartSize, radius: number): { point: Point3; normal: Point3 } {
+export interface Caps {
+  /** Верхний торец плоский (не скруглён) — к нему вплотную примыкает соседний сегмент конечности. */
+  flatTop?: boolean;
+  flatBottom?: boolean;
+}
+
+/**
+ * endFace — точка лежит на верхней или нижней грани коробки (а не на боковой). Точку на ребре можно
+ * отнести к обеим граням, поэтому вызывающий говорит явно, с какой грани она пришла.
+ */
+export function roundBoxPoint(
+  flat: Point3,
+  size: PartSize,
+  radius: number,
+  caps: Caps = {},
+  endFace = false,
+): { point: Point3; normal: Point3 } {
   const ix = Math.max(0, size.w / 2 - radius);
-  const iy = Math.max(0, size.h / 2 - radius);
   const iz = Math.max(0, size.d / 2 - radius);
+  const onFlatEnd = endFace && ((caps.flatTop && flat.y > 0) || (caps.flatBottom && flat.y < 0));
+  if (onFlatEnd) {
+    // Плоский торец остаётся в своей плоскости; только углы квадрата стягиваются на дугу скругления —
+    // торец принимает форму сечения трубки (скруглённый квадрат).
+    const cx = clamp(flat.x, -ix, ix);
+    const cz = clamp(flat.z, -iz, iz);
+    const dx = flat.x - cx;
+    const dz = flat.z - cz;
+    const length = Math.hypot(dx, dz);
+    const k = length > radius ? radius / length : 1;
+    return { point: { x: cx + dx * k, y: flat.y, z: cz + dz * k }, normal: { x: 0, y: Math.sign(flat.y), z: 0 } };
+  }
+  // У плоского торца внутренняя коробка доходит до самого торца: скругляются только боковые рёбра,
+  // и сечение у торца — то же, что посередине. Два таких сегмента стыкуются без «перетяжки».
+  const iyTop = Math.max(0, size.h / 2 - (caps.flatTop ? 0 : radius));
+  const iyBottom = -Math.max(0, size.h / 2 - (caps.flatBottom ? 0 : radius));
   const qx = clamp(flat.x, -ix, ix);
-  const qy = clamp(flat.y, -iy, iy);
+  const qy = clamp(flat.y, iyBottom, iyTop);
   const qz = clamp(flat.z, -iz, iz);
   const dx = flat.x - qx;
   const dy = flat.y - qy;

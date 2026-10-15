@@ -53,14 +53,9 @@ export class Blaster {
 
   constructor() {
     const { body, grip, nozzle, ring, tank, paint } = shared;
-    const mesh = (geometry: THREE.BufferGeometry, material: THREE.Material) => {
-      const m = new THREE.Mesh(geometry, material);
-      m.castShadow = true;
-      return m;
-    };
+    const mesh = (geometry: THREE.BufferGeometry, material: THREE.Material) => new THREE.Mesh(geometry, material);
     this.paint = mesh(paint, shared.paintMaterial);
     this.paint.position.set(0, 0.127, 0.06);
-    this.paint.castShadow = false;
     this.root.add(
       mesh(body, shared.bodyMaterial),
       mesh(grip, shared.darkMaterial),

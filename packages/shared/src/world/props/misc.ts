@@ -95,6 +95,25 @@ export const MISC = {
     },
   },
 
+  /**
+   * Картина в раме — на стену (строится от пола, на карте поднимается через y). Только вид.
+   * Сюжет рисует клиент по зерну art: у каждой картины свой, у всех игроков одинаковый.
+   * length — ширина рамы; высота — 3/4 ширины.
+   */
+  painting: {
+    color: '#8a5a35',
+    accent: '#000000',
+    length: 0.9,
+    build: ({ color, length }, random) => {
+      const h = length * 0.75;
+      const border = Math.min(0.07, length * 0.08);
+      return [
+        decor(0, 0, 0, length, h, 0.05, color, { shape: 'rounded', round: 0.012, surface: 'wood' }),
+        { ...decor(0, border, 0.02, length - 2 * border, h - 2 * border, 0.02, '#ffffff'), art: Math.floor(random() * 2 ** 31) },
+      ];
+    },
+  },
+
   /** Картонная коробка с полосой скотча. Можно ставить стопкой через y. length — размер стороны. */
   cardboardBox: {
     color: '#c8a26b',

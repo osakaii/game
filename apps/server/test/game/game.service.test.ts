@@ -17,6 +17,9 @@ function setup(players = 3) {
 
   const room = rooms.create('p0', 'Host');
   for (let i = 1; i < players; i++) rooms.join(`p${i}`, `P${i}`, room.code);
+  // Тесты стрельбы и раундов — на открытой «Детской»: координаты в них подобраны под неё,
+  // а карта по умолчанию (квартира) разделена стенами.
+  game.updateSettings(room, 'p0', { mapId: 'playroom' });
 
   const phases: RoomPhase[] = [];
   events.changed.subscribe((r) => phases.push(r.phase));

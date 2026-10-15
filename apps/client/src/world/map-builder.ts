@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mapBoxes, type MapBox, type MapDef, type SurfaceId } from '@mecha/shared';
+import { buildPaintings } from './paintings';
 import { surfaceTexture } from './surfaces';
 
 /**
@@ -28,8 +29,14 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
 
   // Блоки по поверхностям -> геометрии в мировых координатах, цвет — в вершинах.
   const batches = new Map<SurfaceId, THREE.BufferGeometry[]>();
+  const canvases: MapBox[] = [];
   for (const box of mapBoxes(map)) {
     if (box.hidden) continue;
+    // Холсты картин — отдельно: у каждого свой сюжет, они собираются в общий атлас.
+    if (box.art !== undefined) {
+      canvases.push(box);
+      continue;
+    }
     const surface = box.surface ?? 'paint';
     let parts = batches.get(surface);
     if (!parts) {
@@ -47,6 +54,12 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
     mesh.receiveShadow = true;
     group.add(mesh);
     obstacles.push(mesh);
+  }
+
+  const paintings = buildPaintings(canvases);
+  if (paintings) {
+    group.add(paintings);
+    obstacles.push(paintings);
   }
 
   // Карта статична — один раз считаем матрицы и выключаем пересчёт каждый кадр.

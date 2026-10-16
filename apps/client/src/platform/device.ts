@@ -1,4 +1,4 @@
-import { $, storage } from '../ui/dom';
+import { $ } from '../ui/dom';
 
 /**
  * Полноэкранный режим. На Android после него можно зафиксировать альбомную ориентацию.
@@ -18,17 +18,6 @@ export function setupFullscreenButton(): void {
     } catch {
       /* пользователь отказал или браузер не разрешил — играем как есть */
     }
-  });
-}
-
-const ROTATE_KEY = 'mecha:rotate-hint-dismissed';
-
-export function setupRotateHint(): void {
-  const hint = $('#rotate-hint');
-  if (storage.get(ROTATE_KEY)) hint.classList.add('dismissed');
-  $('#rotate-hint-close').addEventListener('click', () => {
-    hint.classList.add('dismissed');
-    storage.set(ROTATE_KEY, '1');
   });
 }
 

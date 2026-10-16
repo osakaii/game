@@ -64,7 +64,7 @@
     </div>
     <canvas id="scene"></canvas>
     <div id="hud">
-      <span id="status" data-state="connecting">connecting…</span>
+      <span id="status" data-state="connecting">подключаемся…</span>
       <span id="ping"></span>
       <span id="fps"></span>
       <span id="hud-version"></span>
@@ -228,9 +228,10 @@
       </form>
     </div>
 
-    <div id="rotate-hint">
-      Поверни телефон горизонтально — так удобнее
-      <button type="button" id="rotate-hint-close" aria-label="Закрыть">✕</button>
+    <!-- Игра только горизонтальная: в портрете экран целиком закрыт просьбой повернуть телефон. -->
+    <div id="rotate-screen" role="alert">
+      <div class="rotate-phone" aria-hidden="true"></div>
+      <p>Поверни телефон горизонтально</p>
     </div>
 
     <div id="update-banner" role="alert" hidden>

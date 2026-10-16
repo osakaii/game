@@ -26,7 +26,7 @@ import { SkinPainter } from './paint/skin-painter';
 import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
 import { PlayerModel } from './player/player-model';
-import { ScreenWakeLock, setupFullscreenButton, setupRotateHint } from './platform/device';
+import { ScreenWakeLock, setupFullscreenButton } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
 import { SeekerEffects } from './seek/seeker-effects';
@@ -147,7 +147,6 @@ const sfx = new Sfx();
 const gameSounds = new GameSounds(sfx);
 const wakeLock = new ScreenWakeLock();
 setupFullscreenButton();
-setupRotateHint();
 
 const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-room')];
 function renderSoundButtons() {

@@ -1,5 +1,32 @@
+/*
+ * Общие размеры интерфейса. Меняешь здесь — меняется везде.
+ * --edge-*: отступ от края экрана с учётом выреза и закруглений (safe area) — у iPhone в альбомной
+ * ориентации «чёлка» слева или справа, и кнопка у самого края уйдёт под неё.
+ */
+:root {
+  --bg: #1b1f2a;
+  --panel: rgb(15 18 26 / 0.72);
+  --accent: #ff6b9a;
+  --edge: 12px;
+  --edge-top: calc(var(--edge) + env(safe-area-inset-top, 0px));
+  --edge-right: calc(var(--edge) + env(safe-area-inset-right, 0px));
+  --edge-bottom: calc(var(--edge) + env(safe-area-inset-bottom, 0px));
+  --edge-left: calc(var(--edge) + env(safe-area-inset-left, 0px));
+  /* Меньше 44 px палец промахивается (рекомендация Apple и Google). */
+  --touch: 48px;
+}
+
+/* Низкий экран — телефон в альбомной ориентации с панелями браузера (~330–400 px по высоте). */
+@media (max-height: 500px) {
+  :root {
+    --edge: 8px;
+  }
+}
+
 * {
   box-sizing: border-box;
+  /* Без серой вспышки при каждом тапе в мобильном браузере: отклик кнопок рисуем сами. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -28,15 +55,37 @@ body {
 
 #hud {
   position: fixed;
-  top: env(safe-area-inset-top, 0);
-  left: env(safe-area-inset-left, 0);
-  padding: 10px 14px;
+  top: var(--edge-top);
+  left: var(--edge-left);
+  z-index: 5;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
   font-size: 12px;
   pointer-events: none;
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.6); /* читаемо на светлом небе */
+}
+
+/* Игроку — только проблемы: «нет связи» и высокий пинг. Подробности (FPS, версия, id) — в режиме отладки. */
+#hud:not(.debug) #fps,
+#hud:not(.debug) #hud-version,
+#hud:not(.debug) #status[data-state='online'],
+#hud:not(.debug) #ping:not(.slow) {
+  display: none;
+}
+
+#hud:not(.debug) #status,
+#hud:not(.debug) #ping {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 13px;
+  text-shadow: none;
+}
+
+#ping.slow {
+  color: #f5c542;
 }
 
 #status[data-state='connecting'] {
@@ -491,8 +540,7 @@ input:focus {
   #crouch-button {
     display: none;
   }
-
-  
+}
 
 /* ---------- Поиск ---------- */
 
@@ -668,31 +716,53 @@ input:focus {
   display: none;
 }
 
-#rotate-hint {
+/* Портрет на телефоне — игра не показывается: управление рассчитано на два больших пальца в альбомной ориентации. */
+#rotate-screen {
   display: none;
   position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  z-index: 10;
-  padding: 10px 40px 10px 14px;
-  border-radius: 12px;
-  background: rgb(15 18 26 / 0.9);
-  font-size: 14px;
+  inset: 0;
+  z-index: 90; /* поверх всего, кроме экрана загрузки */
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: var(--bg);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-#rotate-hint button {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 6px 10px;
-  background: transparent;
+#rotate-screen p {
+  margin: 0;
 }
 
-/* Только телефон в портрете. Класс dismissed ставит скрипт, когда подсказку закрыли. */
+/* Телефон, нарисованный рамкой, поворачивается на 90° — жест понятен без слов. */
+.rotate-phone {
+  width: 44px;
+  height: 76px;
+  border: 4px solid #fff;
+  border-radius: 10px;
+  animation: rotate-phone 1.8s ease-in-out infinite;
+}
+
+@keyframes rotate-phone {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  50%,
+  80% {
+    transform: rotate(-90deg);
+    border-color: var(--accent);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
 @media (orientation: portrait) and (pointer: coarse) {
-  #rotate-hint:not(.dismissed) {
-    display: block;
+  #rotate-screen {
+    display: grid;
   }
 }
 

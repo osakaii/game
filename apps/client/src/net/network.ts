@@ -63,7 +63,7 @@ export class Network extends Emitter<NetworkEvents> {
     const options = { transports: ['websocket'], auth: { sessionId: getSessionId() } };
     this.socket = url ? io(url, options) : io(options);
 
-    this.socket.on('connect', () => this.setStatus('connecting', 'handshake…'));
+    this.socket.on('connect', () => this.setStatus('connecting', 'подключаемся…'));
     this.socket.on('net:welcome', (welcome) => this.onWelcome(welcome));
     this.socket.on('room:state', (room) => this.emit('roomState', room));
     this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
@@ -75,12 +75,12 @@ export class Network extends Emitter<NetworkEvents> {
       // Сервер отключил нас сам — значит, эта же сессия открылась в другой вкладке.
       // socket.io в этом случае не переподключается автоматически, и это правильно.
       if (reason === 'io server disconnect') {
-        this.setStatus('offline', 'opened in another tab');
+        this.setStatus('offline', 'игра открыта в другой вкладке');
       } else {
-        this.setStatus('offline', 'offline, reconnecting…');
+        this.setStatus('offline', 'нет связи, переподключаемся…');
       }
     });
-    this.socket.on('connect_error', () => this.setStatus('offline', 'server unreachable'));
+    this.socket.on('connect_error', () => this.setStatus('offline', 'сервер недоступен'));
   }
 
   createRoom(payload: CreateRoomPayload): Promise<RoomResult> {
@@ -122,13 +122,13 @@ export class Network extends Emitter<NetworkEvents> {
 
   private onWelcome(welcome: WelcomePayload) {
     if (welcome.protocolVersion !== PROTOCOL_VERSION) {
-      this.setStatus('offline', 'outdated client');
+      this.setStatus('offline', 'нужно обновить страницу');
       this.socket.disconnect();
       this.emit('outdated', undefined);
       return;
     }
     this.playerId = welcome.playerId;
-    this.setStatus('online', `online · ${welcome.playerId.slice(0, 6)}`);
+    this.setStatus('online', `в сети · ${welcome.playerId.slice(0, 6)}`);
     this.measurePing();
     clearInterval(this.pingTimer);
     this.pingTimer = setInterval(() => this.measurePing(), PING_INTERVAL_MS);

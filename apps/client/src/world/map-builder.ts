@@ -20,7 +20,7 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
 
   const floorGeometry = new THREE.PlaneGeometry(map.width, map.depth);
   floorGeometry.rotateX(-Math.PI / 2);
-  applyWorldUVs(floorGeometry, map.floorSurface ?? 'paint');
+  applyWorldUVs(floorGeometry, map.floorSurface ?? 'paint', map.texScale);
   const floor = new THREE.Mesh(floorGeometry, materialFor(map.floorSurface ?? 'paint', map.floorColor));
   floor.receiveShadow = true;
   floor.name = 'floor';
@@ -130,7 +130,7 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
   // Склеивать можно только одинаковые по устройству геометрии: у одних есть индекс, у других нет.
   const flat = geometry.index ? geometry.toNonIndexed() : geometry;
   if (flat !== geometry) geometry.dispose();
-  applyWorldUVs(flat, box.surface ?? 'paint');
+  applyWorldUVs(flat, box.surface ?? 'paint', box.texScale);
   // Цвет блока — в каждой вершине (линейный, как его ждёт шейдер). Материал общий, белый.
   const color = new THREE.Color(box.color);
   const colors = new Float32Array(flat.getAttribute('position').count * 3);
@@ -144,8 +144,9 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
  * всего её нормаль, и берём координаты в метрах мира, делённые на размер рисунка.
  * Боковые грани: u — по горизонтали, v — вверх (полоски обоев вертикальные на любой стене).
  */
-function applyWorldUVs(geometry: THREE.BufferGeometry, surface: SurfaceId) {
-  const tile = surfaceTexture(surface)?.tile ?? 1;
+function applyWorldUVs(geometry: THREE.BufferGeometry, surface: SurfaceId, texScale = 1) {
+  // У увеличенной карты рисунок увеличен вместе с ней: доска паркета — тоже «огромная».
+  const tile = (surfaceTexture(surface)?.tile ?? 1) * texScale;
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
   const uv = new Float32Array(position.count * 2);

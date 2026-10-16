@@ -32,7 +32,7 @@ pnpm hitboxes    # пересчитать хитбоксы поз из моде�
 ## Рецепты
 - **Новое событие:** тип в `protocol.ts` (+ zod-схема, если C→S) → обработчик в gateway (`@SubscribeMessage`, `@RateLimit`, `respond(() => …)`) → логика в сервисе → метод в `apps/client/src/net/network.ts` → `PROTOCOL_VERSION++`.
 - **Сервис хочет что-то разослать** (например, по таймеру): `RoomEvents` (rxjs Subject) в `apps/server/src/rooms/room-events.ts`, gateway подписан в `afterInit`.
-- **Новая карта:** файл в `packages/shared/src/world/`, добавить в `MAP_IDS`/`MAPS` (`maps.ts`); `maps.test.ts` сам проверит спавны. Жильё с комнатами — через `layout.ts` (`buildWalls` + `finishRoom`), пример — `apartment.ts`; тест проходимости комнат там же.
+- **Новая карта:** файл в `packages/shared/src/world/`, добавить в `MAP_IDS`/`MAPS` (`maps.ts`); `maps.test.ts` сам проверит спавны. Жильё с комнатами — через `layout.ts` (`buildWalls` + `finishRoom`), пример — `apartment.ts` (план в обычных метрах, `scaleMap` увеличивает мир, персонаж остаётся 1.6 м); тест проходимости комнат там же.
 - **Новый предмет мебели:** функция в файле комнаты `shared/src/world/props/` (`living/kitchen/bedroom/bathroom/misc.ts`, детали — `kit.ts`) — блоки в своей системе (центр основания в 0, «лицом» к +Z); твёрдое — коллайдер, `solid: false` — только вид, `hidden` — только физика.
 - **Новая настройка комнаты:** `RoomSettingsSchema` в `shared/src/settings.ts` → `SettingsDialog` на клиенте.
 

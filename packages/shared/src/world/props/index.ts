@@ -38,6 +38,8 @@ export interface PropPlacement {
   accent?: string;
   /** Ширина вдоль локального X, где у предмета есть выбор (диван на 2 или 3 места). */
   length?: number;
+  /** Масштаб всего предмета (у увеличенной карты, см. scaleMap). length задаётся до масштаба. */
+  scale?: number;
 }
 
 /**
@@ -57,16 +59,20 @@ export function placeProp(placement: PropPlacement): MapBox[] {
     },
     random,
   );
+  const k = placement.scale ?? 1;
   const rot = placement.rot ?? 0;
   const cos = Math.round(Math.cos((rot * Math.PI) / 180));
   const sin = Math.round(Math.sin((rot * Math.PI) / 180));
   const swap = rot === 90 || rot === 270;
   return local.map((box) => ({
     ...box,
-    x: placement.x + box.x * cos + box.z * sin,
-    z: placement.z - box.x * sin + box.z * cos,
-    y: (placement.y ?? 0) + (box.y ?? 0),
-    w: swap ? box.d : box.w,
-    d: swap ? box.w : box.d,
+    x: placement.x + (box.x * cos + box.z * sin) * k,
+    z: placement.z + (-box.x * sin + box.z * cos) * k,
+    y: (placement.y ?? 0) + (box.y ?? 0) * k,
+    w: (swap ? box.d : box.w) * k,
+    h: box.h * k,
+    d: (swap ? box.w : box.d) * k,
+    round: box.round === undefined ? undefined : box.round * k,
+    texScale: (box.texScale ?? 1) * k,
   }));
 }

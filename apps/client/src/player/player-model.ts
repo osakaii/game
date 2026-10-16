@@ -4,7 +4,7 @@ import { BODY_ZONES, PLAYER, POSE_RULES, skinBaseColor, stanceKey, type BodyZone
 import { getSkinAtlas } from '../skin/atlas';
 import { buildBodyGeometry } from '../skin/body-geometry';
 import { CHARACTER_PARTS, HIP_Y, PART_ORDER, partIndex } from '../skin/character-parts';
-import { CROUCH, JUMP, POSE_LIBRARY, STAND, STUDIO, type BodyPose } from './body-poses';
+import { CLIMB, CROUCH, JUMP, POSE_LIBRARY, STAND, STUDIO, type BodyPose } from './body-poses';
 import { Blaster } from './blaster';
 import { geometryFor, hitboxLines } from './hitbox-debug';
 import { roundBoxPoint } from '../skin/rounded-box';
@@ -62,6 +62,9 @@ export class PlayerModel {
   private readonly target = new Float32Array(CHANNELS);
   private readonly velocity = new Float32Array(CHANNELS);
   private pose: Pose = 'none';
+  private climbing = false;
+  /** Скорость лазания 0..1 — насколько быстро перебирать руками. */
+  private climbSpeed01 = 0;
   private hitboxView: THREE.LineSegments | null = null;
   private blaster: Blaster | null = null;
   /** Сколько ещё держать руку с краскомётом нацеленной (с) и под каким углом к горизонту. */
@@ -240,6 +243,12 @@ export class PlayerModel {
     return true;
   }
 
+  /** Лезет или висит на стене; speed — скорость по стене (м/с): висит — 0, руки замирают. */
+  setClimbing(climbing: boolean, speed: number): void {
+    this.climbing = climbing;
+    this.climbSpeed01 = Math.min(1, speed / PLAYER.climbSpeed);
+  }
+
   /** Поза для пряток ('none' — обычное состояние). Переход плавный — его делает animate. */
   setPose(pose: Pose): void {
     this.pose = pose;
@@ -268,6 +277,9 @@ export class PlayerModel {
       const crawlSpeed = POSE_RULES[this.pose].speed;
       if (crawlSpeed > 0) this.addCrawl(dt, Math.min(1, (speed01 * PLAYER.walkSpeed) / crawlSpeed));
       else this.addBreath(dt, 0.6);
+    } else if (this.climbing) {
+      this.applyPose(CLIMB);
+      this.addClimb(dt);
     } else if (!grounded) {
       this.applyPose(JUMP);
     } else {
@@ -411,6 +423,29 @@ export class PlayerModel {
       this.add('shinRight', 0, lift(this.walkPhase + Math.PI) * 0.6);
       this.add('torso', 2, sin * 0.06 * amount);
     }
+  }
+
+  /**
+   * Лазание: рука и противоположная нога тянутся вверх по очереди, как на скалодроме.
+   * Висит — почти неподвижен, только дышит: висящий прячущийся не должен «дёргаться».
+   */
+  private addClimb(dt: number): void {
+    const amount = this.climbSpeed01;
+    this.walkPhase += dt * (2 + 7 * amount);
+    if (amount < 0.05) {
+      this.addBreath(dt, 0.4);
+      return;
+    }
+    const reach = Math.sin(this.walkPhase) * 0.45 * amount;
+    this.add('upperArmLeft', 0, -reach);
+    this.add('upperArmRight', 0, reach);
+    this.add('forearmLeft', 0, -Math.max(0, reach));
+    this.add('forearmRight', 0, -Math.max(0, -reach));
+    this.add('thighLeft', 0, reach * 0.8);
+    this.add('thighRight', 0, -reach * 0.8);
+    this.add('shinLeft', 0, Math.max(0, -reach) * 0.8);
+    this.add('shinRight', 0, Math.max(0, reach) * 0.8);
+    this.add('torso', 2, reach * 0.15);
   }
 
   /**

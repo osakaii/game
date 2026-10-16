@@ -79,7 +79,12 @@ export class LocalPlayer {
 
     const { x: vx, z: vz } = this.state.velocity;
     const speed = Math.hypot(vx, vz);
-    if (this.aimTime > 0) {
+    const wall = this.state.climbing ? this.state.wallNormal : undefined;
+    if (wall) {
+      // На стене смотрим в стену (нормаль — от стены к нам, поэтому минус).
+      this.facingAngle = rotateTowards(this.facingAngle, Math.atan2(-wall.x, -wall.z), TURN_SPEED * frameDt);
+      root.rotation.y = this.facingAngle;
+    } else if (this.aimTime > 0) {
       // Разворот к цели быстрый, но не мгновенный — видно движение, а не телепорт.
       this.aimTime -= frameDt;
       this.facingAngle = rotateTowards(this.facingAngle, this.aimYaw, TURN_SPEED * 3 * frameDt);
@@ -93,6 +98,10 @@ export class LocalPlayer {
 
     this.model.setCrouch(this.state.crouching, frameDt);
     this.model.setPose(this.state.pose);
+    // Скорость по стене: вверх-вниз и вбок, без лёгкого прижима к стене (он есть всегда и не движение).
+    const n = this.state.wallNormal;
+    const along = n ? Math.hypot(vx + n.x * 0.5, vz + n.z * 0.5) : 0;
+    this.model.setClimbing(!!this.state.climbing, Math.hypot(this.state.velocity.y, along));
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);
     const p = this.renderPosition;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));

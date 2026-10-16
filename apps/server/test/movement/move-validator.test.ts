@@ -11,6 +11,7 @@ const at = (x: number, y: number, z: number, crouching = false, pose: Pose = 'no
   grounded: true,
   crouching,
   pose,
+  climbing: false,
 });
 const check = (prev: PlayerState, next: PlayerState, ms: number) =>
   validateMove(prev, next, ms, PLAYROOM, colliders).ok;

@@ -130,9 +130,11 @@ export const MISC = {
       const glass = { glow: true } as const;
       return [
         decor(0, sill, 0, length, h, 0.08, color, { shape: 'rounded', round: 0.015 }),
-        decor(-length / 4, sill + frame, 0.035, length / 2 - frame * 1.5, h - 2 * frame, 0.01, '#cfe8ff', glass),
-        decor(length / 4, sill + frame, 0.035, length / 2 - frame * 1.5, h - 2 * frame, 0.01, '#cfe8ff', glass),
-        decor(0, sill + frame, 0.045, 0.05, h - 2 * frame, 0.02, color),
+        // Стекло — на сантиметр перед рамой, перемычка — ещё на сантиметр: если грани лежат в одной
+        // плоскости, видеокарта не решит, какая ближе, и они «мерцают» (z-fighting).
+        decor(-length / 4, sill + frame, 0.05, length / 2 - frame * 1.5, h - 2 * frame, 0.01, '#cfe8ff', glass),
+        decor(length / 4, sill + frame, 0.05, length / 2 - frame * 1.5, h - 2 * frame, 0.01, '#cfe8ff', glass),
+        decor(0, sill + frame, 0.065, 0.05, h - 2 * frame, 0.02, color),
         decor(0, sill - 0.04, 0.08, length + 0.2, 0.04, 0.2, color, { shape: 'rounded', round: 0.01 }),
         decor(0, 2.45, 0.12, length + 0.9, 0.04, 0.04, '#8d99ae', { shape: 'cylinder' }),
         decor(-length / 2 - 0.25, 0, 0.14, 0.5, 2.45, 0.12, accent, { shape: 'rounded', round: 0.05, surface: 'fabric' }),

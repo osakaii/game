@@ -13,6 +13,7 @@ interface Sample {
   grounded: boolean;
   crouching: boolean;
   pose: Pose;
+  climbing: boolean;
 }
 
 const MAX_SAMPLES = 20;
@@ -64,6 +65,7 @@ export class RemotePlayer {
       grounded: state.grounded,
       crouching: state.crouching,
       pose: state.pose,
+      climbing: state.climbing,
     });
     if (this.samples.length > MAX_SAMPLES) this.samples.shift();
   }
@@ -96,6 +98,8 @@ export class RemotePlayer {
     const speed = span > 0 ? Math.hypot(b.x - a.x, b.z - a.z) / (span / 1000) : 0;
     this.model.setCrouch(b.crouching, frameDt);
     this.model.setPose(b.pose);
+    // Скорость лазания — по высоте между снимками: лезет вверх — перебирает руками, висит — замер.
+    this.model.setClimbing(b.climbing, span > 0 ? Math.abs(b.y - a.y) / (span / 1000) : 0);
     this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), b.grounded);
     const p = root.position;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));

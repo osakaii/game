@@ -20,6 +20,8 @@ export const PlayerStateSchema = z.object({
   grounded: z.boolean(),
   crouching: z.boolean(),
   pose: PoseSchema.default('none'),
+  /** Лезет или висит на стене — для анимации у других игроков. Сервер проверяет стену сам, по геометрии. */
+  climbing: z.boolean().default(false),
 });
 export type PlayerState = z.output<typeof PlayerStateSchema>;
 

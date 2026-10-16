@@ -46,7 +46,8 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   const scene = new THREE.Scene();
   // Цвет неба задаёт карта (ActiveMap.load).
 
-  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 120);
+  // Дальняя плоскость — с запасом на диагональ большой карты (квартира ~100 м по диагонали).
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 200);
 
   // Тёплый рассеянный свет сверху и чуть более холодный снизу: уютно, как днём в квартире.
   scene.add(new THREE.HemisphereLight('#fff6ea', '#8a7a66', 1.45));

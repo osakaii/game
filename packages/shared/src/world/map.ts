@@ -46,6 +46,10 @@ export interface MapBox {
    * Только для вида — освещение сцены от него не меняется (настоящие источники света дороги для телефона).
    */
   glow?: boolean;
+  /** Во сколько раз крупнее рисунок поверхности (паркет, обои): у увеличенной карты — вместе с ней. */
+  texScale?: number;
+  /** По этой грани нельзя лезть: внешние стены карт без потолка (иначе — через стену наружу). */
+  noClimb?: boolean;
 }
 
 export interface MapDef {
@@ -58,6 +62,8 @@ export interface MapDef {
   depth: number;
   floorColor: string;
   floorSurface?: SurfaceId;
+  /** Во сколько раз крупнее рисунок пола (у увеличенной карты). */
+  texScale?: number;
   /** Простые блоки: стены, ящики. */
   boxes: MapBox[];
   /** Предметы (мебель): каждый сам раскладывается на блоки, см. props/index.ts. */
@@ -78,17 +84,53 @@ export interface Aabb {
   maxX: number;
   maxY: number;
   maxZ: number;
+  /** Не для лазания (см. MapBox.noClimb). */
+  noClimb?: boolean;
 }
 
 export function boxToAabb(box: MapBox): Aabb {
   const y = box.y ?? 0;
-  return {
+  const aabb: Aabb = {
     minX: box.x - box.w / 2,
     maxX: box.x + box.w / 2,
     minY: y,
     maxY: y + box.h,
     minZ: box.z - box.d / 2,
     maxZ: box.z + box.d / 2,
+  };
+  if (box.noClimb) aabb.noClimb = true;
+  return aabb;
+}
+
+/**
+ * Увеличить карту в k раз: стены, мебель, рисунки поверхностей, точки появления.
+ * Персонаж при этом остаётся прежнего роста — и становится «игрушкой» в огромном доме:
+ * под столом проходишь в полный рост, на диван запрыгиваешь, комнату пересекаешь за несколько секунд.
+ * Физика, хитбоксы и сервер работают с уже увеличенными блоками — для них это обычная карта.
+ */
+export function scaleMap(map: MapDef, k: number): MapDef {
+  const box = (b: MapBox): MapBox => ({
+    ...b,
+    x: b.x * k,
+    y: (b.y ?? 0) * k,
+    z: b.z * k,
+    w: b.w * k,
+    h: b.h * k,
+    d: b.d * k,
+    round: b.round === undefined ? undefined : b.round * k,
+    texScale: (b.texScale ?? 1) * k,
+  });
+  const point = (p: Vec3): Vec3 => ({ x: p.x * k, y: p.y * k, z: p.z * k });
+  return {
+    ...map,
+    width: map.width * k,
+    depth: map.depth * k,
+    texScale: (map.texScale ?? 1) * k,
+    ceiling: map.ceiling && { ...map.ceiling, height: map.ceiling.height * k },
+    boxes: map.boxes.map(box),
+    props: map.props?.map((p) => ({ ...p, x: p.x * k, z: p.z * k, y: (p.y ?? 0) * k, scale: (p.scale ?? 1) * k })),
+    spawns: map.spawns.map(point),
+    seekerSpawns: map.seekerSpawns.map(point),
   };
 }
 
@@ -104,19 +146,24 @@ export function buildColliders(map: MapDef): Aabb[] {
     .map(boxToAabb);
 }
 
-/** Четыре стены по периметру пола. */
+/**
+ * Четыре стены по периметру пола. У карты без потолка по ним лазать нельзя (climbable = false):
+ * иначе залез наверх — и спрыгнул наружу. Под потолком — можно: потолок не пустит выше.
+ */
 export function perimeterWalls(
   width: number,
   depth: number,
   height: number,
   color: string,
   surface: SurfaceId = 'paint',
+  climbable = false,
 ): MapBox[] {
   const t = 1;
+  const noClimb = !climbable;
   return [
-    { x: 0, z: -depth / 2 - t / 2, w: width + 2 * t, h: height, d: t, color, surface },
-    { x: 0, z: depth / 2 + t / 2, w: width + 2 * t, h: height, d: t, color, surface },
-    { x: -width / 2 - t / 2, z: 0, w: t, h: height, d: depth, color, surface },
-    { x: width / 2 + t / 2, z: 0, w: t, h: height, d: depth, color, surface },
+    { x: 0, z: -depth / 2 - t / 2, w: width + 2 * t, h: height, d: t, color, surface, noClimb },
+    { x: 0, z: depth / 2 + t / 2, w: width + 2 * t, h: height, d: t, color, surface, noClimb },
+    { x: -width / 2 - t / 2, z: 0, w: t, h: height, d: depth, color, surface, noClimb },
+    { x: width / 2 + t / 2, z: 0, w: t, h: height, d: depth, color, surface, noClimb },
   ];
 }

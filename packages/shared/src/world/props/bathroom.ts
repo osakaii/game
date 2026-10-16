@@ -70,7 +70,8 @@ export const BATHROOM = {
     length: 0.7,
     build: ({ color, accent, length }) => [
       decor(0, 0, 0, length, length * 1.25, 0.04, accent, { shape: 'rounded', round: 0.02, surface: 'wood' }),
-      decor(0, 0.04, 0.016, length - 0.08, length * 1.25 - 0.08, 0.012, color),
+      // Стекло заметно перед рамой (не в одной плоскости с ней) — без мерцания.
+      decor(0, 0.04, 0.03, length - 0.08, length * 1.25 - 0.08, 0.012, color),
     ],
   },
 

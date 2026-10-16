@@ -54,13 +54,18 @@ export class ActiveMap implements WorldGeometry {
    */
   private fitShadowCamera(def: MapDef) {
     const half = Math.max(def.width, def.depth) / 2 + 2;
+    // Солнце отодвигаем по его направлению за пределы карты: «коробка» теней строится от него,
+    // и на большой карте близкое солнце оставило бы дальний край без теней.
+    const direction = this.sun.position.clone().sub(this.sun.target.position).normalize();
+    const distance = half * 2 + (def.ceiling?.height ?? 10);
+    this.sun.position.copy(this.sun.target.position).addScaledVector(direction, distance);
     const camera = this.sun.shadow.camera;
     camera.left = -half;
     camera.right = half;
     camera.top = half;
     camera.bottom = -half;
     camera.near = 1;
-    camera.far = 60;
+    camera.far = distance * 2;
     camera.updateProjectionMatrix();
   }
 

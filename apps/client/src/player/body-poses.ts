@@ -82,6 +82,24 @@ export const JUMP: BodyPose = {
   },
 };
 
+/**
+ * На стене: руки над головой цепляются, колени согнуты, корпус прижат к стене.
+ * Ползание руками и ногами по очереди добавляет анимация (PlayerModel.addClimb).
+ */
+export const CLIMB: BodyPose = {
+  hipY: HIP_Y,
+  hipZ: 0.05,
+  joints: {
+    torso: [0.08, 0, 0],
+    head: [-0.25, 0, 0],
+    ...both('upperArm', -2.6, 0, -0.25),
+    ...both('forearm', -0.5),
+    ...both('thigh', -0.7, 0, -0.12),
+    ...both('shin', 1.1),
+    ...both('foot', -0.3),
+  },
+};
+
 /** Манекен для Мастерской: руки и ноги разведены — кисть достаёт до боков торса и внутренней стороны ног. */
 export const STUDIO: BodyPose = {
   hipY: HIP_Y,

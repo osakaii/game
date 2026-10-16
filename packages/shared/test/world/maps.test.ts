@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { penetratesColliders } from '../../src/physics.js';
+import { PLAYER, penetratesColliders, supportHeight } from '../../src/physics.js';
 import { buildColliders } from '../../src/world/map.js';
 import { MAPS, MAP_IDS } from '../../src/world/maps.js';
 import { APARTMENT, APARTMENT_ROOM_CENTERS } from '../../src/world/apartment.js';
@@ -43,7 +43,12 @@ describe('apartment', () => {
   const cols = Math.floor(APARTMENT.width / step);
   const rows = Math.floor(APARTMENT.depth / step);
   const cell = (i: number, j: number) => ({ x: -halfW + (i + 0.5) * step, y: 0, z: -halfD + (j + 0.5) * step });
-  const free = (i: number, j: number) => !penetratesColliders(cell(i, j), colliders, 0.02);
+  // Низкое (ковёр, ступенька) не мешает — игрок на него наступает, как в физике (stepHeight).
+  const free = (i: number, j: number) => {
+    const c = cell(i, j);
+    const ground = supportHeight({ ...c, y: PLAYER.stepHeight }, colliders);
+    return !penetratesColliders({ ...c, y: ground }, colliders, 0.02);
+  };
 
   const reached = new Uint8Array(cols * rows);
   const start = APARTMENT.spawns[0];
@@ -66,12 +71,12 @@ describe('apartment', () => {
   }
 
   it.each(Object.entries(APARTMENT_ROOM_CENTERS))('room %s is reachable from the hall', (_name, center) => {
-    // Центр комнаты может быть занят столом — ищем достижимую клетку в радиусе 2 м.
+    // Центр комнаты может быть занят столом — ищем достижимую клетку в радиусе 4 м.
     const ci = Math.floor((center.x + halfW) / step);
     const cj = Math.floor((center.z + halfD) / step);
     let found = false;
-    for (let di = -8; di <= 8 && !found; di++) {
-      for (let dj = -8; dj <= 8 && !found; dj++) {
+    for (let di = -16; di <= 16 && !found; di++) {
+      for (let dj = -16; dj <= 16 && !found; dj++) {
         const i = ci + di;
         const j = cj + dj;
         if (i >= 0 && j >= 0 && i < cols && j < rows && reached[j * cols + i]) found = true;

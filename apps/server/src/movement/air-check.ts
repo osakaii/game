@@ -1,4 +1,4 @@
-import { JUMP_HEIGHT, supportHeight, type Aabb, type PlayerState } from '@mecha/shared';
+import { JUMP_HEIGHT, supportHeight, wallContact, type Aabb, type PlayerState } from '@mecha/shared';
 
 /**
  * Защита от «полётов». validateMove проверяет скорость, но не гравитацию:
@@ -28,6 +28,13 @@ export function checkAirborne(air: AirState, next: PlayerState, colliders: reado
   if (next.y - ground <= GROUND_EPS) {
     air.since = null;
     air.takeoffY = ground;
+    return { ok: true };
+  }
+  // Висит на стене или лезет по ней — это не полёт. Проверяем сами по геометрии, слову клиента не верим:
+  // в чистом воздухе стены рядом нет, и «полёт» поймается как раньше. Прыжок от стены считаем от этой высоты.
+  if (wallContact(next, colliders)) {
+    air.since = null;
+    air.takeoffY = next.y;
     return { ok: true };
   }
 

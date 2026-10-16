@@ -12,7 +12,7 @@ import {
 } from '../src/physics.js';
 import { BODY_HITBOXES } from '../src/pose-hitboxes.js';
 import { POSE_RULES, type Pose } from '../src/poses.js';
-import { buildColliders } from '../src/world/map.js';
+import { buildColliders, type Aabb } from '../src/world/map.js';
 import { PLAYROOM } from '../src/world/playroom.js';
 
 const colliders = buildColliders(PLAYROOM);
@@ -47,10 +47,22 @@ describe('stepPlayer on Playroom', () => {
     expect(s.grounded).toBe(true);
   });
 
-  it('is blocked by a 1 m crate without jumping', () => {
-    const s = simulate(vec3(-6, 0, -6), 0, 1, 1.5);
+  it('brushing past a crate at an angle does not start a climb', () => {
+    // Идём под углом 45° к грани ящика: «в стену» только 0.7 — меньше порога, лезть не начинаем.
+    const s = simulate(vec3(-6.6, 0, -5.4), 0.7071, 0.7071, 0.6);
     expect(s.position.y).toBe(0);
-    expect(s.position.z).toBeCloseTo(-3.5 - PLAYER.radius, 2);
+    expect(s.climbing).toBeFalsy();
+  });
+
+  it('climbs onto a 1 m crate when pushing straight into it', () => {
+    // Жёлтый ящик 1.5×1×1.5 в (−8.5, −12): крышка свободна (на соседнем красном стоит ещё один — туда не залезть).
+    const s: PlayerPhysicsState = { position: vec3(-8.5, 0, -9.5), velocity: vec3(), grounded: true, crouching: false, pose: 'none' };
+    // Шагаем, пока не окажемся на крышке (дальше игрок пошёл бы по ящику и спрыгнул).
+    for (let i = 0; i < 180 && !(s.grounded && s.position.y > 0.9); i++) {
+      stepPlayer(s, { dirX: 0, dirZ: -1, jump: false, crouch: false }, colliders, PHYSICS_DT);
+    }
+    expect(s.position.y).toBeCloseTo(1, 2);
+    expect(s.grounded).toBe(true);
   });
 
   it('jumps onto a 1 m crate', () => {
@@ -153,6 +165,71 @@ describe('poses', () => {
     simulate(s.position, 0, 0, 0.05, -1, false, s, 'sit');
     expect(s.grounded).toBe(false);
     expect(s.pose).toBe('none');
+  });
+});
+
+describe('climbing', () => {
+  // Стена 1×4×6 м посреди пустоты, потолка нет.
+  const wall: Aabb[] = [{ minX: -0.5, maxX: 0.5, minY: 0, maxY: 4, minZ: -3, maxZ: 3 }];
+  const at = (x: number): PlayerPhysicsState => ({
+    position: vec3(x, 0, 0),
+    velocity: vec3(),
+    grounded: true,
+    crouching: false,
+    pose: 'none',
+  });
+  const run = (s: PlayerPhysicsState, dirX: number, seconds: number, jumpAtTick = -1, colliders = wall) => {
+    for (let i = 0; i < Math.round(seconds / PHYSICS_DT); i++) {
+      stepPlayer(s, { dirX, dirZ: 0, jump: i === jumpAtTick, crouch: false }, colliders, PHYSICS_DT);
+    }
+    return s;
+  };
+
+  it('climbs up while pushing into the wall, at climbing speed', () => {
+    const s = run(at(2), -1, 1.2); // подбежали и лезем
+    expect(s.climbing).toBe(true);
+    expect(s.position.y).toBeGreaterThan(0.5);
+    expect(s.position.y).toBeLessThan(PLAYER.climbSpeed * 1.2);
+    expect(s.wallNormal?.x).toBeCloseTo(1, 6); // стена слева — нормаль смотрит на игрока, в +X
+  });
+
+  it('hangs in place when the stick is released — a hiding spot high on the wall', () => {
+    const s = run(at(2), -1, 1.2);
+    const y = s.position.y;
+    run(s, 0, 2);
+    expect(s.climbing).toBe(true);
+    expect(s.position.y).toBeCloseTo(y, 6);
+  });
+
+  it('lets go when pulling away, and jumps off the wall', () => {
+    const s = run(at(2), -1, 1.2);
+    run(s, 1, 0.3);
+    expect(s.climbing).toBe(false);
+
+    const t = run(at(2), -1, 1.2);
+    run(t, 0, 0.05, 0);
+    expect(t.climbing).toBe(false);
+    expect(t.velocity.x).toBeGreaterThan(0); // оттолкнулся от стены
+  });
+
+  it('mantles onto the top of what it climbed', () => {
+    const s = at(2);
+    for (let i = 0; i < 300 && !(s.grounded && s.position.y > 3.9); i++) run(s, -1, PHYSICS_DT);
+    expect(s.position.y).toBeCloseTo(4, 2);
+    expect(s.grounded).toBe(true);
+    expect(s.position.x).toBeLessThan(0.5); // стоит на стене сверху
+  });
+
+  it('the ceiling stops the climb — hanging under it instead of going through', () => {
+    const ceiling = { minX: -10, maxX: 10, minY: 3, maxY: 4, minZ: -10, maxZ: 10 };
+    const s = run(at(2), -1, 4, -1, [{ ...wall[0], maxY: 3 }, ceiling]);
+    expect(s.position.y + PLAYER.height).toBeLessThanOrEqual(3 + 1e-6);
+    expect(s.climbing).toBe(true);
+  });
+
+  it('cannot climb walls marked noClimb (outer walls of open maps)', () => {
+    const s = run(at(2), -1, 2, -1, [{ ...wall[0], noClimb: true }]);
+    expect(s.position.y).toBe(0);
   });
 });
 

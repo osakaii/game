@@ -151,7 +151,7 @@ export class Room {
       timesSeeker: 0,
       air: { since: null, takeoffY: spawn.y },
       history: new PositionHistory(),
-      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false, pose: 'none' },
+      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false, pose: 'none', climbing: false },
       stateAt: now,
     };
     member.history.push(now, member.state);

@@ -1,6 +1,6 @@
 import { vec3 } from '../math.js';
 import { WALL_H, WALL_T, buildWalls, finishRoom, type Room, type WallLine } from './layout.js';
-import { perimeterWalls, type MapDef } from './map.js';
+import { perimeterWalls, scaleMap, type MapDef } from './map.js';
 import type { PropPlacement } from './props/index.js';
 
 const WIDTH = 26;
@@ -212,7 +212,14 @@ const PROPS: PropPlacement[] = [
  * Хорошая карта для пряток — разная по фактуре: плитка, паркет, ковры, горошек, полоски, кирпич,
  * пёстрые полки и картины. Есть где лечь (под кроватями, столами, в ванне) и где встать (среди пальто).
  */
-export const APARTMENT: MapDef = {
+/**
+ * Во сколько раз квартира больше настоящей. Персонаж ростом 1.6 м — как игрушка в огромном доме:
+ * под столом и кроватью проходит в полный рост, на диван запрыгивает, а комнату видно как «ландшафт».
+ * Планировка ниже — в обычных метрах, удобных для глаза; увеличивает её scaleMap.
+ */
+export const APARTMENT_SCALE = 3;
+
+const APARTMENT_PLAN: MapDef = {
   id: 'apartment',
   name: 'Квартира',
   width: WIDTH,
@@ -222,7 +229,10 @@ export const APARTMENT: MapDef = {
   floorSurface: 'parquet',
   ceiling: { height: WALL_H, color: '#fbf7f0' },
   boxes: [
-    ...perimeterWalls(WIDTH, DEPTH, WALL_H, '#e9e4dc'),
+    // Под потолком по внешним стенам лазать можно: выше потолка всё равно не вылезешь.
+    ...perimeterWalls(WIDTH, DEPTH, WALL_H, '#e9e4dc', 'paint', true),
+    // Потолок для физики: голова упирается в него при прыжке и лазании (виден — отдельная плоскость).
+    { x: 0, z: 0, y: WALL_H, w: WIDTH + 2, h: 1, d: DEPTH + 2, color: '#000000', hidden: true },
     ...buildWalls(LINES, { surface: 'paint', color: '#e9e4dc' }),
     ...Object.values(ROOMS).flatMap((room) => finishRoom(room, LINES, { halfW: HALF_W, halfD: HALF_D })),
   ],
@@ -233,7 +243,12 @@ export const APARTMENT: MapDef = {
   seekerSpawns: [vec3(-6, 0, 4), vec3(-5, 0, 3.4)],
 };
 
-/** Центры комнат — для проверки, что в каждую можно пройти (см. тест карты). */
+export const APARTMENT: MapDef = scaleMap(APARTMENT_PLAN, APARTMENT_SCALE);
+
+/** Центры комнат (уже в масштабе карты) — для проверки, что в каждую можно пройти (см. тест карты). */
 export const APARTMENT_ROOM_CENTERS = Object.fromEntries(
-  Object.entries(ROOMS).map(([name, r]) => [name, vec3((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2)]),
+  Object.entries(ROOMS).map(([name, r]) => [
+    name,
+    vec3(((r.x0 + r.x1) / 2) * APARTMENT_SCALE, 0, ((r.z0 + r.z1) / 2) * APARTMENT_SCALE),
+  ]),
 );

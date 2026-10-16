@@ -29,6 +29,11 @@ export const PLAYER = {
   /** Присед: пролезаем под столом (зазор под столешницей ~0.95 м). */
   crouchHeight: 0.9,
   crouchSpeed: 2.5,
+  /** Скорость лазания по стене вверх и вбок (м/с). */
+  climbSpeed: 2.4,
+  /** Прыжок от стены: насколько сильно отталкивает от неё и подбрасывает вверх. */
+  wallJumpPush: 4,
+  wallJumpUp: 5.5,
 } as const;
 
 /** Что определяет рост и скорость тела: присед и поза. Поза важнее приседа. */
@@ -55,6 +60,10 @@ export interface PlayerPhysicsState {
   grounded: boolean;
   crouching: boolean;
   pose: Pose;
+  /** Висит или лезет по стене. */
+  climbing?: boolean;
+  /** Нормаль стены, по которой лезет (от стены к игроку), — модель смотрит в стену. */
+  wallNormal?: { x: number; z: number };
 }
 
 /** Желаемое направление в мировых координатах (длина 0..1), прыжок, присед и поза. */
@@ -68,6 +77,41 @@ export interface MoveInput {
 }
 
 const EPS = 1e-4;
+/** Насколько близко к стене (м сверх радиуса) — «касаюсь, могу ухватиться». */
+const WALL_REACH = 0.08;
+/**
+ * Начать лезть — только толкая джойстик почти прямо в стену: идя вдоль коридора и задевая стену
+ * под углом, на неё случайно не полезешь. Уже вися — держимся, пока джойстик не от стены.
+ */
+const CLIMB_START = 0.75;
+const CLIMB_RELEASE = 0.35;
+/** Руками достаём до края, если ноги на столько ниже верха предмета — забираемся на него. */
+const MANTLE_REACH = 0.45;
+
+/**
+ * Стена, к которой прижат игрок: вертикальная грань коллайдера в пределах WALL_REACH от цилиндра.
+ * Низкое (ковёр, ступенька) — не стена: на него наступают, а не лезут. Возвращает ближайшую.
+ * Нужна и клиенту (лазание), и серверу (висящий на стене — не «летающий» читер).
+ */
+export function wallContact(position: Vec3, colliders: readonly Aabb[]): { nx: number; nz: number; box: Aabb } | null {
+  let best: { nx: number; nz: number; box: Aabb } | null = null;
+  let bestDistance = Infinity;
+  const reach = PLAYER.radius + WALL_REACH;
+  for (const b of colliders) {
+    // Стена — то, что доходит почти до ног и выше ступеньки. Столешница на ножках — не стена:
+    // её край висит над полом, за него не ухватишься снизу.
+    if (b.noClimb || b.maxY - position.y <= PLAYER.stepHeight || b.minY > position.y + 0.5) continue;
+    const cx = clamp(position.x, b.minX, b.maxX);
+    const cz = clamp(position.z, b.minZ, b.maxZ);
+    const dx = position.x - cx;
+    const dz = position.z - cz;
+    const distance = Math.hypot(dx, dz);
+    if (distance < 1e-6 || distance > reach || distance >= bestDistance) continue;
+    bestDistance = distance;
+    best = { nx: dx / distance, nz: dz / distance, box: b };
+  }
+  return best;
+}
 
 /** Один шаг симуляции. Мутирует state — без новых объектов на каждый тик (меньше работы GC на телефоне). */
 export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[], dt: number): void {
@@ -81,6 +125,7 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
     state.crouching = false;
   }
   updatePose(state, input, colliders);
+  if (climb(state, input, colliders, dt)) return;
   const speed = moveSpeed(state);
 
   // 1. Горизонтальная скорость плавно стремится к желаемой.
@@ -119,6 +164,93 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   const prevY = state.position.y;
   state.position.y += v.y * dt;
   resolveVertical(state, prevY, colliders);
+}
+
+/**
+ * Лазание. Упёрся в стену и толкаешь джойстик в неё — лезешь вверх; отпустил — висишь
+ * (так прячутся высоко на стене, покрасившись под обои); джойстик от стены — отпускаешься;
+ * прыжок — отталкиваешься от стены. Вдоль стены можно ползти вбок. Долез до верха предмета
+ * (шкаф, холодильник) — забираешься на крышку. Потолок останавливает, как голову при прыжке.
+ *
+ * Возвращает true, если шаг полностью обработан здесь (игрок на стене или только что слез с неё прыжком).
+ */
+function climb(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[], dt: number): boolean {
+  const v = state.velocity;
+  const height = bodyHeight(state);
+  const wall = state.pose === 'none' ? wallContact(state.position, colliders) : null;
+  if (!wall) {
+    state.climbing = false;
+    state.wallNormal = undefined;
+    return false;
+  }
+  // «В стену» — проекция джойстика на направление к стене (минус нормаль).
+  const push = -(input.dirX * wall.nx + input.dirZ * wall.nz);
+
+  if (input.jump && state.climbing) {
+    // Прыжок от стены: оттолкнуться и подлететь.
+    state.climbing = false;
+    state.wallNormal = undefined;
+    v.x = wall.nx * PLAYER.wallJumpPush;
+    v.z = wall.nz * PLAYER.wallJumpPush;
+    v.y = PLAYER.wallJumpUp;
+    return false;
+  }
+  const wantsClimb = push > (state.climbing ? CLIMB_RELEASE : CLIMB_START);
+  const hold = state.climbing && push > -CLIMB_RELEASE;
+  // С земли лезем, только если хотим вверх; стоя у стены и не толкая её — просто стоим.
+  if (!wantsClimb && !hold) {
+    state.climbing = false;
+    state.wallNormal = undefined;
+    return false;
+  }
+
+  state.climbing = true;
+  state.grounded = false;
+  state.wallNormal = { x: wall.nx, z: wall.nz };
+  // Вбок вдоль стены — касательная составляющая джойстика; чуть «в стену» — чтобы не отлипнуть.
+  const tx = -wall.nz;
+  const tz = wall.nx;
+  const side = input.dirX * tx + input.dirZ * tz;
+  v.x = tx * side * PLAYER.climbSpeed - wall.nx * 0.5;
+  v.z = tz * side * PLAYER.climbSpeed - wall.nz * 0.5;
+  v.y = wantsClimb ? PLAYER.climbSpeed : 0;
+
+  state.position.x += v.x * dt;
+  state.position.z += v.z * dt;
+  resolveHorizontal(state, colliders);
+  const prevY = state.position.y;
+  state.position.y += v.y * dt;
+  resolveVertical(state, prevY, colliders);
+  // resolveVertical мог поставить на пол (сполз до земли) — тогда уже не висим.
+  if (state.grounded) {
+    state.climbing = false;
+    return true;
+  }
+  state.grounded = false;
+
+  // Забраться наверх: руки достают до края — встаём на крышку, если там есть место.
+  const top = wall.box.maxY;
+  if (wantsClimb && state.position.y >= top - MANTLE_REACH) {
+    const target = {
+      x: state.position.x - wall.nx * (PLAYER.radius + 0.12),
+      y: top,
+      z: state.position.z - wall.nz * (PLAYER.radius + 0.12),
+    };
+    if (!penetratesColliders(target, colliders, EPS, height)) {
+      state.position.x = target.x;
+      state.position.y = target.y;
+      state.position.z = target.z;
+      v.x = v.y = v.z = 0;
+      state.grounded = true;
+      state.climbing = false;
+      state.wallNormal = undefined;
+    } else {
+      // Наверху занято (на шкафу коробка, сверху потолок) — висим у края, а не срываемся вниз.
+      state.position.y = Math.min(state.position.y, top - PLAYER.stepHeight - 0.01);
+      v.y = 0;
+    }
+  }
+  return true;
 }
 
 /** Голове или ступням можно чуть коснуться стены — так прижиматься к ней естественнее. */

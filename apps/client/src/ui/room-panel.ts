@@ -1,42 +1,67 @@
-import { GAME_RULES, type RoomSnapshot } from '@mecha/shared';
+import type { RoomSnapshot } from '@mecha/shared';
 import { describeSettings } from './settings-dialog';
 import { $ } from './dom';
 
 interface RoomPanelHandlers {
   onLeave(): void;
   onInvite(): void;
-  onStart(): void;
   onSettings(): void;
 }
 
-/** Панель комнаты в игре: код, список игроков, «начать», «пригласить», «выйти». */
+/**
+ * Комната в игре: маленькая плашка «КОД · 2/8» в углу и шторка справа по тапу на неё.
+ *
+ * Раньше всё это было открытой панелью на 70% высоты экрана — на телефоне в альбомной ориентации
+ * она закрывала кнопки и зону поворота камеры. Теперь на экране только плашка, а список игроков,
+ * настройки и «Выйти» — в шторке, когда они нужны.
+ */
 export class RoomPanel {
-  private readonly root = $('#room-panel');
-  private readonly codeEl = $('#room-panel-code');
-  private readonly countEl = $('#room-panel-count');
+  private readonly chip = $<HTMLButtonElement>('#room-chip');
+  private readonly chipCode = $('#room-chip-code');
+  private readonly chipCount = $('#room-chip-count');
+  private readonly sheet = $('#room-sheet');
+  private readonly sheetCode = $('#room-sheet-code');
   private readonly list = $<HTMLUListElement>('#player-list');
-  private readonly startButton = $<HTMLButtonElement>('#start-game');
   private readonly settingsSummary = $<HTMLButtonElement>('#room-settings-summary');
+  private phase: RoomSnapshot['phase'] | null = null;
 
   constructor(handlers: RoomPanelHandlers) {
+    this.chip.addEventListener('click', () => this.setOpen(!this.open));
+    $('#room-sheet-close').addEventListener('click', () => this.setOpen(false));
+    // Тап по затемнению мимо шторки закрывает её.
+    this.sheet.addEventListener('pointerdown', (e) => {
+      if (e.target === this.sheet) this.setOpen(false);
+    });
     $('#leave-room').addEventListener('click', () => handlers.onLeave());
     $('#invite').addEventListener('click', () => handlers.onInvite());
-    this.startButton.addEventListener('click', () => handlers.onStart());
     this.settingsSummary.addEventListener('click', () => handlers.onSettings());
   }
 
-  render(room: RoomSnapshot | null, myId: string | null): void {
-    this.root.hidden = !room;
-    if (!room) return;
+  get open(): boolean {
+    return !this.sheet.hidden;
+  }
 
-    this.codeEl.textContent = room.code;
-    this.countEl.textContent = `${room.players.length}/${room.maxPlayers}`;
+  setOpen(open: boolean): void {
+    this.sheet.hidden = !open;
+    this.chip.setAttribute('aria-expanded', String(open));
+  }
+
+  render(room: RoomSnapshot | null, myId: string | null): void {
+    this.chip.hidden = !room;
+    if (!room) {
+      this.setOpen(false);
+      this.phase = null;
+      return;
+    }
+    // Началась новая фаза (раунд, итоги) — шторка уезжает: на экране теперь игра, а не список.
+    if (this.phase !== null && this.phase !== room.phase) this.setOpen(false);
+    this.phase = room.phase;
+
+    this.chipCode.textContent = room.code;
+    this.chipCount.textContent = `${room.players.length}/${room.maxPlayers}`;
+    this.sheetCode.textContent = room.code;
 
     const isHost = room.hostId === myId;
-    const enoughPlayers = room.players.length >= GAME_RULES.minPlayers;
-    this.startButton.hidden = !(isHost && room.phase === 'lobby');
-    this.startButton.disabled = !enoughPlayers;
-    this.startButton.textContent = enoughPlayers ? 'Начать игру' : `Нужно ${GAME_RULES.minPlayers}+ игрока`;
     this.settingsSummary.textContent = `${describeSettings(room.settings)}${isHost ? ' — изменить' : ''}`;
 
     // Ник — ввод другого игрока. Только textContent, никакого innerHTML:

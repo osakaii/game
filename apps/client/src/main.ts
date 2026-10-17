@@ -1,4 +1,5 @@
 import './style.css';
+import './styles/room.css';
 import {
   PHYSICS_DT,
   PLAYROOM,
@@ -38,6 +39,8 @@ import { MenuScreen } from './ui/menu-screen';
 import { StudioToolbar } from './ui/studio-toolbar';
 import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
+import { LobbyBar } from './ui/lobby-bar';
+import { ConfirmDialog } from './ui/confirm-dialog';
 import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
@@ -85,12 +88,22 @@ const menu = new MenuScreen(
   roomCodeFromUrl(),
 );
 
+const invite = () => lobby.room && void inviteToRoom(lobby.room.code);
+const confirmDialog = new ConfirmDialog();
 const roomPanel = new RoomPanel({
-  onLeave: () => lobby.leave(),
-  onInvite: () => lobby.room && void inviteToRoom(lobby.room.code),
-  onStart: () => void lobby.startGame(),
+  onLeave: () => void leaveRoom(),
+  onInvite: invite,
   onSettings: () => settingsDialog.open(),
 });
+const lobbyBar = new LobbyBar({ onInvite: invite, onStart: () => void lobby.startGame() });
+
+/** Посреди раунда выход подводит команду — спрашиваем. В лобби и на итогах выходим сразу. */
+async function leaveRoom() {
+  const phase = lobby.room?.phase;
+  const inRound = phase === 'hiding' || phase === 'seeking';
+  if (inRound && !(await confirmDialog.ask('Выйти посреди раунда? Команда останется без тебя.', 'Выйти'))) return;
+  lobby.leave();
+}
 const settingsDialog = new SettingsDialog((patch) => void lobby.updateSettings(patch));
 const phaseHud = new PhaseHud();
 
@@ -256,6 +269,7 @@ lobby.on('room', (room) => {
   // Хост сменил карту — перестраиваем мир. Новую позицию на ней пришлёт сервер (player:teleport).
   if (room && activeMap.load(MAPS[room.settings.mapId])) splats.clear();
   roomPanel.render(room, network.playerId);
+  lobbyBar.render(room, network.playerId);
   settingsDialog.render(room, lobby.isHost);
   phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);

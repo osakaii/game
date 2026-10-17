@@ -1,0 +1,290 @@
+/* ---------- Комната: плашка, панель лобби, шторка, подтверждение ---------- */
+
+/* Плашка «КОД · 2/8» в правом верхнем углу. Выше затемнения ищущего (#blind, z-index 1). */
+#room-chip {
+  position: fixed;
+  top: var(--edge-top);
+  right: var(--edge-right);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+#room-chip[hidden] {
+  display: none;
+}
+
+#room-chip-code {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+#room-chip-count {
+  color: rgb(255 255 255 / 0.65);
+}
+
+/* Значок «список»: три полоски — видно, что плашка раскрывается. */
+#room-chip::after {
+  content: '';
+  width: 14px;
+  height: 10px;
+  background: linear-gradient(#fff 0 0) top / 100% 2px no-repeat, linear-gradient(#fff 0 0) center / 100% 2px no-repeat,
+    linear-gradient(#fff 0 0) bottom / 100% 2px no-repeat;
+  opacity: 0.8;
+}
+
+#room-chip[aria-expanded='true'] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* ---------- Панель лобби ---------- */
+
+#lobby-bar {
+  position: fixed;
+  top: var(--edge-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 2 * 150px); /* слева угол HUD, справа плашка комнаты */
+  padding: 4px 4px 4px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+#lobby-bar[hidden],
+#lobby-bar [hidden] {
+  display: none;
+}
+
+#lobby-status {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgb(255 255 255 / 0.85);
+}
+
+#lobby-bar button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Без текста статуса панель — просто кнопки: левый отступ как у правого края. */
+#lobby-bar:has(#lobby-status[hidden]) {
+  padding-left: 4px;
+}
+
+/* ---------- Шторка комнаты ---------- */
+
+#room-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(10 12 18 / 0.45);
+}
+
+#room-sheet[hidden] {
+  display: none;
+}
+
+.sheet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 86vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--edge-top) var(--edge-right) var(--edge-bottom) 16px;
+  background: var(--bg);
+  box-shadow: -8px 0 30px rgb(0 0 0 / 0.4);
+  animation: sheet-in 0.18s ease-out;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-label {
+  display: block;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.55);
+}
+
+/* Код крупно: его диктуют другу вслух или вводят вручную. */
+#room-sheet-code {
+  font-size: 26px;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+}
+
+.icon-button {
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+  border-radius: 50%;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.settings-summary {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  text-align: left;
+  color: rgb(255 255 255 / 0.8);
+  background: rgb(255 255 255 / 0.07);
+}
+
+.settings-summary:disabled {
+  opacity: 1;
+}
+
+/* Список растягивается на всё свободное место и прокручивается сам — шапка и кнопки остаются на месте. */
+#player-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 15px;
+}
+
+#player-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.05);
+  white-space: nowrap;
+}
+
+#player-list .nickname {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#player-list .score {
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.7);
+}
+
+#player-list li.me {
+  color: var(--accent);
+}
+
+#player-list li.host .nickname::after {
+  content: ' ★';
+  color: #f5c542;
+}
+
+#player-list li[data-role]::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+#player-list li[data-role='seeker']::before {
+  background: #f87171;
+}
+
+#player-list li[data-role='hider']::before {
+  background: #4ade80;
+}
+
+#player-list li.found .nickname {
+  text-decoration: line-through;
+}
+
+#player-list li.found,
+#player-list li.offline {
+  opacity: 0.5;
+}
+
+.sheet-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sheet-footer button {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+/* «Выйти» — отдельной строкой внизу, подальше от остальных кнопок: случайно не нажмёшь. */
+#leave-room {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Подтверждение ---------- */
+
+#confirm {
+  z-index: 40;
+}
+
+.confirm-card {
+  text-align: center;
+}
+
+#confirm-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.confirm-actions button {
+  min-height: var(--touch);
+}
+
+#confirm-ok.danger {
+  background: #e5484d;
+  font-weight: 700;
+}
+
+/* В Мастерской экран — под кисть: комната и лобби подождут. */
+body.studio-open #room-chip,
+body.studio-open #lobby-bar {
+  display: none;
+}

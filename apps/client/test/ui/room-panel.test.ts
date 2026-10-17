@@ -5,14 +5,14 @@ import { RoomPanel } from '../../src/ui/room-panel';
 
 function setup() {
   document.body.innerHTML = `
-    <details id="room-panel" hidden>
-      <summary><b id="room-panel-code"></b><span id="room-panel-count"></span></summary>
+    <button id="room-chip" hidden><span id="room-chip-code"></span><span id="room-chip-count"></span></button>
+    <div id="room-sheet" hidden>
+      <b id="room-sheet-code"></b><button id="room-sheet-close"></button>
       <button id="room-settings-summary"></button>
       <ul id="player-list"></ul>
-      <button id="start-game" hidden></button>
       <button id="invite"></button><button id="leave-room"></button>
-    </details>`;
-  const handlers = { onLeave: vi.fn(), onInvite: vi.fn(), onStart: vi.fn(), onSettings: vi.fn() };
+    </div>`;
+  const handlers = { onLeave: vi.fn(), onInvite: vi.fn(), onSettings: vi.fn() };
   return { panel: new RoomPanel(handlers), handlers };
 }
 
@@ -49,19 +49,35 @@ describe('RoomPanel', () => {
     expect(document.querySelector('#player-list .nickname')!.textContent).toBe(evil);
   });
 
-  it('shows the start button only to the host, enabled with 2+ players', () => {
+  it('shows only the chip until tapped, the sheet opens and closes', () => {
     const { panel } = setup();
-    const start = document.querySelector<HTMLButtonElement>('#start-game')!;
-
-    panel.render(room([player('a', 'A')]), 'a');
-    expect(start.hidden).toBe(false);
-    expect(start.disabled).toBe(true);
-
+    const chip = document.querySelector<HTMLButtonElement>('#room-chip')!;
+    const sheet = document.querySelector<HTMLElement>('#room-sheet')!;
     panel.render(room([player('a', 'A'), player('b', 'B')]), 'a');
-    expect(start.disabled).toBe(false);
+    expect(chip.hidden).toBe(false);
+    expect(document.querySelector('#room-chip-code')!.textContent).toBe('KX7P');
+    expect(document.querySelector('#room-chip-count')!.textContent).toBe('2/8');
+    expect(sheet.hidden).toBe(true);
 
-    panel.render(room([player('a', 'A'), player('b', 'B')]), 'b');
-    expect(start.hidden).toBe(true);
+    chip.click();
+    expect(panel.open).toBe(true);
+    // Тап по затемнению мимо шторки закрывает её.
+    sheet.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(panel.open).toBe(false);
+  });
+
+  it('closes the sheet when the round starts and hides everything outside a room', () => {
+    const { panel } = setup();
+    const lobby = room([player('a', 'A'), player('b', 'B')]);
+    panel.render(lobby, 'a');
+    panel.setOpen(true);
+    panel.render({ ...lobby, phase: 'hiding' }, 'a');
+    expect(panel.open).toBe(false);
+
+    panel.setOpen(true);
+    panel.render(null, 'a');
+    expect(panel.open).toBe(false);
+    expect(document.querySelector<HTMLElement>('#room-chip')!.hidden).toBe(true);
   });
 
   it('marks host, me, offline players and shows scores', () => {

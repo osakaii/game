@@ -77,20 +77,37 @@
     <div id="pose-wheel" hidden><div class="pose-ring"></div></div>
     <div id="desktop-hint">WASD — ходить · мышь — камера · Space — прыжок · C — присесть · 1–6 — позы, 0 — встать</div>
 
-    <details id="room-panel" open hidden>
-      <summary>
-        <span>Комната <b id="room-panel-code"></b></span>
-        <span id="room-panel-count"></span>
-      </summary>
-      <button type="button" id="room-settings-summary" class="settings-summary"></button>
-      <ul id="player-list"></ul>
+    <!-- Плашка комнаты: код и число игроков. Тап — шторка со списком; место на экране занимает только плашка. -->
+    <button type="button" id="room-chip" aria-haspopup="dialog" hidden>
+      <span id="room-chip-code"></span>
+      <span id="room-chip-count"></span>
+    </button>
+
+    <!-- Пока раунда нет — одно главное действие по центру сверху: пригласить или начать. -->
+    <div id="lobby-bar" hidden>
+      <span id="lobby-status"></span>
+      <button type="button" id="lobby-invite">Пригласить</button>
       <button type="button" id="start-game" class="primary" hidden>Начать игру</button>
-      <div class="room-actions">
-        <button type="button" id="invite">Пригласить</button>
-        <button type="button" id="leave-room" class="danger">Выйти</button>
-      </div>
-      <button type="button" id="sound-toggle-room" class="sound-room">Звук: вкл</button>
-    </details>
+    </div>
+
+    <div id="room-sheet" hidden>
+      <section class="sheet" role="dialog" aria-label="Комната">
+        <header class="sheet-header">
+          <div>
+            <span class="sheet-label">Комната</span>
+            <b id="room-sheet-code"></b>
+          </div>
+          <button type="button" id="room-sheet-close" class="icon-button" aria-label="Закрыть">✕</button>
+        </header>
+        <button type="button" id="room-settings-summary" class="settings-summary"></button>
+        <ul id="player-list"></ul>
+        <footer class="sheet-footer">
+          <button type="button" id="invite">Пригласить</button>
+          <button type="button" id="sound-toggle-room">Звук: вкл</button>
+          <button type="button" id="leave-room" class="danger">Выйти</button>
+        </footer>
+      </section>
+    </div>
 
     <button type="button" id="paint-toggle" hidden>Краска</button>
     <div id="studio" hidden>
@@ -238,6 +255,16 @@
       <span id="update-text"></span>
       <button type="button" id="update-reload" class="primary">Обновить</button>
       <button type="button" id="update-close" aria-label="Позже">✕</button>
+    </div>
+
+    <div id="confirm" class="overlay" hidden>
+      <div class="card confirm-card" role="alertdialog" aria-labelledby="confirm-text">
+        <p id="confirm-text"></p>
+        <div class="confirm-actions">
+          <button type="button" id="confirm-cancel">Отмена</button>
+          <button type="button" id="confirm-ok" class="danger"></button>
+        </div>
+      </div>
     </div>
 
     <div id="toast" role="status" hidden></div>

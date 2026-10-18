@@ -6,10 +6,20 @@ const PHASE_TITLES = {
   seeking: 'Поиск',
 } as const;
 
-const ROLE_HINTS: Record<Role, string> = {
-  hider: 'ты прячешься',
-  seeker: 'ты ищешь',
+/**
+ * Что делать прямо сейчас — одним-двумя словами. На телефоне баннер должен быть коротким:
+ * «Прятки 0:55 · ты прячешься» занимал полэкрана по ширине, а смысл тот же.
+ */
+const ROLE_ACTIONS: Record<keyof typeof PHASE_TITLES, Record<Role, string>> = {
+  hiding: { hider: 'Прячься', seeker: 'Глаза закрыты' },
+  seeking: { hider: 'Не попадись', seeker: 'Ищи' },
 };
+
+/** Текст баннера фазы: действие (или название фазы, если роли нет) и оставшееся время. */
+export function bannerText(phase: keyof typeof PHASE_TITLES, role: Role | null, found: boolean, left: string): string {
+  const action = found ? 'Тебя нашли' : role ? ROLE_ACTIONS[phase][role] : PHASE_TITLES[phase];
+  return `${action} · ${left}`;
+}
 
 const WIN_TITLES: Record<Role, string> = {
   hider: 'Победили прячущиеся',
@@ -47,8 +57,7 @@ export class PhaseHud {
     const inGame = phase === 'hiding' || phase === 'seeking';
     this.toggle(this.banner, inGame);
     if (inGame) {
-      const role = found ? ' · тебя нашли, наблюдай' : myRole ? ` · ${ROLE_HINTS[myRole]}` : '';
-      this.setText(this.banner, `${PHASE_TITLES[phase]} ${left}${role}`);
+      this.setText(this.banner, bannerText(phase, myRole, found, left));
       this.banner.dataset.role = myRole ?? '';
     }
 

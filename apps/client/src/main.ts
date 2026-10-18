@@ -1,4 +1,7 @@
 import './style.css';
+import './styles/sheet.css';
+import './styles/controls.css';
+import './styles/hud.css';
 import './styles/room.css';
 import {
   PHYSICS_DT,
@@ -16,7 +19,7 @@ import { CLIENT_BUILD, formatBuild } from './build-info';
 import { Sfx } from './audio/sfx';
 import { startFixedStepLoop } from './core/fixed-step-loop';
 import { ThirdPersonCamera } from './camera/third-person-camera';
-import { Controls } from './input/controls';
+import { Controls, loadLookScale, saveLookScale } from './input/controls';
 import { inviteToRoom, roomCodeFromUrl, setRoomInUrl } from './lobby/invite';
 import { Lobby } from './lobby/lobby';
 import { Network } from './net/network';
@@ -27,7 +30,7 @@ import { SkinPainter } from './paint/skin-painter';
 import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
 import { PlayerModel } from './player/player-model';
-import { ScreenWakeLock, setupFullscreenButton } from './platform/device';
+import { ScreenWakeLock, setupFullscreenButtons } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
 import { SeekerEffects } from './seek/seeker-effects';
@@ -41,6 +44,7 @@ import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
 import { LobbyBar } from './ui/lobby-bar';
 import { ConfirmDialog } from './ui/confirm-dialog';
+import { GameMenu } from './ui/game-menu';
 import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
@@ -91,11 +95,22 @@ const menu = new MenuScreen(
 const invite = () => lobby.room && void inviteToRoom(lobby.room.code);
 const confirmDialog = new ConfirmDialog();
 const roomPanel = new RoomPanel({
-  onLeave: () => void leaveRoom(),
   onInvite: invite,
   onSettings: () => settingsDialog.open(),
 });
 const lobbyBar = new LobbyBar({ onInvite: invite, onStart: () => void lobby.startGame() });
+controls.lookScale = loadLookScale();
+const gameMenu = new GameMenu(
+  {
+    onLeave: () => void leaveRoom(),
+    onSensitivity: (value) => {
+      controls.lookScale = value;
+      saveLookScale(value);
+    },
+  },
+  controls.lookScale,
+  formatBuild(CLIENT_BUILD),
+);
 
 /** Посреди раунда выход подводит команду — спрашиваем. В лобби и на итогах выходим сразу. */
 async function leaveRoom() {
@@ -159,9 +174,9 @@ controls.onTap = (x, y) => void seekerControls.tap(x, y);
 const sfx = new Sfx();
 const gameSounds = new GameSounds(sfx);
 const wakeLock = new ScreenWakeLock();
-setupFullscreenButton();
+setupFullscreenButtons();
 
-const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-room')];
+const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-game')];
 function renderSoundButtons() {
   for (const button of soundButtons) button.textContent = sfx.muted ? 'Звук: выкл' : 'Звук: вкл';
 }
@@ -176,13 +191,17 @@ renderSoundButtons();
 // Шорох кисти в Мастерской.
 studio.on('stroke', ({ state, speed }) => sfx.brush(state, speed));
 
-const shadowsButton = $<HTMLButtonElement>('#shadows-toggle');
-const renderShadowsButton = () => (shadowsButton.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл');
-shadowsButton.addEventListener('click', () => {
-  setShadowsEnabled(!graphics.shadows);
-  applyShadows(sceneContext, graphics.shadows);
-  renderShadowsButton();
-});
+const shadowsButtons = [$<HTMLButtonElement>('#shadows-toggle'), $<HTMLButtonElement>('#shadows-toggle-game')];
+function renderShadowsButton() {
+  for (const button of shadowsButtons) button.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл';
+}
+for (const button of shadowsButtons) {
+  button.addEventListener('click', () => {
+    setShadowsEnabled(!graphics.shadows);
+    applyShadows(sceneContext, graphics.shadows);
+    renderShadowsButton();
+  });
+}
 renderShadowsButton();
 
 // Автокачество: тормозит — сначала выключаем тени, потом облегчаем краску и разрешение.
@@ -270,6 +289,7 @@ lobby.on('room', (room) => {
   if (room && activeMap.load(MAPS[room.settings.mapId])) splats.clear();
   roomPanel.render(room, network.playerId);
   lobbyBar.render(room, network.playerId);
+  gameMenu.setAvailable(!!room);
   settingsDialog.render(room, lobby.isHost);
   phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);

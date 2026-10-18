@@ -1,0 +1,158 @@
+/* ---------- Игровой HUD: баннер фазы, подсказка поиска, кнопка и шторка меню ---------- */
+
+/* Технический угол сдвинут вправо от кнопки меню — оба в левом верхнем углу. */
+#hud {
+  left: calc(var(--edge-left) + 52px);
+}
+
+#phase-banner {
+  position: fixed;
+  top: var(--edge-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums; /* цифры одной ширины — таймер не «прыгает» */
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Цвет рамки — роль: красный ищет, зелёный прячется. Тот же цвет, что точки в списке игроков. */
+#phase-banner[data-role='seeker'] {
+  box-shadow: inset 0 0 0 2px #f87171;
+}
+
+#phase-banner[data-role='hider'] {
+  box-shadow: inset 0 0 0 2px #4ade80;
+}
+
+#phase-banner[hidden] {
+  display: none;
+}
+
+#seek-hint {
+  position: fixed;
+  top: calc(var(--edge-top) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgb(214 40 40 / 0.85);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#seek-hint.cooldown {
+  background: var(--panel);
+}
+
+#seek-hint[hidden] {
+  display: none;
+}
+
+/* ☰ в левом верхнем углу. Выше затемнения ищущего: и с закрытыми глазами можно выключить звук или выйти. */
+#menu-button {
+  position: fixed;
+  top: var(--edge-top);
+  left: var(--edge-left);
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  /* Три полоски без картинки: средняя — градиентом фона, верхняя и нижняя — ::before и ::after. */
+  background: linear-gradient(#fff 0 0) center / 18px 2px no-repeat, var(--panel);
+}
+
+#menu-button::before,
+#menu-button::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  width: 18px;
+  height: 2px;
+  background: #fff;
+}
+
+#menu-button::before {
+  top: 15px;
+}
+
+#menu-button::after {
+  bottom: 15px;
+}
+
+#menu-button[hidden] {
+  display: none;
+}
+
+#menu-button[aria-expanded='true'] {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+#game-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgb(10 12 18 / 0.45);
+}
+
+#game-menu[hidden] {
+  display: none;
+}
+
+.game-menu-toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.game-menu-toggles button {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.game-menu-toggles button[hidden] {
+  display: none;
+}
+
+.slider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.slider-field output {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-field input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* Версия прижата вниз, «Выйти» — под ней, отдельно от настроек: случайно не нажмёшь. */
+.game-menu-version {
+  margin: auto 0 0;
+  font-size: 11px;
+  color: rgb(255 255 255 / 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+#leave-room {
+  min-height: 44px;
+}
+
+body.studio-open #menu-button,
+body.studio-open #seek-hint {
+  display: none;
+}

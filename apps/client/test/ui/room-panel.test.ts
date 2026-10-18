@@ -10,9 +10,9 @@ function setup() {
       <b id="room-sheet-code"></b><button id="room-sheet-close"></button>
       <button id="room-settings-summary"></button>
       <ul id="player-list"></ul>
-      <button id="invite"></button><button id="leave-room"></button>
+      <button id="invite"></button>
     </div>`;
-  const handlers = { onLeave: vi.fn(), onInvite: vi.fn(), onSettings: vi.fn() };
+  const handlers = { onInvite: vi.fn(), onSettings: vi.fn() };
   return { panel: new RoomPanel(handlers), handlers };
 }
 

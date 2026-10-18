@@ -1,10 +1,23 @@
 import { POSES, type Pose } from '@mecha/shared';
+import { storage } from '../ui/dom';
 import { Keyboard } from './keyboard';
 import { VirtualJoystick } from './virtual-joystick';
 
 const TOUCH_LOOK_SENSITIVITY = 0.006; // рад на пиксель
 const MOUSE_LOOK_SENSITIVITY = 0.004;
 const JOYSTICK_ZONE = 0.45; // левые 45% экрана — зона джойстика
+const LOOK_SCALE_KEY = 'mecha:look-scale';
+export const LOOK_SCALE_RANGE = { min: 0.4, max: 2 } as const;
+
+/** Множитель чувствительности камеры из настроек (меню ☰). Мусор в хранилище — значение по умолчанию. */
+export function loadLookScale(): number {
+  const value = Number(storage.get(LOOK_SCALE_KEY));
+  return value >= LOOK_SCALE_RANGE.min && value <= LOOK_SCALE_RANGE.max ? value : 1;
+}
+
+export function saveLookScale(value: number): void {
+  storage.set(LOOK_SCALE_KEY, String(value));
+}
 /** Тап = палец сдвинулся меньше чем на TAP_SLOP пикселей и отпущен быстрее TAP_MAX_MS. Иначе это поворот камеры. */
 const TAP_SLOP = 10;
 const TAP_MAX_MS = 300;
@@ -31,6 +44,11 @@ export class Controls {
    * водить джойстиком и камерой неудобно, пальцев не хватает.
    */
   crouch = false;
+  /**
+   * Множитель чувствительности камеры. Экраны разные: на маленьком телефоне палец проходит меньше
+   * пикселей, и та же скорость кажется вялой, на планшете — резкой. Игрок подбирает сам.
+   */
+  lookScale = 1;
   /** Выбранная поза. Физика может её не принять (низко над головой) — тогда пробует снова каждый шаг. */
   pose: Pose = 'none';
   /** Поза сменилась (выбором или сбросом из-за движения) — интерфейс перерисовывает кнопку. */
@@ -165,8 +183,8 @@ export class Controls {
     if (e.pointerId === this.joystick.pointerId) {
       this.joystick.move(e);
     } else if (e.pointerId === this.lookPointerId) {
-      this.lookDx += (e.clientX - this.lastLookX) * this.lookSensitivity;
-      this.lookDy += (e.clientY - this.lastLookY) * this.lookSensitivity;
+      this.lookDx += (e.clientX - this.lastLookX) * this.lookSensitivity * this.lookScale;
+      this.lookDy += (e.clientY - this.lastLookY) * this.lookSensitivity * this.lookScale;
       this.lastLookX = e.clientX;
       this.lastLookY = e.clientY;
       if (Math.hypot(e.clientX - this.lookStartX, e.clientY - this.lookStartY) > TAP_SLOP) {

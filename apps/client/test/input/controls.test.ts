@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // Комментарий выше переключает этот файл на эмуляцию браузера: есть document, window, PointerEvent.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Controls } from '../../src/input/controls';
+import { Controls, loadLookScale, saveLookScale } from '../../src/input/controls';
 
 function setup() {
   document.body.innerHTML = `
@@ -107,5 +107,26 @@ describe('Controls', () => {
     key('Digit6');
     key('Digit0');
     expect(changes).toEqual(['flat', 'none', 'statue', 'none']);
+  });
+
+  it('camera sensitivity scales the look delta', () => {
+    const { controls, pointer } = setup();
+    pointer('pointerdown', 1, 800, 300);
+    pointer('pointermove', 1, 850, 300);
+    const normal = controls.consumeLook().dx;
+    controls.lookScale = 2;
+    pointer('pointermove', 1, 900, 300);
+    expect(controls.consumeLook().dx).toBeCloseTo(normal * 2);
+  });
+
+  it('remembers the sensitivity and ignores garbage in storage', () => {
+    localStorage.removeItem('mecha:look-scale');
+    expect(loadLookScale()).toBe(1);
+    saveLookScale(1.6);
+    expect(loadLookScale()).toBe(1.6);
+    localStorage.setItem('mecha:look-scale', '999');
+    expect(loadLookScale()).toBe(1);
+    localStorage.setItem('mecha:look-scale', 'abc');
+    expect(loadLookScale()).toBe(1);
   });
 });

@@ -3,7 +3,6 @@ import { describeSettings } from './settings-dialog';
 import { $ } from './dom';
 
 interface RoomPanelHandlers {
-  onLeave(): void;
   onInvite(): void;
   onSettings(): void;
 }
@@ -13,7 +12,7 @@ interface RoomPanelHandlers {
  *
  * Раньше всё это было открытой панелью на 70% высоты экрана — на телефоне в альбомной ориентации
  * она закрывала кнопки и зону поворота камеры. Теперь на экране только плашка, а список игроков,
- * настройки и «Выйти» — в шторке, когда они нужны.
+ * настройки и приглашение — в шторке, когда они нужны. «Выйти» — в меню игры (☰).
  */
 export class RoomPanel {
   private readonly chip = $<HTMLButtonElement>('#room-chip');
@@ -32,7 +31,6 @@ export class RoomPanel {
     this.sheet.addEventListener('pointerdown', (e) => {
       if (e.target === this.sheet) this.setOpen(false);
     });
-    $('#leave-room').addEventListener('click', () => handlers.onLeave());
     $('#invite').addEventListener('click', () => handlers.onInvite());
     this.settingsSummary.addEventListener('click', () => handlers.onSettings());
   }

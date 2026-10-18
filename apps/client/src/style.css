@@ -98,78 +98,7 @@ body {
   color: #f87171;
 }
 
-/* ---------- Мобильное управление ---------- */
-
-#joystick {
-  position: fixed;
-  width: 112px;
-  height: 112px;
-  margin: -56px 0 0 -56px; /* центр джойстика — в точке касания */
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.15);
-  border: 2px solid rgb(255 255 255 / 0.4);
-  pointer-events: none; /* касания идут на canvas, джойстик только рисуется */
-}
-
-#joystick[hidden] {
-  display: none;
-}
-
-#joystick-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 48px;
-  height: 48px;
-  margin: -24px 0 0 -24px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.75);
-}
-
-#jump-button {
-  position: fixed;
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  border: 2px solid rgb(255 255 255 / 0.6);
-  background: rgb(0 0 0 / 0.25);
-  color: #fff;
-  font: 600 14px system-ui, sans-serif;
-  touch-action: none;
-}
-
-#jump-button:active {
-  background: rgb(255 255 255 / 0.35);
-}
-
-#desktop-hint {
-  position: fixed;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgb(0 0 0 / 0.35);
-  font-size: 13px;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
 /* pointer: coarse — основное устройство ввода «палец», fine — мышь. */
-@media (pointer: fine) {
-  #jump-button {
-    display: none;
-  }
-}
-
-@media (pointer: coarse) {
-  #desktop-hint {
-    display: none;
-  }
-}
-
 /* ---------- Общие элементы интерфейса ---------- */
 
 button {
@@ -321,33 +250,6 @@ input:focus {
 
 /* ---------- Игровые фазы ---------- */
 
-#phase-banner {
-  position: fixed;
-  top: calc(10px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgb(15 18 26 / 0.7);
-  font-size: 15px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums; /* цифры одной ширины — таймер не «прыгает» */
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-#phase-banner[data-role='seeker'] {
-  box-shadow: inset 0 0 0 2px #f87171;
-}
-
-#phase-banner[data-role='hider'] {
-  box-shadow: inset 0 0 0 2px #4ade80;
-}
-
-#phase-banner[hidden] {
-  display: none;
-}
-
 #blind {
   background: #05060a;
   backdrop-filter: none;
@@ -398,64 +300,6 @@ input:focus {
   font-size: 13px;
   color: rgb(255 255 255 / 0.5);
   font-variant-numeric: tabular-nums;
-}
-
-/* ---------- Покраска ---------- */
-
-#paint-toggle {
-  position: fixed;
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(184px + env(safe-area-inset-bottom, 0px));
-  width: 84px;
-  padding: 10px 0;
-  border-radius: 999px;
-  background: rgb(0 0 0 / 0.35);
-  border: 2px solid rgb(255 255 255 / 0.6);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-#paint-toggle.active {
-  background: #ff6b9a;
-}
-
-#paint-toggle[hidden] {
-  display: none;
-}
-
-/* На компьютере кнопок прыжка и приседа нет (есть клавиши) — опускаем кнопку краски. */
-@media (pointer: fine) {
-  #paint-toggle {
-    bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-  }
-
-  #crouch-button {
-    display: none;
-  }
-}
-
-/* ---------- Поиск ---------- */
-
-#seek-hint {
-  position: fixed;
-  top: calc(52px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgb(214 40 40 / 0.85);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-#seek-hint.cooldown {
-  background: rgb(15 18 26 / 0.7);
-}
-
-#seek-hint[hidden] {
-  display: none;
 }
 
 .tap-ripple {
@@ -721,144 +565,7 @@ select option {
   text-align: right;
 }
 
-/* ---------- Присед ---------- */
-
-#crouch-button {
-  position: fixed;
-  right: calc(24px + env(safe-area-inset-right, 0px));
-  bottom: calc(128px + env(safe-area-inset-bottom, 0px));
-  width: 84px;
-  padding: 10px 0;
-  border-radius: 999px;
-  border: 2px solid rgb(255 255 255 / 0.6);
-  background: rgb(0 0 0 / 0.35);
-  font-size: 13px;
-  font-weight: 600;
-  touch-action: none;
-}
-
-#crouch-button.active {
-  background: #4ade80;
-  color: #0b1f12;
-}
-
-/* ---------- Позы ---------- */
-
-#pose-button {
-  position: fixed;
-  right: calc(120px + env(safe-area-inset-right, 0px));
-  bottom: calc(32px + env(safe-area-inset-bottom, 0px));
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 2px solid rgb(255 255 255 / 0.6);
-  background: rgb(0 0 0 / 0.35);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  font-size: 11px;
-  font-weight: 600;
-  touch-action: none;
-}
-
-#pose-button .pose-icon {
-  font-size: 22px;
-  line-height: 1;
-}
-
-#pose-button.active {
-  background: #a78bfa;
-  color: #1e1336;
-}
-
-#pose-button.open {
-  border-color: #fff;
-}
-
 /* На компьютере кнопки прыжка нет — кнопка позы встаёт левее кнопки краски. */
-@media (pointer: fine) {
-  #pose-button {
-    right: calc(124px + env(safe-area-inset-right, 0px));
-    bottom: calc(26px + env(safe-area-inset-bottom, 0px));
-  }
-}
-
-#pose-wheel {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  background: rgb(10 12 18 / 0.35);
-  touch-action: none;
-}
-
-#pose-wheel[hidden] {
-  display: none;
-}
-
-.pose-ring {
-  position: relative;
-  width: 280px;
-  height: 280px;
-  animation: pose-pop 0.18s ease-out;
-}
-
-@keyframes pose-pop {
-  from {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-}
-
-.pose-item {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 84px;
-  height: 84px;
-  margin: -42px 0 0 -42px;
-  border-radius: 50%;
-  border: 2px solid rgb(255 255 255 / 0.5);
-  background: rgb(27 31 42 / 0.92);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 4px;
-  /* По кругу: повернуть, отодвинуть от центра, повернуть обратно — значок остаётся ровным. */
-  transform: rotate(var(--angle)) translateY(-104px) rotate(calc(-1 * var(--angle)));
-  transition: background 0.12s;
-}
-
-.pose-item .pose-icon {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.pose-item .pose-name {
-  font-size: 10px;
-  line-height: 1.1;
-  text-align: center;
-}
-
-.pose-item.active {
-  background: #a78bfa;
-  color: #1e1336;
-  border-color: #fff;
-}
-
-.pose-item.pose-stand {
-  transform: none;
-  width: 76px;
-  height: 76px;
-  margin: -38px 0 0 -38px;
-  background: rgb(255 255 255 / 0.12);
-}
-
 /* ---------- Версия и обновления ---------- */
 
 #app-version {
@@ -920,18 +627,6 @@ select option {
 }
 
 /* ---------- Мастерская ---------- */
-
-/* В Мастерской прячем всё, что относится к ходьбе и бою: экран целиком под кисть. */
-body.studio-open #jump-button,
-body.studio-open #crouch-button,
-body.studio-open #pose-button,
-body.studio-open #pose-wheel,
-body.studio-open #paint-toggle,
-body.studio-open #joystick,
-body.studio-open #desktop-hint,
-body.studio-open #seek-hint {
-  display: none;
-}
 
 #studio[hidden] {
   display: none;

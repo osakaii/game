@@ -1,0 +1,294 @@
+/* ---------- Управление: джойстик и кнопки действий ---------- */
+
+/*
+ * Раскладка «под большие пальцы» (телефон в альбомной ориентации):
+ * левый палец — джойстик в левой части экрана, правый — камера и кнопки.
+ * Кнопки стоят дугой вокруг прыжка в правом нижнем углу: палец достаёт до любой, не отрываясь от угла.
+ * Позиции — в переменных: --jump (размер прыжка), --small (остальные), --arc (радиус дуги).
+ */
+:root {
+  --jump: 76px;
+  --small: 58px;
+  --arc: 100px;
+}
+
+@media (max-height: 400px) {
+  :root {
+    --jump: 68px;
+    --small: 52px;
+    --arc: 88px;
+  }
+}
+
+#joystick {
+  position: fixed;
+  width: 112px;
+  height: 112px;
+  margin: -56px 0 0 -56px; /* центр джойстика — в точке касания */
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.15);
+  border: 2px solid rgb(255 255 255 / 0.4);
+  pointer-events: none; /* касания идут на canvas, джойстик только рисуется */
+}
+
+#joystick[hidden] {
+  display: none;
+}
+
+#joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.75);
+}
+
+/* След: там, куда удобно положить большой палец. Пока палец на джойстике — следа нет. */
+#joystick-ghost {
+  position: fixed;
+  left: calc(var(--edge-left) + 24px);
+  bottom: calc(var(--edge-bottom) + 24px);
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 2px dashed rgb(255 255 255 / 0.3);
+  background: radial-gradient(circle, rgb(255 255 255 / 0.25) 0 22px, transparent 23px);
+  pointer-events: none;
+}
+
+#joystick:not([hidden]) + #joystick-ghost {
+  display: none;
+}
+
+/* Круглая кнопка действия: значок + подпись. */
+.action {
+  position: fixed;
+  width: var(--small);
+  height: var(--small);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.55);
+  background: rgb(0 0 0 / 0.32);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-weight: 600;
+  touch-action: none;
+  /* Отклик на нажатие — сразу, без задержки: игрок должен чувствовать, что кнопка сработала. */
+  transition: transform 0.06s;
+}
+
+.action:active {
+  transform: scale(0.92);
+  background: rgb(255 255 255 / 0.3);
+}
+
+.action[hidden] {
+  display: none;
+}
+
+.action svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.action-label {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.action .pose-icon,
+.action-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Прыжок — самая частая кнопка: крупнее всех и в самом углу. Центр дуги. */
+#jump-button {
+  right: var(--edge-right);
+  bottom: var(--edge-bottom);
+  width: var(--jump);
+  height: var(--jump);
+}
+
+#jump-button svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* Остальные — по дуге радиусом --arc вокруг центра прыжка: слева, слева-сверху, сверху. */
+#crouch-button {
+  right: calc(var(--edge-right) + var(--jump) / 2 + var(--arc) - var(--small) / 2);
+  bottom: calc(var(--edge-bottom) + var(--jump) / 2 - var(--small) / 2);
+}
+
+#pose-button {
+  right: calc(var(--edge-right) + var(--jump) / 2 + var(--arc) * 0.707 - var(--small) / 2);
+  bottom: calc(var(--edge-bottom) + var(--jump) / 2 + var(--arc) * 0.707 - var(--small) / 2);
+}
+
+#paint-toggle {
+  right: calc(var(--edge-right) + var(--jump) / 2 - var(--small) / 2);
+  bottom: calc(var(--edge-bottom) + var(--jump) / 2 + var(--arc) - var(--small) / 2);
+}
+
+#crouch-button.active {
+  background: #4ade80;
+  border-color: #fff;
+  color: #0b1f12;
+}
+
+#pose-button.active {
+  background: #a78bfa;
+  border-color: #fff;
+  color: #1e1336;
+}
+
+#pose-button.open {
+  border-color: #fff;
+}
+
+#paint-toggle.active {
+  background: var(--accent);
+}
+
+#desktop-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.35);
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* pointer: coarse — основное устройство ввода «палец», fine — мышь. */
+@media (pointer: coarse) {
+  #desktop-hint {
+    display: none;
+  }
+}
+
+/* На компьютере прыжок и присед — клавиши: кнопок нет, поза и краска встают в угол рядом. */
+@media (pointer: fine) {
+  #jump-button,
+  #crouch-button,
+  #joystick-ghost {
+    display: none;
+  }
+
+  #paint-toggle {
+    right: var(--edge-right);
+    bottom: var(--edge-bottom);
+  }
+
+  #pose-button {
+    right: calc(var(--edge-right) + var(--small) + 10px);
+    bottom: var(--edge-bottom);
+  }
+}
+
+/* ---------- Колесо поз ---------- */
+
+#pose-wheel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: rgb(10 12 18 / 0.35);
+  touch-action: none;
+}
+
+#pose-wheel[hidden] {
+  display: none;
+}
+
+.pose-ring {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  animation: pose-pop 0.18s ease-out;
+}
+
+/* Низкий экран: колесо 280 px почти упирается в края — уменьшаем целиком. */
+@media (max-height: 400px) {
+  .pose-ring {
+    scale: 0.86;
+  }
+}
+
+@keyframes pose-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.pose-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.5);
+  background: rgb(27 31 42 / 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px;
+  /* По кругу: повернуть, отодвинуть от центра, повернуть обратно — значок остаётся ровным. */
+  transform: rotate(var(--angle)) translateY(-104px) rotate(calc(-1 * var(--angle)));
+  transition: background 0.12s;
+}
+
+.pose-item .pose-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.pose-item .pose-name {
+  font-size: 10px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.pose-item.active {
+  background: #a78bfa;
+  color: #1e1336;
+  border-color: #fff;
+}
+
+.pose-item.pose-stand {
+  transform: none;
+  width: 76px;
+  height: 76px;
+  margin: -38px 0 0 -38px;
+  background: rgb(255 255 255 / 0.12);
+}
+
+/* В Мастерской экран целиком под кисть: всё, что про ходьбу и бой, прячем. */
+body.studio-open .action,
+body.studio-open #pose-wheel,
+body.studio-open #joystick,
+body.studio-open #joystick-ghost,
+body.studio-open #desktop-hint {
+  display: none;
+}

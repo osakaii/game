@@ -1,24 +1,28 @@
-import { $ } from '../ui/dom';
-
 /**
  * Полноэкранный режим. На Android после него можно зафиксировать альбомную ориентацию.
  * iPhone Safari не умеет fullscreen для страниц — там кнопку прячем,
  * а полный экран даёт «Добавить на главный экран» (manifest + apple-mobile-web-app-capable).
  */
-export function setupFullscreenButton(): void {
-  const button = $<HTMLButtonElement>('#fullscreen');
+export function setupFullscreenButtons(): void {
   if (!document.fullscreenEnabled) return;
-  button.hidden = false;
-  button.addEventListener('click', async () => {
-    try {
-      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-      // lock есть не во всех браузерах и не во всех типах (TS знает о нём не везде) — вызываем осторожно.
-      const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-      await orientation.lock?.('landscape').catch(() => {});
-    } catch {
-      /* пользователь отказал или браузер не разрешил — играем как есть */
-    }
-  });
+  // Кнопок две (стартовое меню и меню игры) — все помечены data-fullscreen.
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-fullscreen]')];
+  // Уже на весь экран — кнопка не нужна (выйти можно жестом системы).
+  const render = () => buttons.forEach((button) => (button.hidden = !!document.fullscreenElement));
+  document.addEventListener('fullscreenchange', render);
+  render();
+  for (const button of buttons) {
+    button.addEventListener('click', async () => {
+      try {
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        // lock есть не во всех браузерах и не во всех типах (TS знает о нём не везде) — вызываем осторожно.
+        const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+        await orientation.lock?.('landscape').catch(() => {});
+      } catch {
+        /* пользователь отказал или браузер не разрешил — играем как есть */
+      }
+    });
+  }
 }
 
 /**

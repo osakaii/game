@@ -1,0 +1,375 @@
+/* ---------- Мастерская ---------- */
+
+/*
+ * Раскладка под альбомный телефон: сверху полоса (цвет, недавние, отмена/повтор, «Готово»),
+ * слева колонка инструментов (--rail), справа колонка ползунков (--side). Середина — персонаж:
+ * StudioToolbar меряет колонки и просит камеру поставить его в центр свободного места.
+ */
+:root {
+  --rail: 60px;
+  --side: 172px;
+  --studio-top: 44px;
+}
+
+#studio[hidden] {
+  display: none;
+}
+
+/* Подсказка жестов — внизу по центру, сама гаснет: нужна в первые секунды, потом мешает. */
+.studio-hint {
+  position: fixed;
+  left: 50%;
+  bottom: var(--edge-bottom);
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * (var(--rail) + var(--side)));
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+  animation: hint-fade 0.6s ease-in 5s forwards;
+}
+
+@keyframes hint-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---------- Верхняя полоса ---------- */
+
+.studio-top {
+  position: fixed;
+  top: var(--edge-top);
+  left: var(--edge-left);
+  right: var(--edge-right);
+  height: var(--studio-top);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none; /* между кнопками — холст: там можно вращать камеру */
+}
+
+.studio-top > * {
+  pointer-events: auto;
+}
+
+.studio-color {
+  width: var(--studio-top);
+  height: var(--studio-top);
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.35);
+  flex-shrink: 0;
+}
+
+.studio-color.open {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+#studio-recent {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+#studio-recent:empty {
+  display: none;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.7);
+  flex-shrink: 0;
+}
+
+/* Узкий экран: недавних — не больше пяти, иначе полоса налезет на «Готово». */
+@media (max-width: 760px) {
+  .swatch:nth-child(n + 6) {
+    display: none;
+  }
+}
+
+.studio-top-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.studio-icon {
+  width: var(--studio-top);
+  height: var(--studio-top);
+  padding: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  font-size: 20px;
+}
+
+#studio-done {
+  height: var(--studio-top);
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 15px;
+}
+
+/* ---------- Колонка инструментов ---------- */
+
+.studio-rail {
+  position: fixed;
+  left: var(--edge-left);
+  top: calc(var(--edge-top) + var(--studio-top) + 8px);
+  width: var(--rail);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.studio-rail button {
+  height: 48px;
+  padding: 2px 0;
+  border-radius: 12px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.tool-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.tool-label {
+  font-size: 9px;
+  line-height: 1;
+  color: rgb(255 255 255 / 0.8);
+}
+
+/* Совсем низкий экран: пять кнопок по 48 px под верхней полосой упираются в низ — делаем их ниже. */
+@media (max-height: 380px) {
+  .studio-rail button {
+    height: 44px;
+  }
+}
+
+/* ---------- Колонка ползунков ---------- */
+
+.studio-side {
+  position: fixed;
+  right: var(--edge-right);
+  top: calc(var(--edge-top) + var(--studio-top) + 8px);
+  width: var(--side);
+  max-height: calc(100% - var(--edge-top) - var(--studio-top) - var(--edge-bottom) - 8px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.studio-range {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.studio-range input {
+  width: 100%;
+  height: 24px;
+  accent-color: var(--accent);
+}
+
+.studio-side button {
+  min-height: 38px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.studio-tools button.active,
+#studio-symmetry.active,
+#studio-preview.active {
+  background: var(--accent);
+}
+
+.studio-tools button.active .tool-label {
+  color: #fff;
+}
+
+/* Предпросмотр «глазами ищущего»: остаются только «Вернуться к покраске» и «Готово». */
+body.studio-preview .studio-side > :not(#studio-preview),
+body.studio-preview .studio-rail,
+body.studio-preview .studio-top > :not(.studio-top-actions),
+body.studio-preview .studio-top-actions > :not(#studio-done),
+body.studio-preview .studio-hint,
+body.studio-preview #palette {
+  display: none;
+}
+
+body.studio-preview .studio-side {
+  background: none;
+  padding: 0;
+}
+
+/* ---------- Палитра ---------- */
+
+#palette {
+  position: fixed;
+  /* Справа от колонки инструментов, под верхней полосой: палец тянется к цвету оттуда же, где кнопка цвета. */
+  left: calc(var(--edge-left) + var(--rail) + 8px);
+  top: calc(var(--edge-top) + var(--studio-top) + 8px);
+  width: 236px;
+  max-height: calc(100% - var(--edge-top) - var(--studio-top) - var(--edge-bottom) - 8px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgb(15 18 26 / 0.92);
+  z-index: 2;
+  /* Пальцы по палитре не должны двигать камеру или страницу. */
+  touch-action: none;
+}
+
+#palette[hidden] {
+  display: none;
+}
+
+#palette-sv {
+  width: 100%;
+  height: 130px;
+  border-radius: 8px;
+  cursor: crosshair;
+}
+
+#palette-hue {
+  width: 100%;
+  height: 18px;
+  border-radius: 9px;
+  cursor: ew-resize;
+}
+
+.palette-opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.75);
+}
+
+.palette-opacity input {
+  flex: 1;
+}
+
+.palette-compare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cmp-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgb(255 255 255 / 0.5);
+}
+
+.cmp-swatch.empty {
+  background: repeating-linear-gradient(45deg, #555 0 4px, #333 4px 8px) !important;
+}
+
+#cmp-label[data-level='perfect'] {
+  color: #4ade80;
+}
+#cmp-label[data-level='close'] {
+  color: #a3e635;
+}
+#cmp-label[data-level='noticeable'] {
+  color: #fbbf24;
+}
+#cmp-label[data-level='far'] {
+  color: #f87171;
+}
+
+.palette-row {
+  display: flex;
+  gap: 6px;
+}
+
+#palette-hex {
+  flex: 1;
+  padding: 6px 8px;
+  font-family: ui-monospace, monospace;
+  text-transform: lowercase;
+}
+
+#palette-save {
+  width: 40px;
+  padding: 6px;
+  font-size: 18px;
+}
+
+#palette-saved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+/* Низкий экран: палитра столбиком не влезает по высоте — раскладываем в две колонки (поле цвета слева, остальное справа). */
+@media (max-height: 500px) {
+  #palette {
+    display: grid;
+    grid-template-columns: 170px 190px;
+    grid-template-areas:
+      'sv opacity'
+      'sv compare'
+      'sv row'
+      'hue saved';
+    align-content: start;
+    width: auto;
+  }
+
+  #palette-sv {
+    grid-area: sv;
+    height: 120px;
+  }
+
+  #palette-hue {
+    grid-area: hue;
+  }
+
+  .palette-opacity {
+    grid-area: opacity;
+  }
+
+  .palette-compare {
+    grid-area: compare;
+  }
+
+  .palette-row {
+    grid-area: row;
+  }
+
+  #palette-saved {
+    grid-area: saved;
+  }
+}

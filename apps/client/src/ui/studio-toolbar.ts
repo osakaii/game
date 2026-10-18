@@ -3,7 +3,11 @@ import type { SkinPainter } from '../paint/skin-painter';
 import { $ } from './dom';
 import { Palette } from './palette';
 
-/** Панель Мастерской: палитра, недавние цвета, пипетка, размер и жёсткость кисти, отмена/повтор, «Готово». */
+/**
+ * Панели Мастерской: сверху цвет, недавние цвета, отмена/повтор и «Готово»; слева колонка инструментов;
+ * справа ползунки (размер, жёсткость, влажность), симметрия и «Глазами ищущего».
+ * Персонажа камера держит в центре свободного места между колонками.
+ */
 export class StudioToolbar {
   private readonly root = $('#studio');
   private readonly color = $<HTMLButtonElement>('#studio-color');
@@ -17,6 +21,8 @@ export class StudioToolbar {
   private readonly wetness = $<HTMLInputElement>('#studio-wetness');
   private readonly undo = $<HTMLButtonElement>('#studio-undo');
   private readonly redo = $<HTMLButtonElement>('#studio-redo');
+  private readonly rail = $('.studio-rail');
+  private readonly side = $('.studio-side');
 
   constructor(
     private readonly studio: PaintStudio,
@@ -50,7 +56,26 @@ export class StudioToolbar {
       if (hex) studio.setColor(hex);
     });
     studio.on('change', () => this.render());
+    // Повернули экран, открылась клавиатура — свободное место между панелями другое.
+    window.addEventListener('resize', () => this.updateScreenShift());
     this.render();
+  }
+
+  /**
+   * Центр свободного места между левой и правой колонками — туда камера ставит персонажа.
+   * Меряем вёрстку, а не считаем из CSS: размеры колонок зависят от экрана и шрифта.
+   */
+  private updateScreenShift() {
+    const s = this.studio;
+    if (!s.active || s.previewing || window.innerWidth === 0) {
+      s.setScreenShift(0);
+      return;
+    }
+    const rail = this.rail.getBoundingClientRect();
+    const side = this.side.getBoundingClientRect();
+    const left = rail.width > 0 ? rail.right : 0;
+    const right = side.width > 0 ? side.left : window.innerWidth;
+    s.setScreenShift(((left + right) / 2 - window.innerWidth / 2) / window.innerWidth);
   }
 
   render(): void {
@@ -59,6 +84,7 @@ export class StudioToolbar {
     document.body.classList.toggle('studio-open', s.active);
     if (!s.active) {
       document.body.classList.remove('studio-preview');
+      this.updateScreenShift();
       return;
     }
 
@@ -86,5 +112,6 @@ export class StudioToolbar {
       return b;
     });
     this.recent.replaceChildren(...swatches);
+    this.updateScreenShift();
   }
 }

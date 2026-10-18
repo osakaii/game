@@ -162,19 +162,28 @@
         </div>
         <div id="palette-saved" aria-label="Сохранённые цвета"></div>
       </div>
-      <div class="studio-hint">Палец на теле — кисть · мимо тела — повернуть · двумя — повернуть и приблизить</div>
-      <div class="studio-bar">
+      <div class="studio-hint">Тело — кисть · мимо — повернуть · двумя пальцами — приблизить</div>
+      <!--
+        Раскладка под альбомный телефон: сверху цвет и «Готово», слева инструменты, справа ползунки.
+        Середина экрана свободна — там персонаж (камера Мастерской сдвигает его в центр свободного места).
+      -->
+      <div class="studio-top">
         <button type="button" id="studio-color" class="studio-color" aria-label="Палитра"></button>
-        <div id="studio-recent"></div>
-        <div class="studio-tools" role="radiogroup" aria-label="Инструмент">
-          <button type="button" data-tool="brush">Кисть</button>
-          <button type="button" data-tool="spray">Спрей</button>
-          <button type="button" data-tool="sponge">Губка</button>
-          <button type="button" data-tool="eraser">Ластик</button>
-          <button type="button" data-tool="eyedropper" id="studio-pick">Пипетка</button>
+        <div id="studio-recent" aria-label="Недавние цвета"></div>
+        <div class="studio-top-actions">
+          <button type="button" id="studio-undo" class="studio-icon" aria-label="Отменить">↶</button>
+          <button type="button" id="studio-redo" class="studio-icon" aria-label="Повторить">↷</button>
+          <button type="button" id="studio-done" class="primary">Готово</button>
         </div>
-        <button type="button" id="studio-symmetry" aria-pressed="false">Симметрия</button>
-        <button type="button" id="studio-preview">Глазами ищущего</button>
+      </div>
+      <div class="studio-tools studio-rail" role="radiogroup" aria-label="Инструмент">
+        <button type="button" data-tool="brush"><span class="tool-icon">🖌️</span><span class="tool-label">Кисть</span></button>
+        <button type="button" data-tool="spray"><span class="tool-icon">💨</span><span class="tool-label">Спрей</span></button>
+        <button type="button" data-tool="sponge"><span class="tool-icon">🧽</span><span class="tool-label">Губка</span></button>
+        <button type="button" data-tool="eraser"><span class="tool-icon">⌫</span><span class="tool-label">Ластик</span></button>
+        <button type="button" data-tool="eyedropper" id="studio-pick"><span class="tool-icon">💧</span><span class="tool-label">Пипетка</span></button>
+      </div>
+      <div class="studio-side">
         <label class="studio-range">
           <span>Размер</span>
           <input type="range" id="studio-size" min="1.5" max="20" step="0.5" />
@@ -187,9 +196,8 @@
           <span>Влажность</span>
           <input type="range" id="studio-wetness" min="0" max="1" step="0.05" value="0.6" />
         </label>
-        <button type="button" id="studio-undo" aria-label="Отменить">↶</button>
-        <button type="button" id="studio-redo" aria-label="Повторить">↷</button>
-        <button type="button" id="studio-done" class="primary">Готово</button>
+        <button type="button" id="studio-symmetry" aria-pressed="false">Симметрия</button>
+        <button type="button" id="studio-preview">Глазами ищущего</button>
       </div>
     </div>
 

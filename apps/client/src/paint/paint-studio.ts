@@ -161,6 +161,11 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
     this.emit('change', undefined);
   }
 
+  /** Где держать персонажа на экране (доля ширины от центра) — чтобы панели его не закрывали. */
+  setScreenShift(shift: number): void {
+    this.studioCamera.screenShift = shift;
+  }
+
   setPreview(enabled: boolean): void {
     this.endStroke();
     this.previewing = enabled;

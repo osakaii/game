@@ -9,6 +9,7 @@ const MAX_DISTANCE = 4;
 const WALL_PADDING = 0.15;
 /** Типичное расстояние, с которого ищущий осматривает комнату. */
 const PREVIEW_DISTANCE = 6.5;
+const UP = new THREE.Vector3(0, 1, 0);
 
 /**
  * Камера Мастерской: облёт вокруг своего персонажа.
@@ -21,8 +22,16 @@ export class StudioCamera {
   distance = DEFAULT_DISTANCE;
   /** «Глазами ищущего»: камера далеко, как у ищущего, — видно, сливаешься ли с фоном. */
   preview = false;
+  /**
+   * Где на экране держать персонажа: сдвиг от центра в долях ширины экрана (+ — вправо).
+   * Панели Мастерской слева и справа разной ширины: в центре экрана персонаж оказался бы под панелью,
+   * поэтому ставим его в центр свободного места между ними.
+   */
+  screenShift = 0;
   private readonly pivot = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
+  private readonly right = new THREE.Vector3();
+  private readonly lookAt = new THREE.Vector3();
   private readonly raycaster = new THREE.Raycaster();
 
   constructor(
@@ -58,7 +67,14 @@ export class StudioCamera {
     const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
     if (hit) distance = Math.max(hit.distance - WALL_PADDING, 0.4);
 
-    this.camera.position.copy(this.pivot).addScaledVector(this.direction, distance);
-    this.camera.lookAt(this.pivot);
+    // Сдвиг на экране = параллельный перенос камеры вбок (панорама), а не поворот: перспектива та же,
+    // персонаж просто оказывается левее или правее. Ширина кадра на расстоянии distance — 2·d·tan(fov/2)·aspect.
+    const halfHeight = distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+    const pan = -this.screenShift * 2 * halfHeight * this.camera.aspect;
+    // «Вправо» для камеры: взгляд (к персонажу, −direction) × вверх.
+    this.right.set(-this.direction.x, 0, -this.direction.z).cross(UP).normalize();
+    this.lookAt.copy(this.pivot).addScaledVector(this.right, pan);
+    this.camera.position.copy(this.pivot).addScaledVector(this.direction, distance).addScaledVector(this.right, pan);
+    this.camera.lookAt(this.lookAt);
   }
 }

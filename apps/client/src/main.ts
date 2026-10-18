@@ -3,6 +3,7 @@ import './styles/sheet.css';
 import './styles/controls.css';
 import './styles/hud.css';
 import './styles/room.css';
+import './styles/studio.css';
 import {
   PHYSICS_DT,
   PLAYROOM,

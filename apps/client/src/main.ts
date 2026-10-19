@@ -4,6 +4,7 @@ import './styles/controls.css';
 import './styles/hud.css';
 import './styles/room.css';
 import './styles/studio.css';
+import './styles/screens.css';
 import {
   PHYSICS_DT,
   PLAYROOM,

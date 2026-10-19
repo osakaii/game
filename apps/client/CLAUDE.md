@@ -1,6 +1,6 @@
 # @mecha/client — Vite + three.js, мобильный браузер
 
-Без UI-фреймворка: DOM-разметка в `index.html`, классы-контроллеры в `src/ui/`, стили в `src/style.css` и по частям в `src/styles/` (`sheet.css` — общая основа шторок, `controls.css` — джойстик, кнопки дугой (позиции через `--jump/--small/--arc`), колесо поз, `hud.css` — баннер, ☰ и меню, `room.css`, `studio.css` — Мастерская и палитра (`--rail/--side/--studio-top`); большой `style.css` разбираем по мере переделки экранов, подключение — `import` в `main.ts` после `style.css`).
+Без UI-фреймворка: DOM-разметка в `index.html`, классы-контроллеры в `src/ui/`, стили в `src/style.css` и по частям в `src/styles/` (`sheet.css` — общая основа шторок, `controls.css` — джойстик, кнопки дугой (позиции через `--jump/--small/--arc`), колесо поз, `hud.css` — баннер, ☰ и меню, `room.css`, `studio.css` — Мастерская и палитра (`--rail/--side/--studio-top`); `screens.css` — окна (меню, настройки, итоги, затемнение): на высоком экране столбцом, при `max-height: 500px` — две колонки; `.overlay` центрирует через flex + `margin: auto` (не `place-items` — иначе высокое окно обрезается сверху); большой `style.css` разбираем по мере переделки экранов, подключение — `import` в `main.ts` после `style.css`).
 Точка сборки всего — `src/main.ts` (создаёт объекты, связывает события, игровой цикл). Dev-хук `window.__mecha`.
 
 ## Модули

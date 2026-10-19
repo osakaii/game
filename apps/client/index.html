@@ -213,36 +213,40 @@
 
     <div id="results" class="overlay" hidden>
       <div class="card results-card">
-        <h2 id="results-title"></h2>
-        <p id="results-reason"></p>
+        <div class="results-head">
+          <h2 id="results-title"></h2>
+          <p id="results-reason"></p>
+          <p id="results-timer"></p>
+        </div>
         <ol id="results-scores"></ol>
-        <p id="results-timer"></p>
       </div>
     </div>
 
     <div id="settings" class="overlay" hidden>
       <form id="settings-form" class="card" novalidate>
         <h2>Настройки комнаты</h2>
-        <label class="field">
-          <span>Карта</span>
-          <select name="mapId"></select>
-        </label>
-        <label class="field">
-          <span>Время на прятки</span>
-          <select name="hideSeconds"></select>
-        </label>
-        <label class="field">
-          <span>Время на поиск</span>
-          <select name="seekSeconds"></select>
-        </label>
-        <label class="field">
-          <span>Ищущих</span>
-          <select name="seekers"></select>
-        </label>
-        <label class="field">
-          <span>Найденные</span>
-          <select name="foundMode"></select>
-        </label>
+        <div class="settings-fields">
+          <label class="field">
+            <span>Карта</span>
+            <select name="mapId"></select>
+          </label>
+          <label class="field">
+            <span>Время на прятки</span>
+            <select name="hideSeconds"></select>
+          </label>
+          <label class="field">
+            <span>Время на поиск</span>
+            <select name="seekSeconds"></select>
+          </label>
+          <label class="field">
+            <span>Ищущих</span>
+            <select name="seekers"></select>
+          </label>
+          <label class="field">
+            <span>Найденные</span>
+            <select name="foundMode"></select>
+          </label>
+        </div>
         <p class="settings-note" id="settings-note"></p>
         <button type="button" id="settings-close" class="primary">Готово</button>
       </form>
@@ -250,39 +254,43 @@
 
     <div id="menu" class="overlay">
       <form id="menu-form" class="card" novalidate>
-        <h1>MECHA</h1>
-        <p class="subtitle">прятки с красками</p>
-
-        <label class="field">
-          <span>Ник</span>
-          <input id="nickname" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Как тебя зовут?" />
-        </label>
-
-        <button type="button" id="create-room" class="primary" disabled>Создать комнату</button>
-
-        <div class="divider"><span>или</span></div>
-
-        <div class="join-row">
-          <input
-            id="room-code"
-            placeholder="КОД"
-            autocapitalize="characters"
-            autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-            enterkeyhint="go"
-          />
-          <button type="submit" id="join-room" disabled>Войти</button>
+        <!-- На низком экране (телефон горизонтально) — две колонки: слева игра и настройки, справа вход. -->
+        <div class="menu-brand">
+          <h1>MECHA</h1>
+          <p class="subtitle">прятки с красками</p>
+          <div class="menu-footer">
+            <button type="button" id="fullscreen" data-fullscreen hidden>На весь экран</button>
+            <button type="button" id="sound-toggle">Звук: вкл</button>
+            <button type="button" id="shadows-toggle">Тени: вкл</button>
+          </div>
+          <p id="app-version"></p>
         </div>
 
-        <p id="menu-error" role="alert"></p>
+        <div class="menu-main">
+          <label class="field">
+            <span>Ник</span>
+            <input id="nickname" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Как тебя зовут?" />
+          </label>
 
-        <div class="menu-footer">
-          <button type="button" id="fullscreen" data-fullscreen hidden>На весь экран</button>
-          <button type="button" id="sound-toggle">Звук: вкл</button>
-          <button type="button" id="shadows-toggle">Тени: вкл</button>
+          <button type="button" id="create-room" class="primary" disabled>Создать комнату</button>
+
+          <div class="divider"><span>или по коду друга</span></div>
+
+          <div class="join-row">
+            <input
+              id="room-code"
+              placeholder="КОД"
+              autocapitalize="characters"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              enterkeyhint="go"
+            />
+            <button type="submit" id="join-room" disabled>Войти</button>
+          </div>
+
+          <p id="menu-error" role="alert"></p>
         </div>
-        <p id="app-version"></p>
       </form>
     </div>
 

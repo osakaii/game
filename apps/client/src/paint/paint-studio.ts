@@ -111,11 +111,13 @@ export class PaintStudio extends Emitter<{ change: void; edited: void; stroke: S
     c.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
   }
 
-  open(facing: number): void {
+  /** position — где стоит персонаж: камера выбирает сторону, где есть место (не упираясь в стену). */
+  open(facing: number, position: THREE.Vector3): void {
     this.active = true;
     this.tool = this.lastPaintTool;
     this.previewing = false;
-    this.studioCamera.frameFront(facing);
+    this.lookTarget.copy(position);
+    this.studioCamera.frameOpen(facing, this.lookTarget);
     this.deps.model.setStudioPose(true);
     this.emit('change', undefined);
   }

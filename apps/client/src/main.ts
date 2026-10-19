@@ -32,7 +32,7 @@ import { SkinPainter } from './paint/skin-painter';
 import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
 import { PlayerModel } from './player/player-model';
-import { ScreenWakeLock, setupFullscreenButtons } from './platform/device';
+import { ScreenWakeLock, preventPageZoom, setupFullscreenButtons } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
 import { SeekerEffects } from './seek/seeker-effects';
@@ -147,7 +147,7 @@ new StudioToolbar(studio, skinPainter, () => closeStudio());
 const paintToggle = $<HTMLButtonElement>('#paint-toggle');
 paintToggle.addEventListener('click', () => {
   if (!canUseStudio()) return;
-  studio.open(player.facing);
+  studio.open(player.facing, player.renderPosition);
   updateControlsEnabled();
 });
 
@@ -179,6 +179,7 @@ const sfx = new Sfx();
 const gameSounds = new GameSounds(sfx);
 const wakeLock = new ScreenWakeLock();
 setupFullscreenButtons();
+preventPageZoom();
 
 const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-game')];
 function renderSoundButtons() {

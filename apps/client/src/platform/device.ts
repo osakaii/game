@@ -25,6 +25,44 @@ export function setupFullscreenButtons(): void {
   }
 }
 
+/** Два касания быстрее этого и ближе DOUBLE_TAP_PX друг к другу браузер считает двойным тапом и приближает. */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 40;
+
+/**
+ * Запрет масштабирования страницы жестами.
+ *
+ * iOS Safari игнорирует `user-scalable=no` в meta viewport (ради доступности) и приближает страницу
+ * по двойному тапу — например, если быстро нажать «Присесть» два раза. Отдалить обратно нельзя:
+ * щипок в игре отключён (`touch-action: none`), он нужен для управления. Поэтому гасим сам жест:
+ * второе касание в том же месте сразу после первого — preventDefault на touchend.
+ * Кнопки игры работают на pointerdown, и на них это не влияет; поля ввода не трогаем — там двойной
+ * тап выделяет слово.
+ */
+export function preventPageZoom(target: Document | HTMLElement = document, now: () => number = () => performance.now()): void {
+  let last = { time: -Infinity, x: 0, y: 0 };
+  target.addEventListener(
+    'touchend',
+    (e) => {
+      const touch = (e as TouchEvent).changedTouches?.[0];
+      if (!touch) return;
+      const time = now();
+      const near = Math.hypot(touch.clientX - last.x, touch.clientY - last.y) < DOUBLE_TAP_PX;
+      if (time - last.time < DOUBLE_TAP_MS && near && !isTextField(e.target)) e.preventDefault();
+      last = { time, x: touch.clientX, y: touch.clientY };
+    },
+    // passive: false — иначе браузер не даст отменить жест (по умолчанию touch-слушатели пассивные).
+    { passive: false },
+  );
+  // Щипок на iOS — нестандартное событие Safari gesturestart.
+  target.addEventListener('gesturestart', (e) => e.preventDefault());
+  target.addEventListener('dblclick', (e) => e.preventDefault());
+}
+
+function isTextField(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.matches('input:not([type="range"]), textarea, select');
+}
+
 /**
  * Wake Lock: не даём экрану погаснуть, пока игрок в комнате.
  * Прячущийся может не трогать экран минуты — без этого телефон уснёт, сокет оборвётся.

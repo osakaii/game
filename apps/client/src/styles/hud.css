@@ -156,3 +156,15 @@ body.studio-open #menu-button,
 body.studio-open #seek-hint {
   display: none;
 }
+
+/* Совсем низкий экран (маленький Android с панелями браузера, ~300 px): три переключателя в ряд. */
+@media (max-height: 320px) {
+  .game-menu-toggles {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .game-menu-toggles button {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+}

@@ -101,6 +101,13 @@ body {
 /* pointer: coarse — основное устройство ввода «палец», fine — мышь. */
 /* ---------- Общие элементы интерфейса ---------- */
 
+/* Минимум под палец для всех кнопок и полей (44 px — Apple и Google). Меньше — только осознанно, своим правилом. */
+button,
+select,
+input:not([type='range']) {
+  min-height: 44px;
+}
+
 button {
   font: inherit;
   color: inherit;

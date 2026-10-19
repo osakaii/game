@@ -71,8 +71,8 @@
 
 #studio-recent {
   display: flex;
-  gap: 6px;
-  padding: 4px;
+  gap: 0;
+  padding: 0 4px;
   border-radius: 999px;
   background: var(--panel);
   overflow: hidden;
@@ -82,12 +82,19 @@
   display: none;
 }
 
+/*
+ * Кружок цвета виден 28 px, а ловит палец на 44: прозрачная рамка входит в зону нажатия,
+ * но фон под неё не заходит (background-clip). Белое кольцо — внутренняя тень по краю фона.
+ */
 .swatch {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgb(255 255 255 / 0.7);
+  border: 8px solid transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.75);
   flex-shrink: 0;
 }
 
@@ -197,7 +204,7 @@
 }
 
 .studio-side button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 6px 8px;
   font-size: 13px;
 }
@@ -322,7 +329,7 @@ body.studio-preview .studio-side {
 }
 
 #palette-save {
-  width: 40px;
+  width: 44px;
   padding: 6px;
   font-size: 18px;
 }
@@ -330,7 +337,6 @@ body.studio-preview .studio-side {
 #palette-saved {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
   min-height: 24px;
 }
 
@@ -371,5 +377,19 @@ body.studio-preview .studio-side {
 
   #palette-saved {
     grid-area: saved;
+  }
+}
+
+/* Совсем низкий экран: подпись ползунка — слева от него, в одну строку; так влезают обе кнопки под ними. */
+@media (max-height: 320px) {
+  .studio-range {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .studio-range span {
+    width: 68px;
+    flex-shrink: 0;
   }
 }

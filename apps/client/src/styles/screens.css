@@ -162,7 +162,6 @@
 }
 
 select {
-  min-height: 40px;
   font: 16px system-ui, sans-serif;
   color: #fff;
   background: rgb(255 255 255 / 0.1);
@@ -304,6 +303,14 @@ select option {
     width: min(540px, 100%);
   }
 
+  #settings h2 {
+    font-size: 18px;
+  }
+
+  .card .field {
+    gap: 3px;
+  }
+
   .settings-fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -341,5 +348,17 @@ select option {
 
   #blind-timer {
     font-size: 48px;
+  }
+}
+
+/* Совсем низкий экран: окна ещё плотнее — каждая строка на счету. */
+@media (max-height: 320px) {
+  .card {
+    gap: 6px;
+    padding: 10px 14px;
+  }
+
+  #settings h2 {
+    font-size: 16px;
   }
 }

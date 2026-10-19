@@ -47,6 +47,8 @@ import { RoomPanel } from './ui/room-panel';
 import { LobbyBar } from './ui/lobby-bar';
 import { ConfirmDialog } from './ui/confirm-dialog';
 import { GameMenu } from './ui/game-menu';
+// Только для dev-хука ниже: в продакшене блок вырезается, и модуль не попадает в бандл.
+import { auditUi } from './dev/ui-audit';
 import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
@@ -407,5 +409,5 @@ if (import.meta.env.DEV) {
     PlayerModel.showHitboxes = !PlayerModel.showHitboxes;
   });
 
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, seekerEffects, shotFx, controls, sceneContext, splats, followCamera } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, seekerEffects, shotFx, controls, sceneContext, splats, followCamera, auditUi, gameMenu, roomPanel } });
 }

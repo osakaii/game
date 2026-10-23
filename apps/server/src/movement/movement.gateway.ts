@@ -18,6 +18,7 @@ import {
 } from '../common/socket-types';
 import { RoomsService } from '../rooms/rooms.service';
 import { checkAirborne } from './air-check';
+import { judgeSprint, recordSprint } from './stamina-check';
 import { validateMove } from './move-validator';
 
 /** Допуск на сдвиг замороженного игрока (м): клиент мог отправить пакет до того, как узнал о заморозке. */
@@ -63,7 +64,8 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
     if (!room || !member) return;
 
     const now = Date.now();
-    const next = parsed.data;
+    // Бег — по серверному запасу сил: сил нет — проверяем как шаг, и быстрое движение не пройдёт.
+    const next = judgeSprint(member.stamina, parsed.data);
     const prev = member.state;
     // Ищущий в фазе пряток заморожен: поворачиваться можно, ходить нельзя.
     if (!canMove(room.phase, member.role) && Math.hypot(next.x - prev.x, next.z - prev.z) > FROZEN_SLACK) {
@@ -71,7 +73,7 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
       return;
     }
 
-    const verdict = validateMove(prev, next, now - member.stateAt, room.map, room.colliders);
+    const verdict = validateMove(prev, next, now - member.stateAt, room.map, room.colliders, member.moveBudget);
     if (!verdict.ok) {
       this.logger.warn(`rejected move from ${member.nickname}: ${verdict.reason}`);
       const { x, y, z } = member.state;
@@ -89,6 +91,7 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
       return;
     }
 
+    recordSprint(member.stamina, next, now - member.stateAt);
     member.state = next;
     member.stateAt = now;
     member.history.push(now, next);

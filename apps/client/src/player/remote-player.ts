@@ -100,7 +100,7 @@ export class RemotePlayer {
     this.model.setPose(b.pose);
     // Скорость лазания — по высоте между снимками: лезет вверх — перебирает руками, висит — замер.
     this.model.setClimbing(b.climbing, span > 0 ? Math.abs(b.y - a.y) / (span / 1000) : 0);
-    this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), b.grounded);
+    this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, PLAYER.sprintSpeed / PLAYER.walkSpeed), b.grounded);
     const p = root.position;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));
   }

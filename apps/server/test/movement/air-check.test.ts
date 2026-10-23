@@ -3,7 +3,7 @@ import { PLAYROOM, buildColliders, type PlayerState } from '@mecha/shared';
 import { checkAirborne, type AirState } from '../../src/movement/air-check';
 
 const colliders = buildColliders(PLAYROOM);
-const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: y === 0, crouching: false, pose: 'none', climbing: false });
+const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: y === 0, crouching: false, pose: 'none', climbing: false, sprinting: false });
 const fresh = (): AirState => ({ since: null, takeoffY: 0 });
 
 describe('checkAirborne', () => {
@@ -35,7 +35,7 @@ describe('checkAirborne', () => {
 
 describe('checkAirborne on walls', () => {
   const wall = [{ minX: -0.5, maxX: 0.5, minY: 0, maxY: 6, minZ: -3, maxZ: 3 }];
-  const hanging = (y: number): PlayerState => ({ x: 0.5 + 0.36, y, z: 0, yaw: 0, grounded: false, crouching: false, pose: 'none', climbing: true });
+  const hanging = (y: number): PlayerState => ({ x: 0.5 + 0.36, y, z: 0, yaw: 0, grounded: false, crouching: false, pose: 'none', climbing: true, sprinting: false });
 
   it('hanging on a wall for a long time is not flying', () => {
     const air = { since: null, takeoffY: 0 };

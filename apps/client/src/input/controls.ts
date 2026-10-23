@@ -111,6 +111,12 @@ export class Controls {
     return len > 1 ? { x: axis.x / len, y: axis.y / len } : axis;
   }
 
+  /** Хочет бежать: палец за кольцом джойстика или зажат Shift. Сможет ли — решает физика (выносливость). */
+  get sprint(): boolean {
+    if (!this.enabled) return false;
+    return this.joystick.pointerId !== null ? this.joystick.sprinting : this.keyboard.sprint;
+  }
+
   /** Накопленный с прошлого кадра поворот камеры (в радианах). Чтение сбрасывает счётчик. */
   consumeLook(): { dx: number; dy: number } {
     const look = { dx: this.lookDx, dy: this.lookDy };

@@ -292,3 +292,50 @@ body.studio-open #joystick-ghost,
 body.studio-open #desktop-hint {
   display: none;
 }
+
+/* ---------- Бег и выносливость ---------- */
+
+/* Палец за кольцом — бег: кольцо джойстика подсвечено, видно, что сработало. */
+#joystick.sprint {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgb(255 107 154 / 0.35);
+}
+
+#joystick.sprint #joystick-knob {
+  background: var(--accent);
+}
+
+/* Внизу по центру — между джойстиком и кнопками, туда не заходят пальцы. */
+#stamina {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--edge-bottom) + 6px);
+  width: 140px;
+  height: 8px;
+  margin-left: -70px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.45);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#stamina[hidden] {
+  display: none;
+}
+
+/* scaleX, а не width: меняется каждый кадр бега, а transform не пересчитывает вёрстку. */
+#stamina-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #ffd166;
+  transform-origin: left center;
+}
+
+#stamina.low #stamina-fill {
+  background: #f87171;
+}
+
+body.studio-open #stamina {
+  display: none;
+}

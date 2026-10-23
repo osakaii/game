@@ -39,6 +39,7 @@ import { SeekerEffects } from './seek/seeker-effects';
 import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
+import { StaminaBar } from './ui/stamina-bar';
 import { PoseWheel } from './ui/pose-wheel';
 import { MenuScreen } from './ui/menu-screen';
 import { StudioToolbar } from './ui/studio-toolbar';
@@ -86,6 +87,7 @@ new PoseWheel($<HTMLButtonElement>('#pose-button'), $('#pose-wheel'), controls);
 // ---------- Сеть и лобби ----------
 
 const hud = new Hud();
+const staminaBar = new StaminaBar();
 const network = new Network();
 const lobby = new Lobby(network);
 
@@ -358,7 +360,7 @@ updateControlsEnabled();
 // ---------- Игровой цикл ----------
 
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
-const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false, pose: 'none' };
+const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false, pose: 'none', sprint: false };
 
 // Экран загрузки висит, пока не нарисован первый кадр: бандл скачан, сцена собрана.
 let firstFrame = true;
@@ -380,6 +382,7 @@ startFixedStepLoop(PHYSICS_DT, {
     moveInput.jump = controls.consumeJump();
     moveInput.crouch = controls.enabled && controls.crouch;
     moveInput.pose = controls.pose;
+    moveInput.sprint = controls.sprint;
     player.fixedUpdate(moveInput, dt);
     // Поза «на месте» снята движением или прыжком — снимаем и выбор, иначе персонаж снова ляжет, едва остановится.
     if (cancelsPose(controls.pose, moveInput)) controls.setPose('none');
@@ -401,6 +404,7 @@ startFixedStepLoop(PHYSICS_DT, {
       hideSplash();
     }
     hud.tick(frameDt);
+    staminaBar.update(player.state.stamina ?? 1, !!player.state.sprinting);
     perfGovernor.tick(frameDt);
     telemetry.tick(frameDt);
     const serverNow = network.clock.now();

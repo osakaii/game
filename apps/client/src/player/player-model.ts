@@ -265,7 +265,7 @@ export class PlayerModel {
     this.writeBones();
   }
 
-  /** Каждый кадр. speed01 — горизонтальная скорость 0..1 от скорости ходьбы. */
+  /** Каждый кадр. speed01 — горизонтальная скорость в долях скорости ходьбы: 1 — шаг, больше — бег. */
   animate(dt: number, speed01: number, grounded: boolean): void {
     let spring = SPRING_WALK;
     if (this.studioPose) {
@@ -366,17 +366,20 @@ export class PlayerModel {
   /**
    * Шаг: бёдра качаются, колено сгибается, пока нога идёт вперёд (её надо пронести над полом),
    * руки — в противофазе ногам, таз чуть проседает в широком шаге, корпус слегка поворачивается.
-   * В приседе шаги мельче.
+   * В приседе шаги мельче. Быстрее шага — бег: шаги чаще и шире, колени выше, локти согнуты,
+   * корпус наклонён вперёд. Наклон умеренный: голова не должна выходить из коробки попадания стойки.
    */
   private addWalk(dt: number, speed01: number): void {
-    const stride = speed01 * (this.crouching ? 0.45 : 1);
-    this.walkPhase += dt * (4 + 8 * speed01);
+    const walk = Math.min(1, speed01);
+    const run = Math.min(1, Math.max(0, (speed01 - 1) / (PLAYER.sprintSpeed / PLAYER.walkSpeed - 1)));
+    const stride = walk * (this.crouching ? 0.45 : 1);
+    this.walkPhase += dt * (4 + 8 * walk + 5 * run);
     if (stride < 0.01) return;
     const sin = Math.sin(this.walkPhase);
     const cos = Math.cos(this.walkPhase);
-    const swing = sin * 0.65 * stride;
-    const kneeLeft = Math.max(0, -cos) * 1.1 * stride;
-    const kneeRight = Math.max(0, cos) * 1.1 * stride;
+    const swing = sin * (0.65 + 0.2 * run) * stride;
+    const kneeLeft = Math.max(0, -cos) * (1.1 + 0.5 * run) * stride;
+    const kneeRight = Math.max(0, cos) * (1.1 + 0.5 * run) * stride;
 
     this.add('thighLeft', 0, swing);
     this.add('thighRight', 0, -swing);
@@ -384,11 +387,11 @@ export class PlayerModel {
     this.add('shinRight', 0, kneeRight);
     this.add('footLeft', 0, -kneeLeft * 0.4);
     this.add('footRight', 0, -kneeRight * 0.4);
-    this.add('upperArmLeft', 0, -swing * 0.8);
-    this.add('upperArmRight', 0, swing * 0.8);
-    this.add('forearmLeft', 0, -0.3 * stride);
-    this.add('forearmRight', 0, -0.3 * stride);
-    this.add('torso', 0, 0.06 * stride);
+    this.add('upperArmLeft', 0, -swing * (0.8 + 0.3 * run));
+    this.add('upperArmRight', 0, swing * (0.8 + 0.3 * run));
+    this.add('forearmLeft', 0, -(0.3 + 0.9 * run) * stride);
+    this.add('forearmRight', 0, -(0.3 + 0.9 * run) * stride);
+    this.add('torso', 0, (0.06 + 0.1 * run) * stride);
     this.add('torso', 1, swing * 0.18);
     this.add('head', 1, -swing * 0.12);
     this.target[HIP_Y_CH] -= Math.abs(sin) * 0.03 * stride;

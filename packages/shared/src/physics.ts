@@ -17,6 +17,8 @@ export const PLAYER = {
   radius: 0.35,
   height: 1.6,
   walkSpeed: 5,
+  /** Бег: джойстик за кольцо или Shift. Быстрее шага в 1.6 раза — догнать или перебежать, но не телепорт. */
+  sprintSpeed: 8,
   /** м/с² — как быстро скорость догоняет желаемую. Меньше = «скользко». */
   acceleration: 40,
   /** Доля управления в воздухе. */
@@ -40,6 +42,53 @@ export const PLAYER = {
 export interface BodyStance {
   crouching: boolean;
   pose?: Pose;
+  /** Бежит (поза и присед бег отменяют). */
+  sprinting?: boolean;
+}
+
+/**
+ * Выносливость (0..1). Бег её тратит, отдых — восстанавливает. Кончилась — просто идёшь шагом,
+ * а снова побежать можно, как только накопится немного (MIN_TO_START): без порога бег
+ * «дребезжал» бы — каждый кадр то хватает сил, то нет.
+ */
+export const STAMINA = {
+  /** Полный запас — на столько секунд бега. */
+  sprintSeconds: 4,
+  /** За столько секунд отдыха запас восстанавливается с нуля до полного. */
+  refillSeconds: 5,
+  /** Восстанавливаться начинает через столько секунд после бега — отдышаться. */
+  restDelay: 1,
+  minToStart: 0.1,
+} as const;
+
+export interface StaminaState {
+  /** 0 — сил нет, 1 — полный запас. undefined — полный (у состояний, созданных до бега). */
+  stamina?: number;
+  /** Секунд без бега: восстановление начинается после STAMINA.restDelay. */
+  staminaRest?: number;
+  sprinting?: boolean;
+}
+
+/** Можно ли бежать сейчас: уже бежит — пока есть силы, только начинает — нужен небольшой запас. */
+export function canSprint(state: StaminaState): boolean {
+  const stamina = state.stamina ?? 1;
+  return state.sprinting ? stamina > 0 : stamina >= STAMINA.minToStart;
+}
+
+/**
+ * Шаг выносливости. Одна функция для клиента (физика) и сервера (свой учёт по принятым движениям):
+ * сервер не верит запасу сил клиента, а считает его сам тем же кодом.
+ */
+export function tickStamina(state: StaminaState, sprinting: boolean, dt: number): void {
+  const stamina = state.stamina ?? 1;
+  if (sprinting) {
+    state.stamina = Math.max(0, stamina - dt / STAMINA.sprintSeconds);
+    state.staminaRest = 0;
+  } else {
+    state.staminaRest = (state.staminaRest ?? STAMINA.restDelay) + dt;
+    if (state.staminaRest >= STAMINA.restDelay) state.stamina = Math.min(1, stamina + dt / STAMINA.refillSeconds);
+  }
+  state.sprinting = sprinting;
 }
 
 /** Высота тела: для столкновений с потолком, проверки сервера и хитбокса. */
@@ -51,10 +100,11 @@ export function bodyHeight(stance: BodyStance): number {
 /** Наибольшая горизонтальная скорость в этом положении тела (м/с). */
 export function moveSpeed(stance: BodyStance): number {
   if (stance.pose && stance.pose !== 'none') return POSE_RULES[stance.pose].speed;
-  return stance.crouching ? PLAYER.crouchSpeed : PLAYER.walkSpeed;
+  if (stance.crouching) return PLAYER.crouchSpeed;
+  return stance.sprinting ? PLAYER.sprintSpeed : PLAYER.walkSpeed;
 }
 
-export interface PlayerPhysicsState {
+export interface PlayerPhysicsState extends StaminaState {
   position: Vec3;
   velocity: Vec3;
   grounded: boolean;
@@ -74,7 +124,12 @@ export interface MoveInput {
   crouch: boolean;
   /** Какую позу игрок выбрал (по умолчанию — никакую). */
   pose?: Pose;
+  /** Хочет бежать (джойстик за кольцо, Shift). Побежит, если есть силы и идёт, а не стоит в позе. */
+  sprint?: boolean;
 }
+
+/** Джойстик отклонён хотя бы настолько — игрок идёт, а не просто чуть тронул стик: только тогда бег. */
+const SPRINT_MIN_INPUT = 0.5;
 
 const EPS = 1e-4;
 /** Насколько близко к стене (м сверх радиуса) — «касаюсь, могу ухватиться». */
@@ -125,13 +180,18 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
     state.crouching = false;
   }
   updatePose(state, input, colliders);
-  if (climb(state, input, colliders, dt)) return;
-  const speed = moveSpeed(state);
+  if (climb(state, input, colliders, dt)) {
+    tickStamina(state, false, dt); // на стене не бегут — отдыхают
+    return;
+  }
 
   // 1. Горизонтальная скорость плавно стремится к желаемой.
   let dirX = input.dirX;
   let dirZ = input.dirZ;
   const len = Math.hypot(dirX, dirZ);
+  const wantsSprint = !!input.sprint && len >= SPRINT_MIN_INPUT && !state.crouching && state.pose === 'none';
+  tickStamina(state, wantsSprint && canSprint(state), dt);
+  const speed = moveSpeed(state);
   if (len > 1) {
     dirX /= len;
     dirZ /= len;

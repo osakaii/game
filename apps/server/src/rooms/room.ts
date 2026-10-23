@@ -15,10 +15,12 @@ import {
   type RoomSettings,
   type RoomSnapshot,
   type SkinBase,
+  type StaminaState,
   type Vec3,
 } from '@mecha/shared';
 
 import type { AirState } from '../movement/air-check';
+import { freshBudget, type MoveBudget } from '../movement/move-validator';
 import { PositionHistory } from '../movement/position-history';
 
 /** Игрок внутри комнаты: публичные данные + последнее принятое сервером состояние. */
@@ -37,6 +39,10 @@ export interface RoomMember extends Omit<PlayerInfo, 'skin'> {
   timesSeeker: number;
   /** Сколько в воздухе и откуда оторвался — защита от «полётов». */
   air: AirState;
+  /** Выносливость по версии сервера: бег клиента принимается, только пока она не кончилась. */
+  stamina: StaminaState;
+  /** Сколько метров игрок ещё вправе пройти (античит скорости, см. move-validator). */
+  moveBudget: MoveBudget;
   /** Недавние позиции — для компенсации задержки при проверке мест. */
   history: PositionHistory;
 }
@@ -150,8 +156,10 @@ export class Room {
       roundPoints: 0,
       timesSeeker: 0,
       air: { since: null, takeoffY: spawn.y },
+      stamina: {},
+      moveBudget: freshBudget(),
       history: new PositionHistory(),
-      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false, pose: 'none', climbing: false },
+      state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false, pose: 'none', climbing: false, sprinting: false },
       stateAt: now,
     };
     member.history.push(now, member.state);
@@ -254,6 +262,7 @@ export class Room {
     member.state = { ...member.state, x: position.x, y: position.y, z: position.z };
     member.stateAt = now;
     member.air = { since: null, takeoffY: position.y };
+    member.moveBudget = freshBudget();
     // Старая история относится к другому месту — перемотка не должна «вернуть» игрока туда.
     member.history.clear();
     member.history.push(now, member.state);

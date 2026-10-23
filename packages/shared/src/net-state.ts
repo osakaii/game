@@ -22,6 +22,8 @@ export const PlayerStateSchema = z.object({
   pose: PoseSchema.default('none'),
   /** Лезет или висит на стене — для анимации у других игроков. Сервер проверяет стену сам, по геометрии. */
   climbing: z.boolean().default(false),
+  /** Бежит. Сервер бег не принимает на слово: сам ведёт выносливость игрока (tickStamina). */
+  sprinting: z.boolean().default(false),
 });
 export type PlayerState = z.output<typeof PlayerStateSchema>;
 

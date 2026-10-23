@@ -129,4 +129,30 @@ describe('Controls', () => {
     localStorage.setItem('mecha:look-scale', 'abc');
     expect(loadLookScale()).toBe(1);
   });
+
+  it('pushing the finger past the joystick ring sprints, easing back walks again', () => {
+    const { controls, pointer, q } = setup();
+    pointer('pointerdown', 1, 100, 400);
+    pointer('pointermove', 1, 100, 340); // 60 px — на кольце (радиус 56): ещё шаг
+    expect(controls.sprint).toBe(false);
+    pointer('pointermove', 1, 100, 320); // 80 px — за кольцом: бег
+    expect(controls.sprint).toBe(true);
+    expect(q('#joystick').classList.contains('sprint')).toBe(true);
+    pointer('pointermove', 1, 100, 330); // 70 px — между порогами: бег держится (без дребезга)
+    expect(controls.sprint).toBe(true);
+    pointer('pointermove', 1, 100, 350); // 50 px — вернулся внутрь: шаг
+    expect(controls.sprint).toBe(false);
+    pointer('pointermove', 1, 100, 300);
+    pointer('pointerup', 1, 100, 300);
+    expect(controls.sprint).toBe(false);
+  });
+
+  it('Shift sprints on the keyboard, not while controls are disabled', () => {
+    const { controls } = setup();
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ShiftLeft' }));
+    expect(controls.sprint).toBe(true);
+    controls.enabled = false;
+    expect(controls.sprint).toBe(false);
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ShiftLeft' }));
+  });
 });

@@ -102,7 +102,7 @@ export class LocalPlayer {
     const n = this.state.wallNormal;
     const along = n ? Math.hypot(vx + n.x * 0.5, vz + n.z * 0.5) : 0;
     this.model.setClimbing(!!this.state.climbing, Math.hypot(this.state.velocity.y, along));
-    this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, 1), this.state.grounded);
+    this.model.animate(frameDt, Math.min(speed / PLAYER.walkSpeed, PLAYER.sprintSpeed / PLAYER.walkSpeed), this.state.grounded);
     const p = this.renderPosition;
     this.model.setShadowGround(groundHeightAt(p.x, p.z, p.y, this.world.colliders));
   }

@@ -22,6 +22,11 @@ export class Keyboard {
     window.addEventListener('blur', () => this.pressed.clear());
   }
 
+  /** Shift зажат — бег. */
+  get sprint(): boolean {
+    return this.pressed.has('ShiftLeft') || this.pressed.has('ShiftRight');
+  }
+
   axis(): { x: number; y: number } {
     const has = (...codes: string[]) => codes.some((c) => this.pressed.has(c));
     return {

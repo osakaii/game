@@ -1,5 +1,11 @@
 const RADIUS = 56; // px — насколько далеко можно отвести «стик»
 const DEAD_ZONE = 0.12;
+/**
+ * Бег: палец ушёл за кольцо — дальше 1.35 радиуса от центра. Вернулся ближе 1.15 — снова шаг.
+ * Два порога (гистерезис), иначе палец на самой границе включал бы и выключал бег каждый кадр.
+ */
+const SPRINT_PUSH = 1.35;
+const SPRINT_HOLD = 1.15;
 
 /**
  * Плавающий джойстик: появляется там, где палец коснулся экрана.
@@ -8,6 +14,8 @@ const DEAD_ZONE = 0.12;
 export class VirtualJoystick {
   pointerId: number | null = null;
   readonly value = { x: 0, y: 0 };
+  /** Палец за кольцом — игрок хочет бежать. */
+  sprinting = false;
 
   private originX = 0;
   private originY = 0;
@@ -31,6 +39,8 @@ export class VirtualJoystick {
     let dx = e.clientX - this.originX;
     let dy = e.clientY - this.originY;
     const len = Math.hypot(dx, dy);
+    this.sprinting = len > RADIUS * (this.sprinting ? SPRINT_HOLD : SPRINT_PUSH);
+    this.base.classList.toggle('sprint', this.sprinting);
     if (len > RADIUS) {
       dx = (dx / len) * RADIUS;
       dy = (dy / len) * RADIUS;
@@ -53,6 +63,8 @@ export class VirtualJoystick {
   end(): void {
     this.pointerId = null;
     this.value.x = this.value.y = 0;
+    this.sprinting = false;
+    this.base.classList.remove('sprint');
     this.base.hidden = true;
   }
 

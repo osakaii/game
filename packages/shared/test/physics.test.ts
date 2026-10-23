@@ -3,6 +3,7 @@ import { vec3, type Vec3 } from '../src/math.js';
 import {
   PHYSICS_DT,
   PLAYER,
+  STAMINA,
   bodyHeight,
   keepBodyOutOfWalls,
   penetratesColliders,
@@ -80,6 +81,48 @@ describe('stepPlayer on Playroom', () => {
     const s = simulate(vec3(0, 0, 6), 0, 0, 1);
     expect(s.position).toEqual(vec3(0, 0, 6));
     expect(s.grounded).toBe(true);
+  });
+});
+
+describe('sprinting', () => {
+  /** Чистое поле без стен: бег не упирается в стену и не превращается в лазание. */
+  const fresh = (): PlayerPhysicsState => ({ position: vec3(0, 0, 0), velocity: vec3(), grounded: true, crouching: false, pose: 'none' });
+  const run = (state: PlayerPhysicsState, seconds: number, sprint: boolean, extra: { crouch?: boolean; pose?: Pose; dirX?: number } = {}) => {
+    const ticks = Math.round(seconds / PHYSICS_DT);
+    for (let i = 0; i < ticks; i++) {
+      stepPlayer(state, { dirX: extra.dirX ?? 1, dirZ: 0, jump: false, crouch: !!extra.crouch, pose: extra.pose ?? 'none', sprint }, [], PHYSICS_DT);
+    }
+    return state;
+  };
+  const speed = (s: PlayerPhysicsState) => Math.hypot(s.velocity.x, s.velocity.z);
+
+  it('runs at sprint speed while stamina lasts, then walks', () => {
+    const s = run(fresh(), 1, true);
+    expect(speed(s)).toBeCloseTo(PLAYER.sprintSpeed, 1);
+    expect(s.sprinting).toBe(true);
+    run(s, STAMINA.sprintSeconds, true);
+    expect(s.stamina).toBe(0);
+    expect(s.sprinting).toBe(false);
+    expect(speed(s)).toBeCloseTo(PLAYER.walkSpeed, 1);
+  });
+
+  it('rests before refilling, then can sprint again once a little is back', () => {
+    // Ровно до момента, когда силы кончились (дальше и с зажатым бегом идёт шагом — это уже отдых).
+    const s = run(fresh(), STAMINA.sprintSeconds + PHYSICS_DT, true);
+    expect(s.stamina).toBe(0);
+    run(s, STAMINA.restDelay * 0.8, false);
+    expect(s.stamina).toBe(0); // ещё отдышивается
+    run(s, STAMINA.restDelay * 0.2 + STAMINA.refillSeconds * STAMINA.minToStart + 0.05, false);
+    run(s, PHYSICS_DT, true);
+    expect(s.sprinting).toBe(true);
+    run(s, STAMINA.refillSeconds * 2, false);
+    expect(s.stamina).toBe(1);
+  });
+
+  it('no sprint while crouching, in a pose or barely touching the stick', () => {
+    expect(run(fresh(), 0.5, true, { crouch: true }).sprinting).toBe(false);
+    expect(run(fresh(), 0.5, true, { pose: 'flat' }).sprinting).toBe(false);
+    expect(run(fresh(), 0.5, true, { dirX: 0.3 }).sprinting).toBe(false);
   });
 });
 

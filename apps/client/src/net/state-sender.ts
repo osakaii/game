@@ -33,6 +33,7 @@ export class StateSender {
       crouching: player.state.crouching,
       pose: player.state.pose,
       climbing: !!player.state.climbing,
+      sprinting: !!player.state.sprinting,
     };
     if (this.sinceLastSend < IDLE_HEARTBEAT && this.last && sameState(state, this.last)) return;
 
@@ -57,6 +58,7 @@ function sameState(a: PlayerState, b: PlayerState): boolean {
     a.grounded === b.grounded &&
     a.crouching === b.crouching &&
     a.pose === b.pose &&
-    a.climbing === b.climbing
+    a.climbing === b.climbing &&
+    a.sprinting === b.sprinting
   );
 }

@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import type { UpdateSettingsPayload } from './settings.js';
 import type { SkinImageEvent } from './skin.js';
+import type { ClientReport } from './telemetry.js';
 import type { BuildInfo } from './version.js';
 import type {
   CreateRoomPayload,
@@ -31,7 +32,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -92,4 +93,6 @@ export interface ClientToServerEvents {
   /** Своя кожа целиком — сжатая картинка (бинарные данные, не JSON). */
   'player:skin': (image: ArrayBuffer, ack: (result: Result<{ revision: number }>) => void) => void;
   'seek:shoot': (payload: ShootPayload, ack: (result: Result<ShotResult>) => void) => void;
+  /** Замеры производительности и ошибки JS с устройства игрока (телеметрия). Без ответа. */
+  'client:report': (report: ClientReport) => void;
 }

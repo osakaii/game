@@ -23,6 +23,7 @@
 | `game/game.service.ts` | Автомат фаз (таймеры на объект Room), очередь ведущих, победа, настройки, `shoot` (lag compensation ≤300 мс), `uploadSkin` |
 | `game/game.gateway.ts` | `game:start`, `room:settings`, `seek:shoot`, `player:skin` |
 | `game/shot.ts` | Ближайшее пересечение луча (пол, карта, прячущиеся по `rayHitsBody`: поза + yaw) — стены закрывают |
+| `telemetry/` | `client:report` → `TelemetryService` (строка JSON в лог `client-perf`/`client-error`, последние 500 замеров и 50 разных ошибок в памяти), `GET /stats` — сводка (FPS медиана/p10, по видеокартам, уровни автокачества, ошибки); id игроков наружу не отдаются |
 | `movement/movement.gateway.ts` | Приём `player:state`: заморозка ищущих, `validateMove`, `checkAirborne`, история; 20 Гц снимки (ищущим в прятках — без прячущихся, призраки скрыты) |
 | `movement/move-validator.ts`, `air-check.ts`, `position-history.ts` | Античит скорости (по позе)/стен (рост по позе)/полёта, история позиций (с yaw, приседом, позой) для перемотки |
 

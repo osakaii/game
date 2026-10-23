@@ -21,7 +21,9 @@ export const GAME_RULES = {
  *                             │                   │
  *                             └── одна из команд опустела ──► results
  */
-export type RoomPhase = 'lobby' | 'hiding' | 'seeking' | 'results';
+/** Массив, а не только тип: по нему zod проверяет фазу в сообщениях (телеметрия). */
+export const ROOM_PHASES = ['lobby', 'hiding', 'seeking', 'results'] as const;
+export type RoomPhase = (typeof ROOM_PHASES)[number];
 export type Role = 'hider' | 'seeker';
 
 export type WinReason = 'time_up' | 'all_found' | 'seekers_left' | 'hiders_left';

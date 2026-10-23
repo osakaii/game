@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import {
   PROTOCOL_VERSION,
+  type ClientReport,
   type ClientToServerEvents,
   type CreateRoomPayload,
   type EmptyResult,
@@ -106,6 +107,11 @@ export class Network extends Emitter<NetworkEvents> {
 
   shoot(payload: ShootPayload): Promise<Result<ShotResult>> {
     return withTimeoutFallback(this.socket.timeout(REQUEST_TIMEOUT_MS).emitWithAck('seek:shoot', payload));
+  }
+
+  /** Телеметрия: обычный emit, не volatile — ошибка, случившаяся без связи, уйдёт после переподключения. */
+  report(report: ClientReport): void {
+    this.socket.emit('client:report', report);
   }
 
   leaveRoom(): void {

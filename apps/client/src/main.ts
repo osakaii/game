@@ -58,6 +58,7 @@ import { ShotFx } from './world/shot-fx';
 import { Splats } from './world/splats';
 import { applyShadows, createSceneContext, setRenderScale } from './world/scene-setup';
 import { PerfGovernor } from './core/perf-governor';
+import { Telemetry, captureErrors, deviceInfo } from './net/telemetry';
 
 // ---------- 3D-мир ----------
 
@@ -223,6 +224,28 @@ const perfGovernor = new PerfGovernor(graphics.shadows ? 2 : 1, (level) => {
   toast('Графика упрощена для плавности');
 });
 
+// Телеметрия: как игра идёт на телефонах игроков (FPS, видеокарта, ошибки) — сводка на сервере, /stats.
+const telemetry = new Telemetry(
+  (report) => network.report(report),
+  deviceInfo(renderer.getContext()),
+  () => {
+    const room = lobby.room;
+    if (!room) return null;
+    return {
+      quality: perfGovernor.level,
+      renderScale: renderer.getPixelRatio(),
+      wet8bit: skinPainter.precision === '8-bit',
+      // Счётчики последнего renderer.render — телеметрия тикает сразу после отрисовки сцены.
+      drawCalls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      mapId: room.settings.mapId,
+      phase: room.phase,
+    };
+  },
+  CLIENT_BUILD.version,
+);
+captureErrors(telemetry);
+
 network.on('status', ({ state, text }) => {
   hud.setStatus(state, text);
   menu.setOnline(state === 'online');
@@ -379,6 +402,7 @@ startFixedStepLoop(PHYSICS_DT, {
     }
     hud.tick(frameDt);
     perfGovernor.tick(frameDt);
+    telemetry.tick(frameDt);
     const serverNow = network.clock.now();
     phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found && lobby.myRole === 'hider');
     seekerControls.update(serverNow);

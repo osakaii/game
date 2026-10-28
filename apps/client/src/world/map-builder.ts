@@ -105,20 +105,25 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
     // Детализация — по размеру: ручке шкафа и мячику хватит нескольких граней, дивану нужно больше.
     // На телефоне треугольники не бесплатны, а мелочь издалека всё равно выглядит круглой.
     case 'rounded': {
+      // Число сегментов скругления дорого: каждая грань — сетка (2s+1)², 1 → 108 треугольников, 2 → 300,
+      // 3 → 588. При s = 3 площадь Ала-Тоо давала 450 тыс. треугольников. Одна грань скругления со
+      // сглаженными нормалями на радиусе до 30 см на глаз почти круглая; крупнее — две.
       const radius = Math.min(box.round ?? 0.05, box.w / 2, box.h / 2, box.d / 2);
-      geometry = new RoundedBoxGeometry(box.w, box.h, box.d, radius >= 0.06 ? 3 : 2, radius);
+      geometry = new RoundedBoxGeometry(box.w, box.h, box.d, radius < 0.3 ? 1 : 2, radius);
       break;
     }
     case 'cylinder': {
       // Единичный цилиндр, растянутый в коробку блока: овальный, если w ≠ d.
       const size = Math.max(box.w, box.d);
-      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, size < 0.1 ? 8 : size < 0.4 ? 14 : 20);
+      geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, size < 0.1 ? 8 : size < 0.4 ? 12 : 16);
       geometry.scale(box.w, box.h, box.d);
       break;
     }
     case 'sphere': {
-      const small = Math.max(box.w, box.h, box.d) < 0.3;
-      geometry = new THREE.SphereGeometry(0.5, small ? 10 : 18, small ? 7 : 12);
+      // Цветок и шарик — мелочь, крона дерева — крупно и на виду: ей сегменты нужнее.
+      const size = Math.max(box.w, box.h, box.d);
+      const [around, up] = size < 0.3 ? [8, 6] : size < 1.5 ? [10, 7] : [16, 10];
+      geometry = new THREE.SphereGeometry(0.5, around, up);
       geometry.scale(box.w, box.h, box.d);
       break;
     }

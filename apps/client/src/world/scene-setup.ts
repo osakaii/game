@@ -46,8 +46,9 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   const scene = new THREE.Scene();
   // Цвет неба задаёт карта (ActiveMap.load).
 
-  // Дальняя плоскость — с запасом на диагональ большой карты (квартира ~100 м по диагонали).
-  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 200);
+  // Дальняя плоскость — с запасом на диагональ большой карты (площадь Ала-Тоо 108 × 180 м — 210 м по
+  // диагонали, плюс флагшток 43 м). Дальше не стоит: точность глубины падает, и тонкие цветные поля мерцают.
+  const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 260);
 
   // Тёплый рассеянный свет сверху и чуть более холодный снизу: уютно, как днём в квартире.
   scene.add(new THREE.HemisphereLight('#fff6ea', '#8a7a66', 1.45));

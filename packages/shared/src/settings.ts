@@ -24,7 +24,7 @@ export const UpdateSettingsSchema = RoomSettingsSchema.partial();
 export type UpdateSettingsPayload = z.input<typeof UpdateSettingsSchema>;
 
 export const DEFAULT_SETTINGS: RoomSettings = {
-  mapId: 'apartment',
+  mapId: 'ala-too',
   hideSeconds: 60,
   seekSeconds: 150,
   seekers: 'auto',

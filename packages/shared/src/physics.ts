@@ -399,9 +399,12 @@ function resolveHorizontal(state: PlayerPhysicsState, colliders: readonly Aabb[]
     const distSq = nx * nx + nz * nz;
     if (distSq >= r * r) continue;
 
-    // Низкий блок — просто встаём на него.
+    // Низкий блок — просто встаём на него. Но только когда он уже под кругом опоры (0.95 r, как в
+    // resolveVertical): иначе ноги подняли бы на ступень, вертикаль её не нашла бы, игрок упал бы
+    // и следующим шагом упёрся в неё как в стену — дрожал бы у края, не поднимаясь.
+    // В узкой полоске между кругами ступень не мешает: шаг вперёд — и она уже под ногами.
     if (state.grounded && b.maxY - feet <= PLAYER.stepHeight) {
-      p.y = b.maxY;
+      if (distSq < r * r * 0.95 * 0.95) p.y = b.maxY;
       continue;
     }
 

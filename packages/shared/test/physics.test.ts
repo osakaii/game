@@ -48,6 +48,18 @@ describe('stepPlayer on Playroom', () => {
     expect(s.grounded).toBe(true);
   });
 
+  it('walks up shallow steps narrower than the player (0.24 m high, 0.48 m deep)', () => {
+    // Ступень уже диаметра игрока: раньше «подъём» срабатывал на краю круга (r), а опору физика ищет
+    // кругом 0.95 r — игрок дрожал у первой ступени. Лестница музея на Ала-Тоо именно такая.
+    const steps: Aabb[] = Array.from({ length: 9 }, (_, i) => ({
+      minX: -8, maxX: 8, minY: 0, maxY: 0.24 * (i + 1), minZ: -1 - 0.48 * (i + 1), maxZ: -1 - 0.48 * i,
+    }));
+    steps.push({ minX: -8, maxX: 8, minY: 0, maxY: 2.16, minZ: -30, maxZ: -1 - 0.48 * 9 }); // площадка наверху
+    const state: PlayerPhysicsState = { position: vec3(0, 0, 0), velocity: vec3(), grounded: true, crouching: false, pose: 'none' };
+    for (let i = 0; i < 120; i++) stepPlayer(state, { dirX: 0, dirZ: -1, jump: false, crouch: false }, steps, PHYSICS_DT);
+    expect(state.position.y).toBeCloseTo(2.16);
+  });
+
   it('brushing past a crate at an angle does not start a climb', () => {
     // Идём под углом 45° к грани ящика: «в стену» только 0.7 — меньше порога, лезть не начинаем.
     const s = simulate(vec3(-6.6, 0, -5.4), 0.7071, 0.7071, 0.6);

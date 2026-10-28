@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { preventPageZoom } from '../../src/platform/device';
 
 function setup() {
@@ -37,5 +37,57 @@ describe('preventPageZoom', () => {
     const { tap } = setup();
     tap('#nick', 1000);
     expect(tap('#nick', 150)).toBe(false);
+  });
+});
+
+describe('setupFullscreenButtons on iPhone', () => {
+  it('keeps the button and explains «Add to Home Screen» instead of hiding it', async () => {
+    const { setupFullscreenButtons, IOS_FULLSCREEN_HINT } = await import('../../src/platform/device');
+    document.body.innerHTML = '<button data-fullscreen hidden>На весь экран</button>';
+    // iPhone Safari: Fullscreen API для страниц нет.
+    Object.defineProperty(document, 'fullscreenEnabled', { value: false, configurable: true });
+    Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', configurable: true });
+    const hints: string[] = [];
+    setupFullscreenButtons((text) => hints.push(text));
+    const button = document.querySelector<HTMLButtonElement>('[data-fullscreen]')!;
+    expect(button.hidden).toBe(false);
+    button.click();
+    expect(hints).toEqual([IOS_FULLSCREEN_HINT]);
+  });
+});
+
+describe('immerseOnPhone', () => {
+  /** pointer: coarse — телефон (палец), fine — компьютер (мышь). */
+  function device(touch: boolean, fullscreenEnabled: boolean, userAgent = 'Mozilla/5.0 (Linux; Android 14)') {
+    window.matchMedia = ((query: string) => ({ matches: query.includes('coarse') ? touch : false })) as typeof window.matchMedia;
+    Object.defineProperty(document, 'fullscreenEnabled', { value: fullscreenEnabled, configurable: true });
+    Object.defineProperty(document, 'fullscreenElement', { value: null, configurable: true });
+    Object.defineProperty(navigator, 'userAgent', { value: userAgent, configurable: true });
+    const request = vi.fn(async () => {});
+    document.documentElement.requestFullscreen = request;
+    return request;
+  }
+
+  it('Android phone: entering a room goes fullscreen right away — the browser bar is gone', async () => {
+    const { immerseOnPhone } = await import('../../src/platform/device');
+    const request = device(true, true);
+    immerseOnPhone(() => {});
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it('computer: no fullscreen without asking', async () => {
+    const { immerseOnPhone } = await import('../../src/platform/device');
+    const request = device(false, true);
+    immerseOnPhone(() => {});
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it('iPhone: explains «Add to Home Screen» once per session', async () => {
+    const { immerseOnPhone, IOS_FULLSCREEN_HINT } = await import('../../src/platform/device');
+    device(true, false, 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)');
+    const hints: string[] = [];
+    immerseOnPhone((text) => hints.push(text));
+    immerseOnPhone((text) => hints.push(text));
+    expect(hints).toEqual([IOS_FULLSCREEN_HINT]);
   });
 });

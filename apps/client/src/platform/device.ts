@@ -1,27 +1,70 @@
+/** Как попасть в полный экран на iPhone: другого способа Apple не даёт. */
+export const IOS_FULLSCREEN_HINT = 'На iPhone без рамок — только с главного экрана: «Поделиться» → «На экран „Домой“», потом запускай игру с иконки';
+
+/** Игра открыта с главного экрана как приложение (рамок браузера уже нет). */
+export function isInstalledApp(): boolean {
+  const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return iosStandalone || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches;
+}
+
+/** iPhone/iPod (iPad умеет обычный fullscreen и сюда не попадает: у него fullscreenEnabled). */
+function isIphone(): boolean {
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
+
 /**
  * Полноэкранный режим. На Android после него можно зафиксировать альбомную ориентацию.
- * iPhone Safari не умеет fullscreen для страниц — там кнопку прячем,
- * а полный экран даёт «Добавить на главный экран» (manifest + apple-mobile-web-app-capable).
+ * iPhone Safari не умеет fullscreen для страниц — полный экран даёт только «На экран «Домой»»
+ * (manifest + apple-mobile-web-app-capable). Там кнопка остаётся, но по нажатию объясняет, как это сделать:
+ * иначе игроки не знают, что так вообще можно.
  */
-export function setupFullscreenButtons(): void {
-  if (!document.fullscreenEnabled) return;
+export function setupFullscreenButtons(hint: (text: string) => void): void {
   // Кнопок две (стартовое меню и меню игры) — все помечены data-fullscreen.
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-fullscreen]')];
+  if (!document.fullscreenEnabled) {
+    if (!isIphone() || isInstalledApp()) return;
+    for (const button of buttons) {
+      button.hidden = false;
+      button.addEventListener('click', () => hint(IOS_FULLSCREEN_HINT));
+    }
+    return;
+  }
   // Уже на весь экран — кнопка не нужна (выйти можно жестом системы).
   const render = () => buttons.forEach((button) => (button.hidden = !!document.fullscreenElement));
   document.addEventListener('fullscreenchange', render);
   render();
-  for (const button of buttons) {
-    button.addEventListener('click', async () => {
-      try {
-        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-        // lock есть не во всех браузерах и не во всех типах (TS знает о нём не везде) — вызываем осторожно.
-        const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-        await orientation.lock?.('landscape').catch(() => {});
-      } catch {
-        /* пользователь отказал или браузер не разрешил — играем как есть */
-      }
-    });
+  for (const button of buttons) button.addEventListener('click', () => void enterFullscreen());
+}
+
+/** Полный экран и альбомная ориентация. Только из обработчика нажатия: без жеста браузер откажет. */
+async function enterFullscreen(): Promise<void> {
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    // lock есть не во всех браузерах и не во всех типах (TS знает о нём не везде) — вызываем осторожно.
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    await orientation.lock?.('landscape').catch(() => {});
+  } catch {
+    /* пользователь отказал или браузер не разрешил — играем как есть */
+  }
+}
+
+/** Подсказку про «Домой» на iPhone показываем раз за сессию — дальше она только мешала бы. */
+let homeScreenHintShown = false;
+
+/**
+ * Вход в игру на телефоне: панель браузера сверху съедает четверть альбомного экрана.
+ * Android — сразу полный экран (вход в комнату — нажатие, браузер это разрешит; искать кнопку не нужно).
+ * iPhone — Safari панель не прячет ни по какому API, единственный путь — «На экран „Домой“»: подсказываем.
+ * На компьютере полный экран без спроса раздражает — только телефоны (палец — основное устройство ввода).
+ * Вызывать синхронно из обработчика нажатия «Создать»/«Войти».
+ */
+export function immerseOnPhone(hint: (text: string) => void): void {
+  if (!matchMedia('(pointer: coarse)').matches || isInstalledApp()) return;
+  if (document.fullscreenEnabled) {
+    if (!document.fullscreenElement) void enterFullscreen();
+  } else if (isIphone() && !homeScreenHintShown) {
+    homeScreenHintShown = true;
+    hint(IOS_FULLSCREEN_HINT);
   }
 }
 

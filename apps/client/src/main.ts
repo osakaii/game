@@ -32,7 +32,7 @@ import { SkinPainter } from './paint/skin-painter';
 import { SkinSync } from './paint/skin-sync';
 import { LocalPlayer } from './player/local-player';
 import { PlayerModel } from './player/player-model';
-import { ScreenWakeLock, preventPageZoom, setupFullscreenButtons } from './platform/device';
+import { ScreenWakeLock, immerseOnPhone, preventPageZoom, setupFullscreenButtons } from './platform/device';
 import { graphics, setShadowsEnabled } from './platform/graphics';
 import { SeekerControls } from './seek/seeker-controls';
 import { SeekerEffects } from './seek/seeker-effects';
@@ -93,8 +93,15 @@ const lobby = new Lobby(network);
 
 const menu = new MenuScreen(
   {
-    onCreate: (nickname) => runLobbyRequest(() => lobby.create(nickname)),
-    onJoin: (nickname, code) => runLobbyRequest(() => lobby.join(nickname, code)),
+    // Сначала полный экран: пока мы ещё внутри нажатия, браузер его разрешит.
+    onCreate: (nickname) => {
+      immerseOnPhone((text) => toast(text, 7000));
+      runLobbyRequest(() => lobby.create(nickname));
+    },
+    onJoin: (nickname, code) => {
+      immerseOnPhone((text) => toast(text, 7000));
+      runLobbyRequest(() => lobby.join(nickname, code));
+    },
   },
   roomCodeFromUrl(),
 );
@@ -181,7 +188,7 @@ controls.onTap = (x, y) => void seekerControls.tap(x, y);
 const sfx = new Sfx();
 const gameSounds = new GameSounds(sfx);
 const wakeLock = new ScreenWakeLock();
-setupFullscreenButtons();
+setupFullscreenButtons((text) => toast(text, 7000));
 preventPageZoom();
 
 const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-game')];

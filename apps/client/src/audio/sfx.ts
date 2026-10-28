@@ -7,6 +7,8 @@ interface ToneOptions {
   volume?: number;
   /** Задержка старта, с — для мелодий из нескольких нот. */
   delay?: number;
+  /** Стерео: -1 — слева, 1 — справа (откуда слышен свист подсказки). */
+  pan?: number;
   /** Плавно сменить частоту к концу ноты (глиссандо). */
   slideTo?: number;
 }
@@ -18,8 +20,25 @@ interface ToneOptions {
  * Огибающая — быстрый подъём и плавный спад, иначе на краях звука слышны щелчки.
  *
  * Браузеры не дают играть звук, пока пользователь не коснулся страницы (autoplay policy).
- * Поэтому AudioContext создаём/возобновляем по первому касанию.
+ * Поэтому AudioContext создаём/возобновляем по касанию. Подводные камни телефонов:
+ * - касание пальцем на `pointerdown` по стандарту НЕ даёт права на звук (только мышь) — Safari строг,
+ *   Chrome мягче; отсюда «у одних звук есть, у других нет». Слушаем и отпускание пальца (touchend/pointerup);
+ * - после звонка или сворачивания Safari ставит контекст в 'interrupted' — возобновляем из любого
+ *   состояния, кроме 'running', и при возврате во вкладку;
+ * - iPhone по умолчанию глушит Web Audio переключателем «без звука» (YouTube при этом играет).
+ *   Audio Session API (Safari 16.4+): 'playback' — играем как видео, 'ambient' — как раньше.
  */
+/** Касание пальцем даёт право на звук на отпускании (touchend/pointerup), мышь — на нажатии. */
+const UNLOCK_EVENTS = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'] as const;
+
+type AudioSessionType = 'ambient' | 'playback';
+
+/** Audio Session API есть только в Safari 16.4+, в типах TS его нет. */
+function setAudioSession(type: AudioSessionType) {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = type;
+}
+
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -28,14 +47,18 @@ export class Sfx {
 
   constructor() {
     const unlock = () => this.unlock();
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
+    for (const event of UNLOCK_EVENTS) window.addEventListener(event, unlock, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) this.resume();
+    });
   }
 
   setMuted(muted: boolean): void {
     this.muted = muted;
     storage.set(MUTED_KEY, muted ? '1' : '0');
     if (this.master) this.master.gain.value = muted ? 0 : 1;
+    // Без звука — отдаём телефону его обычное поведение: музыка игрока снова играет.
+    setAudioSession(muted ? 'ambient' : 'playback');
   }
 
   /** Проверка места ищущим: глухой «шлёп». volume 0..1 — тише, если далеко. */
@@ -51,6 +74,15 @@ export class Sfx {
   shoot(volume = 1): void {
     this.noise(0.07, 0.35 * volume, 4200);
     this.tone(420, 0.09, { type: 'triangle', volume: 0.3 * volume, slideTo: 110 });
+  }
+
+  /**
+   * Свист подсказки «фьюить»: две восходящие ноты. Чистый синус — его ухо легко отличает
+   * от шлепков и шагов и определяет направление. volume — по расстоянию, pan — по стороне.
+   */
+  whistle(volume = 1, pan = 0): void {
+    this.tone(1300, 0.16, { volume: 0.22 * volume, slideTo: 2100, pan });
+    this.tone(1700, 0.22, { volume: 0.22 * volume, slideTo: 2500, delay: 0.2, pan });
   }
 
   /** Подтверждение попадания у стреляющего: звонкий «дзынь» поверх арпеджио «найден». */
@@ -137,12 +169,23 @@ export class Sfx {
 
   private unlock() {
     if (!this.ctx) {
+      // До создания контекста: тип сессии читается при старте звука.
+      setAudioSession(this.muted ? 'ambient' : 'playback');
       this.ctx = new AudioContext();
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : 1;
       this.master.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    this.resume();
+  }
+
+  /** 'suspended' (ещё не разрешили) и 'interrupted' (Safari после звонка) — оба возобновляем. */
+  private resume() {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state === 'running' || ctx.state === 'closed') return;
+    ctx.resume().catch(() => {
+      /* касание не дало права на звук — попробуем на следующем */
+    });
   }
 
   private tone(frequency: number, duration: number, options: ToneOptions = {}) {
@@ -153,7 +196,7 @@ export class Sfx {
     osc.type = options.type ?? 'sine';
     osc.frequency.setValueAtTime(frequency, start);
     if (options.slideTo) osc.frequency.exponentialRampToValueAtTime(options.slideTo, start + duration);
-    osc.connect(this.envelope(start, duration, options.volume ?? 0.3));
+    osc.connect(this.envelope(start, duration, options.volume ?? 0.3, options.pan));
     osc.start(start);
     osc.stop(start + duration + 0.02);
   }
@@ -174,12 +217,19 @@ export class Sfx {
   }
 
   /** Огибающая: 5 мс подъём, затем экспоненциальный спад до тишины. */
-  private envelope(start: number, duration: number, volume: number): GainNode {
-    const gain = this.ctx!.createGain();
+  private envelope(start: number, duration: number, volume: number, pan = 0): GainNode {
+    const ctx = this.ctx!;
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(volume, start + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    gain.connect(this.master!);
+    if (pan !== 0 && ctx.createStereoPanner) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = pan;
+      gain.connect(panner).connect(this.master!);
+    } else {
+      gain.connect(this.master!);
+    }
     return gain;
   }
 

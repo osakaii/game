@@ -18,7 +18,7 @@ function setup(players = 3) {
   const room = rooms.create('p0', 'Host');
   for (let i = 1; i < players; i++) rooms.join(`p${i}`, `P${i}`, room.code);
   // Тесты стрельбы и раундов — на открытой «Детской»: координаты в них подобраны под неё,
-  // а карта по умолчанию (квартира) разделена стенами.
+  // а на карте по умолчанию (площадь Ала-Тоо) там стоят клумбы и скамейки.
   game.updateSettings(room, 'p0', { mapId: 'playroom' });
 
   const phases: RoomPhase[] = [];
@@ -59,10 +59,11 @@ describe('GameService', () => {
     game.start(room, 'p0');
     expect(room.phase).toBe('hiding');
 
-    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
+    vi.advanceTimersByTime(room.settings.hideSeconds * 1000);
     expect(room.phase).toBe('seeking');
 
-    vi.advanceTimersByTime(DEFAULT_SETTINGS.seekSeconds * 1000);
+    // Время поиска — у карты своё (Детская — общее), поэтому из настроек комнаты, а не DEFAULT_SETTINGS.
+    vi.advanceTimersByTime(room.settings.seekSeconds * 1000);
     expect(room.phase).toBe('results');
     expect(room.result).toEqual({ winner: 'hider', reason: 'time_up' });
 
@@ -311,6 +312,7 @@ describe('GameService settings, scoring and rotation', () => {
     game.updateSettings(room, 'p0', { mapId: 'garden', hideSeconds: 20 });
     expect(room.map.id).toBe('garden');
     expect(room.settings.hideSeconds).toBe(20);
+    expect(room.settings.seekSeconds).toBe(150); // у сада своего времени нет — общее
     expect(teleports).toHaveLength(2);
 
     game.start(room, 'p0');

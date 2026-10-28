@@ -379,6 +379,8 @@ const PLAN: MapDef = {
   ],
   // Ищущие ждут в центре северной площади — между клумбами, лицом к музею.
   seekerSpawns: [plaza(-1.5, -13.5), plaza(1.5, -13.5)],
+  // Площадь в 4 раза больше квартиры: 4 минуты поиска вместо 2.5.
+  seekSeconds: 240,
 };
 
 export const ALA_TOO: MapDef = scaleMap(PLAN, ALA_TOO_SCALE);

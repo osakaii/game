@@ -9,7 +9,7 @@
 | `protocol.ts` | **Контракт сети**: карты событий `ServerToClientEvents` / `ClientToServerEvents`, `PROTOCOL_VERSION`, `SessionIdSchema`, `WelcomePayload` |
 | `lobby.ts` | Схемы ника/кода комнаты (zod), `PlayerInfo`, `RoomSnapshot`, `ERROR_CODES`, `Result<T>` |
 | `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих |
-| `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING` |
+| `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING`; `defaultSeekSeconds(mapId)` (у карты своё `MapDef.seekSeconds`, иначе 150), `patchSettings` — сменили карту без времени поиска → время карты (сервер применяет через `Room.applySettings`) |
 | `net-state.ts` | Позиции: `PlayerStateSchema`, `WorldSnapshot`, частоты (20 Гц), `INTERPOLATION_DELAY_MS`, схема выстрела `ShootSchema` |
 | `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед, поза, бег — `MoveInput.sprint`, `PLAYER.sprintSpeed`; выносливость `STAMINA`, `canSprint`, `tickStamina` — общая с сервером), `bodyHeight`/`moveSpeed` (по приседу и позе), `keepBodyOutOfWalls` (лёжа: голова/ноги не в стене, длина — из хитбоксов), лазание (`climb` внутри `stepPlayer`, `wallContact` — нужна и серверу; `Aabb.noClimb` — внешние стены карт без потолка), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
 | `poses.ts` | Позы: `POSES`, `POSE_RULES` (высота, скорость ползком; 0 — «на месте»), `cancelsPose` (движение/прыжок снимают позу), `stanceKey` (stand/crouch/поза — ключ хитбоксов) |

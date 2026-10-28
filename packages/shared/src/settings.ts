@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAP_IDS } from './world/maps.js';
+import { MAPS, MAP_IDS, type MapId } from './world/maps.js';
 
 /** Варианты для интерфейса. Сервер принимает любые значения в пределах схемы. */
 /** Свободная покраска кистью дольше, чем тык в зоны, — поэтому на прятки больше времени. */
@@ -23,10 +23,30 @@ export type RoomSettings = z.output<typeof RoomSettingsSchema>;
 export const UpdateSettingsSchema = RoomSettingsSchema.partial();
 export type UpdateSettingsPayload = z.input<typeof UpdateSettingsSchema>;
 
+/** Время поиска, если у карты нет своего. */
+const SEEK_SECONDS = 150;
+
+/** Время поиска по умолчанию для карты: своё у большой площади, общее у остальных. */
+export function defaultSeekSeconds(mapId: MapId): number {
+  return MAPS[mapId].seekSeconds ?? SEEK_SECONDS;
+}
+
+/**
+ * Применить правку настроек. Сменили карту, а время поиска не указали — берём время этой карты:
+ * хост, выбравший площадь, получает 4 минуты сам, без похода в соседний список.
+ */
+export function patchSettings(settings: RoomSettings, patch: Partial<RoomSettings>): RoomSettings {
+  const next = { ...settings, ...patch };
+  if (patch.mapId !== undefined && patch.mapId !== settings.mapId && patch.seekSeconds === undefined) {
+    next.seekSeconds = defaultSeekSeconds(next.mapId);
+  }
+  return next;
+}
+
 export const DEFAULT_SETTINGS: RoomSettings = {
   mapId: 'ala-too',
   hideSeconds: 60,
-  seekSeconds: 150,
+  seekSeconds: defaultSeekSeconds('ala-too'),
   seekers: 'auto',
   foundMode: 'helper',
 };

@@ -4,6 +4,7 @@ import {
   MAX_PLAYERS,
   SCORING,
   buildColliders,
+  patchSettings,
   type Aabb,
   type GameResult,
   type MapDef,
@@ -88,7 +89,7 @@ export class Room {
   /** Возвращает true, если сменилась карта — тогда всех нужно переставить на новые точки. */
   applySettings(patch: Partial<RoomSettings>): boolean {
     const mapChanged = patch.mapId !== undefined && patch.mapId !== this._settings.mapId;
-    this._settings = { ...this._settings, ...patch };
+    this._settings = patchSettings(this._settings, patch);
     if (mapChanged) {
       this._map = MAPS[this._settings.mapId];
       this._colliders = buildColliders(this._map);

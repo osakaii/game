@@ -8,6 +8,9 @@ services:
     region: frankfurt
     plan: free
     branch: main
+    # Деплой только после зелёных проверок GitHub Actions (.github/workflows/ci.yml): сломанный
+    # push не доедет до игроков. Если проверок у коммита нет вовсе — Render не деплоит.
+    autoDeployTrigger: checksPass
     dockerfilePath: ./Dockerfile
     # Render не пускает трафик на новую версию, пока /health не ответит 200 (деплой без простоя).
     healthCheckPath: /health

@@ -1,0 +1,62 @@
+# Проверка каждого push и pull request. Render деплоит main только когда обе проверки зелёные
+# (render.yaml: autoDeployTrigger: checksPass) — сломанная сборка до игроков не доедет.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Новый push в ту же ветку отменяет недоделанную проверку старого: результат нужен только у последнего.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Типы и тесты
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Версию pnpm берёт из packageManager в package.json — та же, что локально и в Docker.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Сервер и клиент импортируют собранный @mecha/shared (dist), не исходники.
+      - run: pnpm --filter @mecha/shared build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  e2e:
+    name: Docker-образ и e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      # Для самих e2e-скриптов: socket.io-client и физика из shared (бегун повторяет клиента).
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mecha/shared build
+      # Тот же Dockerfile, что собирает Render: проверяем ровно то, что поедет к игрокам.
+      - run: docker build --build-arg GIT_COMMIT=${GITHUB_SHA::7} -t mecha .
+      - run: docker run -d --name mecha -p 3000:3000 mecha
+      - name: Ждём /health
+        run: |
+          for i in $(seq 1 30); do
+            curl -fs http://localhost:3000/health && exit 0
+            sleep 1
+          done
+          echo "сервер не поднялся за 30 с"
+          exit 1
+      - run: pnpm e2e
+      - name: Логи сервера
+        if: failure()
+        run: docker logs mecha

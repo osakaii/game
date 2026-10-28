@@ -9,12 +9,14 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "node --test --test-concurrency=1 'scripts/e2e/*.test.mjs'",
     "release": "node scripts/release.mjs",
     "hitboxes": "vitest run apps/client/test/player/pose-hitboxes.test.ts -u -t \"matches the character model\" && pnpm --filter @mecha/shared build"
   },
   "devDependencies": {
     "@types/node": "^24",
     "happy-dom": "^21",
+    "socket.io-client": "^4.8.4",
     "typescript": "~6.0.2",
     "vite": "^8",
     "vitest": "^5"

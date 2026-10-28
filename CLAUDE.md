@@ -14,6 +14,7 @@
 pnpm dev         # shared (watch) + сервер :3000 + клиент :5173 (Vite проксирует /socket.io)
 pnpm test        # vitest на весь монорепо
 pnpm typecheck   # tsc по всем пакетам (src + test)
+pnpm e2e         # сеть против запущенного сервера (E2E_URL, по умолчанию :3000): лобби, раунд, восстановление комнаты, бег по площади без откатов
 pnpm build       # shared -> client -> server
 pnpm release <major|minor|patch>   # версия + CHANGELOG (коммит/тег делаешь сам)
 pnpm hitboxes    # пересчитать хитбоксы поз из модели (после правки поз или формы тела)
@@ -27,7 +28,8 @@ pnpm hitboxes    # пересчитать хитбоксы поз из моде�
 - **Тесты** — в `<пакет>/test/`, зеркально `src/` (`src/skin/atlas.ts` → `test/skin/atlas.test.ts`). DOM-тесты: первой строкой `// @vitest-environment happy-dom`. Сборка (`tsconfig.build.json`) берёт только `src/`.
 - **Комментарии и UI — на русском**, комментарий объясняет «почему», а не «что».
 - **Версия** одна на монорепо: `packages/shared/src/version.ts` + все `package.json` (тест сверяет). Изменения пиши в `CHANGELOG.md` → `[Unreleased]`.
-- **Git:** коммит по просьбе пользователя, сообщение conventional (`feat:`, `fix:`, `chore:`) на английском. Push в `main` = автодеплой на Render (`render.yaml`, Docker, один инстанс — комнаты в памяти).
+- **Git:** коммит по просьбе пользователя, сообщение conventional (`feat:`, `fix:`, `chore:`) на английском. Push в `main` → GitHub Actions (`.github/workflows/ci.yml`: типы + vitest; Docker-образ + `pnpm e2e` против него) → при зелёных проверках автодеплой на Render (`render.yaml`: `autoDeployTrigger: checksPass`, Docker, один инстанс — комнаты в памяти).
+- **e2e** (`scripts/e2e/*.test.mjs`, `node:test` + socket.io-client): Nest в vitest не поднять (нет метаданных декораторов), поэтому сеть проверяем снаружи, против собранного сервера. Ждёшь рассылку (`room:state`) — подписывайся ДО запроса: она приходит раньше ack.
 
 ## Рецепты
 - **Новое событие:** тип в `protocol.ts` (+ zod-схема, если C→S) → обработчик в gateway (`@SubscribeMessage`, `@RateLimit`, `respond(() => …)`) → логика в сервисе → метод в `apps/client/src/net/network.ts` → `PROTOCOL_VERSION++`.

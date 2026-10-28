@@ -2,8 +2,12 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { Subject } from 'rxjs';
 
-/** Сколько ждём переподключения, прежде чем выкинуть игрока из комнаты. */
-export const RECONNECT_GRACE_MS = 20_000;
+/**
+ * Сколько ждём переподключения, прежде чем выкинуть игрока из комнаты.
+ * Минута: на телефоне игрок сворачивает браузер — отправить код друзьям в мессенджер, ответить
+ * на сообщение. 20 секунд на это не хватало, и он «выбывал». Дольше — призрак отключённого мешал бы раунду.
+ */
+export const RECONNECT_GRACE_MS = 60_000;
 
 interface Session {
   playerId: string;

@@ -37,4 +37,11 @@ export function playerRoom(playerId: string): string {
  */
 export const GATEWAY_OPTIONS = {
   cors: { origin: process.env.CORS_ORIGIN ?? (process.env.NODE_ENV === 'production' ? false : true) },
+  /**
+   * Проверка «жив ли клиент»: по умолчанию socket.io пингует раз в 25 с и ждёт ответа 20 с — оборванное
+   * соединение (телефон ушёл из Wi-Fi) замечалось только через 45 с, и всё это время игрок «стоял столбом».
+   * 10 + 10 с: обрыв виден за 20 с, а трафика — один крошечный пакет раз в 10 с.
+   */
+  pingInterval: 10_000,
+  pingTimeout: 10_000,
 };

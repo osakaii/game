@@ -14,10 +14,10 @@
 | `common/game-error.ts` | `GameError(code)`, `parseInput(zod, data)`, `respond(fn)` → `Result<T>` для ack |
 | `common/rate-limit.ts` | `@RateLimit(perSec, burst)` + `RateLimitGuard` (token bucket, при отказе отвечает ack `RATE_LIMITED`) |
 | `common/build-info.ts` | версия + коммит (`RENDER_GIT_COMMIT`/`APP_COMMIT`) |
-| `session/` | Сессии: секретный `sessionId` (handshake auth) → публичный `playerId`, 20 с на переподключение, событие `expired` |
-| `net/net.gateway.ts` | Middleware проверки сессии, connect/disconnect, `net:welcome`, пинг, возврат в комнату после переподключения |
+| `session/` | Сессии: секретный `sessionId` (handshake auth) → публичный `playerId`, 60 с на переподключение (`RECONNECT_GRACE_MS`: телефон свернули или сменилась сеть), событие `expired` |
+| `net/net.gateway.ts` | Middleware проверки сессии, connect/disconnect, `net:welcome` (+ `serverStartedAt` — клиент видит перезапуск сервера), пинг, возврат в комнату после переподключения |
 | `rooms/room.ts` | **Доменная модель**: участники (`RoomMember`: позиция, роль, кожа, очки, история позиций), фазы, настройки, спавны, снимки |
-| `rooms/rooms.service.ts` | Реестр комнат, create/join/leave, хост |
+| `rooms/rooms.service.ts` | Реестр комнат, create/join/leave, хост; `create(…, preferredCode)` — восстановить комнату под прежним кодом после перезапуска сервера (занят — `ROOM_EXISTS`, клиент входит в неё) |
 | `rooms/rooms.gateway.ts` | `room:create/join/leave`, рассылка `room:state`/телепортов, выход по истечении сессии |
 | `rooms/emit-skins.ts` | Отправить все кожи комнаты одному сокету (вход/переподключение) |
 | `game/game.service.ts` | Автомат фаз (таймеры на объект Room), очередь ведущих, победа, настройки, `shoot` (lag compensation ≤300 мс), `uploadSkin` |

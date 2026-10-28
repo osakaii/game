@@ -39,12 +39,12 @@ export class RoomsService {
     return code ? this.rooms.get(code) : undefined;
   }
 
-  create(playerId: string, nickname: string): Room {
+  /** preferredCode — восстановить комнату с прежним кодом после перезапуска сервера (см. CreateRoomSchema). */
+  create(playerId: string, nickname: string, preferredCode?: string): Room {
     this.assertNotInRoom(playerId);
-    let code: string;
-    do {
-      code = generateRoomCode();
-    } while (this.rooms.has(code));
+    if (preferredCode && this.rooms.has(preferredCode)) throw new GameError('ROOM_EXISTS');
+    let code = preferredCode ?? '';
+    while (!code || this.rooms.has(code)) code = generateRoomCode();
 
     const room = new Room(code);
     this.rooms.set(code, room);

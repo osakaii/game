@@ -350,6 +350,26 @@ lobby.on('error', (code) => {
   else toast(errorMessage(code));
 });
 
+// Вернулись после обрыва связи — сказать, что случилось, а не молча поменять картинку.
+const RESTORE_MESSAGES = {
+  resumed: 'Связь восстановлена',
+  rejoined: 'Связь пропадала надолго — вернули тебя в комнату',
+  restarted: 'Сервер перезапустился — комната восстановлена, раунд заново',
+} as const;
+// В новой комнате сервер нашей кожи не знает: SkinSync не сотрёт её, а отправит снова.
+lobby.on('restoring', () => skinSync.beginRestore());
+lobby.on('restored', (kind) => toast(RESTORE_MESSAGES[kind]));
+lobby.on('lost', ({ code, reason }) => {
+  skinSync.cancelRestore();
+  // Код — в поле меню: войти, когда будет можно, — одним нажатием.
+  menu.setCode(code);
+  menu.showError(
+    reason === 'GAME_IN_PROGRESS'
+      ? `Пока тебя не было, в комнате ${code} начался раунд — войди, когда он закончится`
+      : errorMessage(reason === 'ROOM_NOT_FOUND' ? 'SESSION_EXPIRED' : reason),
+  );
+});
+
 /** Управление выключено, пока открыто меню или пока ищущий ждёт с закрытыми глазами. */
 function updateControlsEnabled() {
   const phase = lobby.room?.phase ?? 'lobby';

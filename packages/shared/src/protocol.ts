@@ -32,7 +32,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -50,6 +50,11 @@ export interface WelcomePayload {
   roomCode: string | null;
   /** Какая сборка на сервере — клиент сравнит со своей и предложит обновиться. */
   build: BuildInfo;
+  /**
+   * Когда запущен процесс сервера (мс). Поменялось после переподключения — сервер перезапускался
+   * (деплой), и все комнаты пропали: это не «у тебя пропала связь», а «сервер обновился».
+   */
+  serverStartedAt: number;
 }
 
 /** Клиент -> сервер: замер задержки. */

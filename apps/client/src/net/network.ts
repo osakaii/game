@@ -21,6 +21,7 @@ import {
   type WorldSnapshot,
 } from '@mecha/shared';
 import { Emitter } from '../core/emitter';
+import { LinkWatchdog } from './link-watchdog';
 import { ServerClock } from './server-clock';
 import { getSessionId } from './session-id';
 
@@ -53,8 +54,11 @@ export class Network extends Emitter<NetworkEvents> {
   private readonly socket: GameSocket;
   private pingTimer: ReturnType<typeof setInterval> | undefined;
   readonly clock = new ServerClock();
+  private readonly watchdog = new LinkWatchdog();
   playerId: string | null = null;
   state: ConnectionState = 'connecting';
+  /** Когда запущен сервер, к которому мы подключены (из welcome). */
+  serverStartedAt: number | null = null;
 
   constructor() {
     super();
@@ -82,6 +86,20 @@ export class Network extends Emitter<NetworkEvents> {
       }
     });
     this.socket.on('connect_error', () => this.setStatus('offline', 'сервер недоступен'));
+
+    // Вернулись во вкладку (телефон разблокировали, вышли из мессенджера). Ждать, пока socket.io
+    // сам попробует переподключиться (до 5 с паузы между попытками), незачем — подключаемся сразу.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!this.socket.connected) {
+        this.socket.connect();
+        return;
+      }
+      // Сокет «вроде жив», но за время в фоне связь могла умереть: проверяем свежим пингом,
+      // а сторожу даём начать отсчёт заново — иначе он счёл бы мёртвым всё, что было в фоне.
+      this.watchdog.alive(performance.now());
+      this.measurePing();
+    });
   }
 
   createRoom(payload: CreateRoomPayload): Promise<RoomResult> {
@@ -134,16 +152,39 @@ export class Network extends Emitter<NetworkEvents> {
       return;
     }
     this.playerId = welcome.playerId;
+    // Другой процесс сервера — другие часы: смещение считаем заново.
+    if (this.serverStartedAt !== null && this.serverStartedAt !== welcome.serverStartedAt) this.clock.reset();
+    this.serverStartedAt = welcome.serverStartedAt;
     this.setStatus('online', `в сети · ${welcome.playerId.slice(0, 6)}`);
+    this.watchdog.alive(performance.now());
     this.measurePing();
     clearInterval(this.pingTimer);
-    this.pingTimer = setInterval(() => this.measurePing(), PING_INTERVAL_MS);
+    this.pingTimer = setInterval(() => this.checkLink(), PING_INTERVAL_MS);
     this.emit('welcome', welcome);
+  }
+
+  /** Раз в PING_INTERVAL_MS: связь молчит слишком долго — переподключаемся, иначе — очередной пинг. */
+  private checkLink() {
+    // В фоне браузер тормозит таймеры, ответы приходят пачками — там не судим (см. visibilitychange).
+    if (document.visibilityState === 'visible' && this.state === 'online' && this.watchdog.isDead(performance.now())) {
+      this.reconnect();
+      return;
+    }
+    this.measurePing();
+  }
+
+  /** Бросить молчащее соединение и открыть новое. Сервер узнает нас по sessionId и вернёт на место. */
+  private reconnect() {
+    clearInterval(this.pingTimer);
+    this.setStatus('offline', 'нет связи, переподключаемся…');
+    this.socket.disconnect();
+    this.socket.connect();
   }
 
   private measurePing() {
     this.socket.emit('net:ping', { clientTime: performance.now() }, (pong) => {
       const now = performance.now();
+      this.watchdog.alive(now);
       this.clock.addSample(pong.clientTime, pong.serverTime, now);
       this.emit('ping', now - pong.clientTime);
     });

@@ -59,9 +59,9 @@ export class RoomsGateway implements OnGatewayInit {
   @RateLimit(1, 3)
   create(@ConnectedSocket() client: GameSocket, @MessageBody() body: unknown): RoomResult {
     return respond(() => {
-      const { nickname } = parseInput(CreateRoomSchema, body);
+      const { nickname, code } = parseInput(CreateRoomSchema, body);
       this.leaveCurrentRoom(client);
-      const room = this.rooms.create(playerIdOf(client), nickname);
+      const room = this.rooms.create(playerIdOf(client), nickname, code);
       return this.enter(client, room);
     });
   }

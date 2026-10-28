@@ -14,6 +14,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   RATE_LIMITED: 'Слишком часто, помедленнее',
   INTERNAL: 'Ошибка сервера, попробуйте ещё раз',
   TIMEOUT: 'Сервер не отвечает',
+  ROOM_EXISTS: 'Комната с таким кодом уже есть',
   SESSION_EXPIRED: 'Связь пропала надолго — вы выбыли из комнаты',
 };
 

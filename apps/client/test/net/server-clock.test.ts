@@ -20,4 +20,14 @@ describe('ServerClock', () => {
     expect(clock.now()).toBeLessThan(1000);
     vi.restoreAllMocks();
   });
+
+  it('reset forgets the old offset: the next sample is taken as is (server restarted, new clock)', () => {
+    const clock = new ServerClock();
+    clock.addSample(0, 1_000_000, 20);
+    clock.reset();
+    expect(clock.isSynced).toBe(false);
+    clock.addSample(100, 5_000, 120);
+    expect(clock.isSynced).toBe(true);
+    expect(clock.now() - performance.now()).toBeCloseTo(5_000 - 110, 0);
+  });
 });

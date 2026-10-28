@@ -35,4 +35,10 @@ export class ServerClock {
   now(): number {
     return performance.now() + this.offset;
   }
+
+  /** Сервер перезапустился (другой процесс, другие часы) — старое смещение ничего не значит. */
+  reset(): void {
+    this.synced = false;
+    this.bestRtt = Infinity;
+  }
 }

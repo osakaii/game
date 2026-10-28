@@ -33,6 +33,9 @@ export class SkinSync {
   private handledResetRevision = -1;
   /** Последняя ревизия своей кожи, известная серверу. */
   private ownRevision = -1;
+  /** Идёт возврат в комнату: ближайшую «чистую» кожу от сервера не применять (см. beginRestore). */
+  private restoring = false;
+  private restorePaint = false;
 
   constructor(
     private readonly network: Network,
@@ -52,11 +55,31 @@ export class SkinSync {
     network.on('skin', (event) => void this.receive(event));
   }
 
+  /**
+   * Сейчас вернёмся в комнату заново (место потеряно или сервер перезапускался). Новая запись о нас
+   * придёт с чистой кожей — это не команда «сбросить», а просто сервер её не знает. Свою краску
+   * не стираем, а отправляем снова, иначе другие видели бы нас белыми.
+   */
+  beginRestore(): void {
+    this.restoring = true;
+    this.restorePaint = this.ownRevision > 0 || this.dirty;
+  }
+
+  /** Вернуться не вышло — следующий вход в комнату обычный. */
+  cancelRestore(): void {
+    this.restoring = false;
+  }
+
   /** Вызывать при каждом room:state: сервер мог сбросить кожу (начало раунда, стал помощником). */
   onRoom(): void {
     const skin = this.lobby.me?.skin;
     if (!skin) return;
-    if (!skin.hasImage && skin.revision !== this.handledResetRevision) {
+    if (this.restoring && !skin.hasImage) {
+      this.restoring = false;
+      this.handledResetRevision = skin.revision;
+      this.ownRevision = skin.revision;
+      if (this.restorePaint) this.markDirty();
+    } else if (!skin.hasImage && skin.revision !== this.handledResetRevision) {
       this.handledResetRevision = skin.revision;
       this.ownRevision = skin.revision;
       this.dirty = false;

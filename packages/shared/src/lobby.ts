@@ -29,7 +29,12 @@ export const RoomCodeSchema = z
   .length(ROOM_CODE_LENGTH, `Код — ${ROOM_CODE_LENGTH} символа`)
   .regex(new RegExp(`^[${ROOM_CODE_ALPHABET}]+$`), 'Неверный код комнаты');
 
-export const CreateRoomSchema = z.object({ nickname: NicknameSchema });
+/**
+ * code — восстановить комнату с прежним кодом. Сервер перезапустился (деплой), комнаты в памяти пропали;
+ * первый вернувшийся пересоздаёт комнату с тем же кодом, остальные заходят в неё, как раньше.
+ * Код уже занят — ROOM_EXISTS, и клиент просто входит. Без code — случайный.
+ */
+export const CreateRoomSchema = z.object({ nickname: NicknameSchema, code: RoomCodeSchema.optional() });
 export const JoinRoomSchema = z.object({ nickname: NicknameSchema, code: RoomCodeSchema });
 
 /** z.input — тип ДО трансформаций (то, что шлёт клиент), z.output — после (что получает сервер). */
@@ -71,6 +76,8 @@ export interface RoomSnapshot {
 export const ERROR_CODES = [
   'INVALID_INPUT',
   'ROOM_NOT_FOUND',
+  /** Создать комнату с этим кодом нельзя — она уже есть (кто-то восстановил её раньше). */
+  'ROOM_EXISTS',
   'ROOM_FULL',
   'GAME_IN_PROGRESS',
   'ALREADY_IN_ROOM',

@@ -70,6 +70,11 @@ export class MenuScreen {
     this.updateButtons();
   }
 
+  /** Подставить код комнаты (вернуться в неё не вышло — войти позже одним нажатием). */
+  setCode(code: string): void {
+    this.code.value = code;
+  }
+
   showError(text: string): void {
     this.errorEl.textContent = text;
   }

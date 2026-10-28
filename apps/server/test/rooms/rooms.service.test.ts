@@ -23,6 +23,14 @@ describe('RoomsService', () => {
     expect(service.roomOf('a')).toBe(room);
   });
 
+  it('restores a room under its old code after a server restart; a taken code is ROOM_EXISTS', () => {
+    const service = new RoomsService();
+    expect(service.create('a', 'Alice', 'KX7P').code).toBe('KX7P');
+    // Второй вернувшийся опоздал на долю секунды: комната уже восстановлена — он должен войти в неё.
+    expectGameError(() => service.create('b', 'Bob', 'KX7P'), 'ROOM_EXISTS');
+    expect(service.join('b', 'Bob', 'KX7P').toSnapshot().players).toHaveLength(2);
+  });
+
   it('joins an existing room and deduplicates nicknames', () => {
     const service = new RoomsService();
     const room = service.create('a', 'Alex');

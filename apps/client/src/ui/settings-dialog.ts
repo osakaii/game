@@ -15,7 +15,8 @@ import { $ } from './dom';
 /** Подписи значений настроек — одни и те же для диалога и краткой сводки в панели. */
 export function describeSettings(settings: RoomSettings): string {
   const seekers = settings.seekers === 'auto' ? 'авто' : settings.seekers;
-  return `${MAPS[settings.mapId].name} · ${settings.hideSeconds}/${settings.seekSeconds} с · ищущих: ${seekers}`;
+  const hints = settings.hints ? '' : ' · без подсказок';
+  return `${MAPS[settings.mapId].name} · ${settings.hideSeconds}/${settings.seekSeconds} с · ищущих: ${seekers}${hints}`;
 }
 
 /**
@@ -37,6 +38,7 @@ export class SettingsDialog {
       seekSeconds: select('seekSeconds'),
       seekers: select('seekers'),
       foundMode: select('foundMode'),
+      hints: select('hints'),
     };
     fill(this.selects.mapId, MAP_IDS.map((id) => [id, MAPS[id].name]));
     fill(this.selects.hideSeconds, HIDE_SECONDS_OPTIONS.map((s) => [String(s), `${s} с`]));
@@ -46,13 +48,17 @@ export class SettingsDialog {
       this.selects.foundMode,
       FOUND_MODE_OPTIONS.map((m) => [m, m === 'helper' ? 'Помогают искать' : 'Становятся призраками']),
     );
+    fill(this.selects.hints, [
+      ['true', 'Свист во второй половине поиска'],
+      ['false', 'Без подсказок'],
+    ]);
 
     // <select> всегда отдаёт строку. Приводим к типам схемы и проверяем той же схемой, что сервер.
     this.form.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       const raw = target.value;
       const isText = target.name === 'mapId' || target.name === 'foundMode' || raw === 'auto';
-      const value = isText ? raw : Number(raw);
+      const value = target.name === 'hints' ? raw === 'true' : isText ? raw : Number(raw);
       const parsed = UpdateSettingsSchema.safeParse({ [target.name]: value });
       if (parsed.success) onChange(parsed.data);
     });

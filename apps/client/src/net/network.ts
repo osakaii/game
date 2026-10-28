@@ -5,6 +5,7 @@ import {
   type ClientToServerEvents,
   type CreateRoomPayload,
   type EmptyResult,
+  type HintPing,
   type JoinRoomPayload,
   type PlayerState,
   type Result,
@@ -36,6 +37,7 @@ interface NetworkEvents {
   snapshot: WorldSnapshot;
   teleport: TeleportPayload;
   shot: ShotEvent;
+  hint: HintPing;
   skin: SkinImageEvent;
   /** Протокол сервера несовместим с этим клиентом — нужна перезагрузка. */
   outdated: void;
@@ -74,6 +76,7 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('world:snapshot', (snapshot) => this.emit('snapshot', snapshot));
     this.socket.on('player:teleport', (position) => this.emit('teleport', position));
     this.socket.on('seek:shot', (shot) => this.emit('shot', shot));
+    this.socket.on('hint:ping', (ping) => this.emit('hint', ping));
     this.socket.on('player:skin', (skin) => this.emit('skin', skin));
     this.socket.on('disconnect', (reason) => {
       clearInterval(this.pingTimer);

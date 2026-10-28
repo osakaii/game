@@ -59,3 +59,25 @@ test('a room restored after a server restart keeps its code; a late second resto
   assert.equal((await request(b.socket, 'room:create', { nickname: 'B', code })).error, 'ROOM_EXISTS');
   assert.ok((await request(b.socket, 'room:join', { nickname: 'B', code })).ok);
 });
+
+test('hints: hiders whistle from the second half of seeking, everyone in the room hears it', { timeout: 60_000 }, async () => {
+  const host = await connect('hint-host');
+  const guest = await connect('hint-guest');
+  sockets.push(host.socket, guest.socket);
+  const created = await request(host.socket, 'room:create', { nickname: 'Host' });
+  assert.ok(created.ok, JSON.stringify(created));
+  assert.equal(created.data.settings.hints, true);
+  assert.ok((await request(guest.socket, 'room:join', { nickname: 'Guest', code: created.data.code })).ok);
+  // Самый короткий раунд, что пускает схема: 10 с пряток, 30 с поиска → свист на 15-й секунде поиска.
+  assert.ok((await request(host.socket, 'room:settings', { hideSeconds: 10, seekSeconds: 30 })).ok);
+
+  const hidingState = waitFor(host.socket, 'room:state', (s) => s.phase === 'hiding');
+  assert.ok((await request(host.socket, 'game:start')).ok);
+  const hider = (await hidingState).players.find((p) => p.role === 'hider');
+  const [hostPing, guestPing] = await Promise.all([
+    waitFor(host.socket, 'hint:ping', () => true, 40_000),
+    waitFor(guest.socket, 'hint:ping', () => true, 40_000),
+  ]);
+  assert.deepEqual(hostPing, guestPing);
+  assert.deepEqual(hostPing.players.map((p) => p.id), [hider.id]);
+});

@@ -16,6 +16,8 @@ export const RoomSettingsSchema = z.object({
   seekers: z.union([z.literal('auto'), z.number().int().min(1).max(3)]),
   /** Что происходит с найденным: становится помощником ищущих или призраком-наблюдателем. */
   foundMode: z.enum(['helper', 'ghost']),
+  /** Подсказки: во второй половине поиска прячущиеся свистят со своих мест (hints.ts). */
+  hints: z.boolean(),
 });
 export type RoomSettings = z.output<typeof RoomSettingsSchema>;
 
@@ -49,6 +51,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   seekSeconds: defaultSeekSeconds('ala-too'),
   seekers: 'auto',
   foundMode: 'helper',
+  // На большой площади без подсказок раунд часто кончается ничем — включены по умолчанию.
+  hints: true,
 };
 
 /**

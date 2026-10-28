@@ -10,6 +10,7 @@
 | `lobby.ts` | Схемы ника/кода комнаты (zod), `PlayerInfo`, `RoomSnapshot`, `ERROR_CODES`, `Result<T>` |
 | `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих |
 | `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING`; `defaultSeekSeconds(mapId)` (у карты своё `MapDef.seekSeconds`, иначе 150), `patchSettings` — сменили карту без времени поиска → время карты (сервер применяет через `Room.applySettings`) |
+| `hints.ts` | Подсказки: `HINT_RULES` (раз в 30 с со второй половины поиска, в последнюю минуту — 15 с), `hintSchedule(seekSeconds)` → секунды от начала поиска, `HintPing` (событие `hint:ping`). Включаются `RoomSettings.hints` |
 | `net-state.ts` | Позиции: `PlayerStateSchema`, `WorldSnapshot`, частоты (20 Гц), `INTERPOLATION_DELAY_MS`, схема выстрела `ShootSchema` |
 | `physics.ts` | Детерминированная физика персонажа (`stepPlayer`, 60 Гц, цилиндр vs AABB, прыжок, присед, поза, бег — `MoveInput.sprint`, `PLAYER.sprintSpeed`; выносливость `STAMINA`, `canSprint`, `tickStamina` — общая с сервером), `bodyHeight`/`moveSpeed` (по приседу и позе), `keepBodyOutOfWalls` (лёжа: голова/ноги не в стене, длина — из хитбоксов), лазание (`climb` внутри `stepPlayer`, `wallContact` — нужна и серверу; `Aabb.noClimb` — внешние стены карт без потолка), `penetratesColliders`, `supportHeight`, `JUMP_HEIGHT` |
 | `poses.ts` | Позы: `POSES`, `POSE_RULES` (высота, скорость ползком; 0 — «на месте»), `cancelsPose` (движение/прыжок снимают позу), `stanceKey` (stand/crouch/поза — ключ хитбоксов) |
@@ -23,7 +24,7 @@
 
 ## События протокола
 C→S: `net:ping`, `room:create|join|leave|settings`, `game:start`, `player:state` (20 Гц, volatile), `player:skin` (бинарная картинка), `seek:shoot`, `client:report` (телеметрия, без ответа).
-S→C: `net:welcome`, `room:state` (полный снимок комнаты при любом изменении), `world:snapshot` (20 Гц), `player:teleport`, `player:skin`, `seek:shot`.
+S→C: `net:welcome`, `room:state` (полный снимок комнаты при любом изменении), `world:snapshot` (20 Гц), `player:teleport`, `player:skin`, `seek:shot`, `hint:ping` (свист подсказки).
 
 ## Подводные камни
 - Физика и карты общие: сервер валидирует движение тем же `stepPlayer`/`penetratesColliders`. Меняешь физику — проверь `move-validator`/`air-check` на сервере (`air-check` не считает полётом висение у стены — `wallContact`).

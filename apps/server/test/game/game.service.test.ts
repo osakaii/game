@@ -361,3 +361,49 @@ describe('GameService settings, scoring and rotation', () => {
     expect(room.toSnapshot().players.find((p) => p.id === survivor.id)?.roundPoints).toBe(3);
   });
 });
+
+describe('GameService hints', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** Раунд до начала поиска; pings — что разослано, seekSeconds — длина поиска «Детской». */
+  function seeking(hints = true) {
+    const ctx = setup(3);
+    const pings: { id: string }[][] = [];
+    ctx.events.hint.subscribe(({ ping }) => pings.push(ping.players));
+    ctx.game.updateSettings(ctx.room, 'p0', { hints });
+    ctx.game.start(ctx.room, 'p0');
+    vi.advanceTimersByTime(ctx.room.settings.hideSeconds * 1000);
+    return { ...ctx, pings, seekSeconds: ctx.room.settings.seekSeconds };
+  }
+
+  it('hiders whistle from the second half of seeking, with their server positions', () => {
+    const { room, pings, seekSeconds } = seeking();
+    vi.advanceTimersByTime((seekSeconds / 2) * 1000 - 100);
+    expect(pings).toHaveLength(0);
+    vi.advanceTimersByTime(200);
+    const hiders = room.allMembers().filter((m) => m.role === 'hider');
+    expect(pings).toHaveLength(1);
+    expect(pings[0]).toEqual(hiders.map((m) => ({ id: m.id, x: m.state.x, y: m.state.y, z: m.state.z })));
+  });
+
+  it('found hiders do not whistle; nothing after the round ends', () => {
+    const { room, game, pings, seekSeconds } = seeking();
+    const [first, second] = room.allMembers().filter((m) => m.role === 'hider');
+    first.found = true;
+    vi.advanceTimersByTime((seekSeconds / 2 + 1) * 1000);
+    expect(pings.at(-1)!.map((p) => p.id)).toEqual([second.id]);
+    // Последнего нашли — раунд окончен, оставшиеся по расписанию свисты не звучат.
+    second.found = true;
+    game.checkWinConditions(room);
+    const before = pings.length;
+    vi.advanceTimersByTime(seekSeconds * 1000);
+    expect(pings).toHaveLength(before);
+  });
+
+  it('the host can switch hints off', () => {
+    const { pings, seekSeconds } = seeking(false);
+    vi.advanceTimersByTime(seekSeconds * 1000);
+    expect(pings).toHaveLength(0);
+  });
+});

@@ -11,6 +11,7 @@
  * Новая карта меняет APP_VERSION, но не протокол. Новое поле в сообщении — меняет оба.
  */
 import { z } from 'zod';
+import type { HintPing } from './hints.js';
 import type { UpdateSettingsPayload } from './settings.js';
 import type { SkinImageEvent } from './skin.js';
 import type { ClientReport } from './telemetry.js';
@@ -32,7 +33,7 @@ import type {
   WorldSnapshot,
 } from './net-state.js';
 
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 /**
  * Секрет сессии, клиент генерирует его сам и передаёт при подключении (handshake auth).
@@ -81,6 +82,8 @@ export interface ServerToClientEvents {
   'world:snapshot': (snapshot: WorldSnapshot) => void;
   'player:teleport': (position: TeleportPayload) => void;
   'seek:shot': (shot: ShotEvent) => void;
+  /** Подсказка: ненайденные прячущиеся свистнули со своих мест (см. hints.ts). */
+  'hint:ping': (ping: HintPing) => void;
   /** Кожа игрока: после его загрузки или при входе в комнату (все кожи сразу). */
   'player:skin': (event: SkinImageEvent) => void;
 }

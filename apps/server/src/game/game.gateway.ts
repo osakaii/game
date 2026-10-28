@@ -41,6 +41,8 @@ export class GameGateway implements OnGatewayInit {
 
   afterInit() {
     this.events.shot.subscribe(({ room, shot }) => this.server.to(room.code).emit('seek:shot', shot));
+    // Свист слышат все: ищущие — где искать, прячущиеся — что их выдало и пора ли перебегать.
+    this.events.hint.subscribe(({ room, ping }) => this.server.to(room.code).emit('hint:ping', ping));
     // Новую кожу — всем в комнате, кроме автора: у него она и так на экране.
     this.events.skin.subscribe(({ room, playerId }) => {
       const { revision, image } = room.member(playerId)?.skin ?? {};

@@ -55,6 +55,7 @@ import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
+import { HintFx } from './world/hint-fx';
 import { ShotFx } from './world/shot-fx';
 import { Splats } from './world/splats';
 import { applyShadows, createSceneContext, setRenderScale } from './world/scene-setup';
@@ -291,6 +292,23 @@ const seekerEffects = new SeekerEffects({
   myId: () => network.playerId,
 });
 network.on('shot', (shot) => seekerEffects.onServerShot(shot));
+
+// ---------- Подсказки: ненайденные прячущиеся свистят со своих мест ----------
+
+const hintFx = new HintFx(scene);
+/** В каком раунде уже объяснили, что за свист: тост — один раз за раунд, дальше хватает звука и нот. */
+let hintExplainedRound = -1;
+network.on('hint', (ping) => {
+  // Правое ухо — первый столбец матрицы камеры (её ось X в мире).
+  const m = camera.matrixWorld.elements;
+  gameSounds.onHint(ping, network.playerId, { position: camera.position, rightX: m[0], rightZ: m[2] });
+  for (const p of ping.players) hintFx.show(p);
+  const round = lobby.room?.round ?? 0;
+  if (round === hintExplainedRound) return;
+  hintExplainedRound = round;
+  const mine = ping.players.some((p) => p.id === network.playerId);
+  toast(mine ? 'Ты свистнул — ищущие слышат, где ты. Самое время перебежать!' : 'Прячущиеся свистнули — слушай, откуда звук');
+});
 // Пятно, звук и «найден!» — когда капля долетела, а не когда пришёл пакет: так видно причину и следствие.
 seekerEffects.onImpact = (shot, impact) => {
   gameSounds.onShot(shot, player.state.position);
@@ -440,6 +458,7 @@ startFixedStepLoop(PHYSICS_DT, {
     gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);
     shotFx.update(frameDt);
+    hintFx.update(frameDt);
   },
 });
 

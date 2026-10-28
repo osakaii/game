@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Subject } from 'rxjs';
-import type { ShotEvent, TeleportPayload } from '@mecha/shared';
+import type { HintPing, ShotEvent, TeleportPayload } from '@mecha/shared';
 import type { Room } from './room';
 
 export interface TeleportEvent {
@@ -29,4 +29,6 @@ export class RoomEvents {
   readonly skin = new Subject<{ room: Room; playerId: string }>();
   /** Ищущий проверил место. */
   readonly shot = new Subject<{ room: Room; shot: ShotEvent }>();
+  /** Подсказка: прячущиеся свистнули — разослать всей комнате. */
+  readonly hint = new Subject<{ room: Room; ping: HintPing }>();
 }

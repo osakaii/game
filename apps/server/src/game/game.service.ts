@@ -8,6 +8,7 @@ import {
   canPaint,
   detectSkinImage,
   canShoot,
+  hintSchedule,
   resolveSeekerCount,
   type GameResult,
   type RoomSettings,
@@ -52,6 +53,8 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(GameService.name);
   /** Один активный таймер фазы на комнату. Ключ — сам объект Room, а не код (см. schedule). */
   private readonly timers = new Map<Room, ReturnType<typeof setTimeout>>();
+  /** Таймеры подсказок — отдельно от таймера фазы: их несколько за раунд, и все снимает конец поиска. */
+  private readonly hintTimers = new Map<Room, ReturnType<typeof setTimeout>[]>();
   private subscription: Subscription | undefined;
 
   constructor(
@@ -67,6 +70,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.subscription?.unsubscribe();
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
+    for (const room of [...this.hintTimers.keys()]) this.clearHints(room);
   }
 
   start(room: Room, playerId: string, random: () => number = Math.random): void {
@@ -200,9 +204,37 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.events.changed.next(room);
     // Время вышло, а прячущиеся остались — они победили.
     this.schedule(room, seekSeconds, () => this.finish(room, { winner: 'hider', reason: 'time_up' }));
+    if (room.settings.hints) this.scheduleHints(room, seekSeconds);
+  }
+
+  /** Расписание свиста на весь поиск сразу (hintSchedule): раунд кончится раньше — clearHints снимет остаток. */
+  private scheduleHints(room: Room, seekSeconds: number) {
+    this.clearHints(room);
+    const timers = hintSchedule(seekSeconds).map((t) => setTimeout(() => this.whistle(room), t * 1000));
+    this.hintTimers.set(room, timers);
+  }
+
+  private clearHints(room: Room) {
+    for (const timer of this.hintTimers.get(room) ?? []) clearTimeout(timer);
+    this.hintTimers.delete(room);
+  }
+
+  /**
+   * Ненайденные прячущиеся свистят со своих мест. Позиции — последние принятые сервером,
+   * а не присланные клиентом: подсказка не врёт, даже если клиент перестал слать состояние.
+   * Отключившийся не свистит — его тело стоит на месте, а сам он, может, уже вернётся в другом.
+   */
+  private whistle(room: Room) {
+    if (this.rooms.get(room.code) !== room || room.phase !== 'seeking') return;
+    const players = room
+      .allMembers()
+      .filter((m) => m.role === 'hider' && !m.found && m.connected)
+      .map((m) => ({ id: m.id, x: m.state.x, y: m.state.y, z: m.state.z }));
+    if (players.length) this.events.hint.next({ room, ping: { players } });
   }
 
   private finish(room: Room, result: GameResult) {
+    this.clearHints(room);
     room.finishRound(result, Date.now() + GAME_RULES.resultsSeconds * 1000);
     this.logger.log(`room ${room.code}: ${result.winner} won (${result.reason})`);
     this.events.changed.next(room);

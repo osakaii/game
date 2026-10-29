@@ -141,7 +141,7 @@ describe('GameService.uploadSkin', () => {
     expect(() => game.uploadSkin(room, 'p0', fakePng(), 6100)).not.toThrow();
   });
 
-  it('round start resets skins: hiders to white, seekers to uniform; only hiders may paint', () => {
+  it('round start resets skins: hiders to white, seekers to uniform; only unfound hiders may paint', () => {
     const { game, room } = setup(2);
     game.uploadSkin(room, 'p0', fakePng(), 5000);
     game.start(room, 'p0');
@@ -153,8 +153,12 @@ describe('GameService.uploadSkin', () => {
     expect(() => game.uploadSkin(room, seeker.id, fakePng(), Date.now() + 2000)).toThrowError(/PAINT_NOT_ALLOWED/);
     expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 2000)).not.toThrow();
 
-    vi.advanceTimersByTime(DEFAULT_SETTINGS.hideSeconds * 1000);
-    expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 5000)).toThrowError(/PAINT_NOT_ALLOWED/);
+    // Во время поиска прячущийся может перекраситься, пока его не нашли.
+    vi.advanceTimersByTime(room.settings.hideSeconds * 1000);
+    expect(room.phase).toBe('seeking');
+    expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 5000)).not.toThrow();
+    hider.found = true; // призрак (режим ghost): роль прежняя, но прятаться уже незачем
+    expect(() => game.uploadSkin(room, hider.id, fakePng(), Date.now() + 8000)).toThrowError(/PAINT_NOT_ALLOWED/);
   });
 });
 

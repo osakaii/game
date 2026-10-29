@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canMove, resolveSeekerCount, seekerCount } from '../src/game.js';
+import { canMove, hasEndlessStamina, resolveSeekerCount, seekerCount } from '../src/game.js';
 
 describe('game rules', () => {
   it('scales seekers with player count', () => {
@@ -20,5 +20,13 @@ describe('resolveSeekerCount', () => {
     expect(resolveSeekerCount(6, 3)).toBe(3);
     expect(resolveSeekerCount(2, 3)).toBe(1);
     expect(resolveSeekerCount(3, 2)).toBe(2);
+  });
+});
+
+describe('hasEndlessStamina', () => {
+  it('only seekers (and helpers who joined them) never tire', () => {
+    expect(hasEndlessStamina('seeker')).toBe(true);
+    expect(hasEndlessStamina('hider')).toBe(false);
+    expect(hasEndlessStamina(null)).toBe(false);
   });
 });

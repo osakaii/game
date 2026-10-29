@@ -8,7 +8,7 @@
 |---|---|
 | `protocol.ts` | **Контракт сети**: карты событий `ServerToClientEvents` / `ClientToServerEvents`, `PROTOCOL_VERSION`, `SessionIdSchema`, `WelcomePayload` |
 | `lobby.ts` | Схемы ника/кода комнаты (zod), `PlayerInfo`, `RoomSnapshot`, `ERROR_CODES`, `Result<T>` |
-| `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих |
+| `game.ts` | `GAME_RULES`, фазы (`lobby→hiding→seeking→results`), роли, `canMove`/`canPaint`/`canShoot`, число ищущих; `canPaint(phase, role, found)` — в лобби всем, в прятках и поиске — ненайденным прячущимся; `hasEndlessStamina(role)` — ищущий бегает без устали (`MoveInput.endlessStamina` → `tickStamina(…, endless)` держит запас полным) |
 | `settings.ts` | `RoomSettings` (карта, время, ищущие, `foundMode`), опции для UI, `SCORING`; `defaultSeekSeconds(mapId)` (у карты своё `MapDef.seekSeconds`, иначе 150), `patchSettings` — сменили карту без времени поиска → время карты (сервер применяет через `Room.applySettings`) |
 | `hints.ts` | Подсказки: `HINT_RULES` (раз в 30 с со второй половины поиска, в последнюю минуту — 15 с), `hintSchedule(seekSeconds)` → секунды от начала поиска, `HintPing` (событие `hint:ping`). Включаются `RoomSettings.hints` |
 | `net-state.ts` | Позиции: `PlayerStateSchema`, `WorldSnapshot`, частоты (20 Гц), `INTERPOLATION_DELAY_MS`, схема выстрела `ShootSchema` |

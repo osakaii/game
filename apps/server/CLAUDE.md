@@ -20,12 +20,12 @@
 | `rooms/rooms.service.ts` | Реестр комнат, create/join/leave, хост; `create(…, preferredCode)` — восстановить комнату под прежним кодом после перезапуска сервера (занят — `ROOM_EXISTS`, клиент входит в неё) |
 | `rooms/rooms.gateway.ts` | `room:create/join/leave`, рассылка `room:state`/телепортов, выход по истечении сессии |
 | `rooms/emit-skins.ts` | Отправить все кожи комнаты одному сокету (вход/переподключение) |
-| `game/game.service.ts` | Автомат фаз (таймеры на объект Room), подсказки (`hintTimers`: всё расписание `hintSchedule` при старте поиска, снимаются в `finish`; свистят ненайденные подключённые прячущиеся с серверной позиции), очередь ведущих, победа, настройки, `shoot` (lag compensation ≤300 мс), `uploadSkin` |
+| `game/game.service.ts` | Автомат фаз (таймеры на объект Room), подсказки (`hintTimers`: всё расписание `hintSchedule` при старте поиска, снимаются в `finish`; свистят ненайденные подключённые прячущиеся с серверной позиции), очередь ведущих, победа, настройки, `shoot` (lag compensation ≤300 мс), `uploadSkin` (по `canPaint` с `member.found`: прячущийся красится и во время поиска) |
 | `game/game.gateway.ts` | `game:start`, `room:settings`, `seek:shoot`, `player:skin` |
 | `game/shot.ts` | Ближайшее пересечение луча (пол, карта, прячущиеся по `rayHitsBody`: поза + yaw) — стены закрывают |
 | `telemetry/` | `client:report` → `TelemetryService` (строка JSON в лог `client-perf`/`client-error`, последние 500 замеров и 50 разных ошибок в памяти), `GET /stats` — сводка (FPS медиана/p10, по видеокартам, уровни автокачества, ошибки); id игроков наружу не отдаются |
 | `movement/movement.gateway.ts` | Приём `player:state`: заморозка ищущих, `validateMove`, `checkAirborne`, история; 20 Гц снимки (ищущим в прятках — без прячущихся, призраки скрыты) |
-| `movement/move-validator.ts`, `air-check.ts`, `stamina-check.ts`, `position-history.ts` | Античит скорости (по позе и бегу; `MoveBudget` — бюджет расстояния, копится со временем, а не запас к каждому пакету)/стен (рост по позе)/полёта; бег — по серверной выносливости (`judgeSprint`/`recordSprint`, тратит на 15% медленнее клиента), история позиций (с yaw, приседом, позой) для перемотки |
+| `movement/move-validator.ts`, `air-check.ts`, `stamina-check.ts`, `position-history.ts` | Античит скорости (по позе и бегу; `MoveBudget` — бюджет расстояния, копится со временем, а не запас к каждому пакету)/стен (рост по позе)/полёта; бег — по серверной выносливости (`judgeSprint`/`recordSprint`, тратит на 15% медленнее клиента; ищущему — `endless`, бег принимается всегда), история позиций (с yaw, приседом, позой) для перемотки |
 
 ## Подводные камни
 - `RoomMember extends Omit<PlayerInfo,'skin'>`: на сервере кожа хранит Buffer, клиенту уходит `SkinState`.

@@ -99,14 +99,31 @@ describe('stepPlayer on Playroom', () => {
 describe('sprinting', () => {
   /** Чистое поле без стен: бег не упирается в стену и не превращается в лазание. */
   const fresh = (): PlayerPhysicsState => ({ position: vec3(0, 0, 0), velocity: vec3(), grounded: true, crouching: false, pose: 'none' });
-  const run = (state: PlayerPhysicsState, seconds: number, sprint: boolean, extra: { crouch?: boolean; pose?: Pose; dirX?: number } = {}) => {
+  const run = (
+    state: PlayerPhysicsState,
+    seconds: number,
+    sprint: boolean,
+    extra: { crouch?: boolean; pose?: Pose; dirX?: number; endlessStamina?: boolean } = {},
+  ) => {
     const ticks = Math.round(seconds / PHYSICS_DT);
     for (let i = 0; i < ticks; i++) {
-      stepPlayer(state, { dirX: extra.dirX ?? 1, dirZ: 0, jump: false, crouch: !!extra.crouch, pose: extra.pose ?? 'none', sprint }, [], PHYSICS_DT);
+      const input = { dirX: extra.dirX ?? 1, dirZ: 0, jump: false, crouch: !!extra.crouch, pose: extra.pose ?? 'none', sprint, endlessStamina: extra.endlessStamina };
+      stepPlayer(state, input, [], PHYSICS_DT);
     }
     return state;
   };
   const speed = (s: PlayerPhysicsState) => Math.hypot(s.velocity.x, s.velocity.z);
+
+  it('endless stamina (seeker) sprints without tiring and refills a tired helper at once', () => {
+    const s = run(fresh(), STAMINA.sprintSeconds * 3, true, { endlessStamina: true });
+    expect(s.sprinting).toBe(true);
+    expect(s.stamina).toBe(1);
+    expect(speed(s)).toBeCloseTo(PLAYER.sprintSpeed, 1);
+    const tired = run(fresh(), STAMINA.sprintSeconds, true);
+    expect(tired.stamina).toBeLessThan(0.01);
+    run(tired, PHYSICS_DT, true, { endlessStamina: true });
+    expect(tired.stamina).toBe(1);
+  });
 
   it('runs at sprint speed while stamina lasts, then walks', () => {
     const s = run(fresh(), 1, true);

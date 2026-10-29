@@ -115,7 +115,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   uploadSkin(room: Room, playerId: string, bytes: Uint8Array, now = Date.now()): number {
     const member = room.member(playerId);
     if (!member) throw new GameError('ROOM_NOT_FOUND');
-    if (!canPaint(room.phase, member.role)) throw new GameError('PAINT_NOT_ALLOWED');
+    if (!canPaint(room.phase, member.role, member.found)) throw new GameError('PAINT_NOT_ALLOWED');
     if (now - member.skin.uploadedAt < SKIN_UPLOAD_INTERVAL_MS) throw new GameError('RATE_LIMITED');
     if (bytes.byteLength > MAX_SKIN_BYTES) throw new GameError('INVALID_INPUT', 'skin image too large');
 

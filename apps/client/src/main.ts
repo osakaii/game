@@ -13,6 +13,7 @@ import {
   MAPS,
   canMove,
   canPaint,
+  hasEndlessStamina,
   isUpdateAvailable,
   type MoveInput,
 } from '@mecha/shared';
@@ -162,10 +163,10 @@ paintToggle.addEventListener('click', () => {
   updateControlsEnabled();
 });
 
-/** Мастерская доступна там же, где раньше покраска: в лобби — всем, в прятках — прячущимся. */
+/** Мастерская — по правилу canPaint: в лобби всем, в раунде — ненайденным прячущимся. */
 function canUseStudio(): boolean {
   const room = lobby.room;
-  return !!room && canPaint(room.phase, lobby.myRole);
+  return !!room && canPaint(room.phase, lobby.myRole, !!lobby.me?.found);
 }
 
 function closeStudio() {
@@ -355,7 +356,7 @@ lobby.on('room', (room) => {
   player.model.setGhost(!!lobby.me?.found && lobby.me.role === 'hider');
   // Ищущий в раунде держит краскомёт — и свой персонаж тоже, его видно со спины.
   player.model.setArmed(!!room && (room.phase === 'hiding' || room.phase === 'seeking') && lobby.myRole === 'seeker');
-  // Фаза сменилась на поиск или вышли из комнаты — Мастерская закрывается сама.
+  // Нашли, раунд кончился или вышли из комнаты — Мастерская закрывается сама.
   if (studio.active && !canUseStudio()) closeStudio();
   renderPaintToggle();
   gameSounds.onRoom(room, lobby.myRole);
@@ -428,6 +429,7 @@ startFixedStepLoop(PHYSICS_DT, {
     moveInput.crouch = controls.enabled && controls.crouch;
     moveInput.pose = controls.pose;
     moveInput.sprint = controls.sprint;
+    moveInput.endlessStamina = hasEndlessStamina(lobby.myRole);
     player.fixedUpdate(moveInput, dt);
     // Поза «на месте» снята движением или прыжком — снимаем и выбор, иначе персонаж снова ляжет, едва остановится.
     if (cancelsPose(controls.pose, moveInput)) controls.setPose('none');
@@ -449,7 +451,8 @@ startFixedStepLoop(PHYSICS_DT, {
       hideSplash();
     }
     hud.tick(frameDt);
-    staminaBar.update(player.state.stamina ?? 1, !!player.state.sprinting);
+    // У ищущего силы бесконечны — полоска ему ни к чему.
+    staminaBar.update(player.state.stamina ?? 1, !!player.state.sprinting && !moveInput.endlessStamina);
     perfGovernor.tick(frameDt);
     telemetry.tick(frameDt);
     const serverNow = network.clock.now();

@@ -45,11 +45,19 @@ export function resolveSeekerCount(players: number, setting: 'auto' | number): n
 }
 
 /**
- * Можно ли краситься. В лобби — всем (потренироваться), в прятках — только прячущимся.
- * Во время поиска нельзя: перекрашивание на глазах у ищущего было бы слишком сильным.
+ * Можно ли краситься. В лобби — всем (потренироваться), в раунде — ненайденным прячущимся:
+ * и в прятках, и во время поиска. Перекраситься на глазах у ищущего — риск, а не чит: в Мастерской
+ * игрок стоит на месте, а новая кожа доходит до других только высохнув.
+ * Найденный (призрак или помощник ищущих) уже не прячется — ему незачем.
  */
-export function canPaint(phase: RoomPhase, role: Role | null): boolean {
-  return phase === 'lobby' || (phase === 'hiding' && role === 'hider');
+export function canPaint(phase: RoomPhase, role: Role | null, found = false): boolean {
+  if (phase === 'lobby') return true;
+  return (phase === 'hiding' || phase === 'seeking') && role === 'hider' && !found;
+}
+
+/** Ищущий бегает без устали: площадь большая, а прячущемуся выносливость нужна, чтобы не убежать навсегда. */
+export function hasEndlessStamina(role: Role | null): boolean {
+  return role === 'seeker';
 }
 
 export function canShoot(phase: RoomPhase, role: Role | null): boolean {

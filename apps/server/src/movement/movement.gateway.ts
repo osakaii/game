@@ -7,7 +7,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { PlayerStateSchema, SNAPSHOT_RATE, canMove, supportHeight } from '@mecha/shared';
+import { PlayerStateSchema, SNAPSHOT_RATE, canMove, hasEndlessStamina, supportHeight } from '@mecha/shared';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import {
   GATEWAY_OPTIONS,
@@ -65,7 +65,8 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
 
     const now = Date.now();
     // Бег — по серверному запасу сил: сил нет — проверяем как шаг, и быстрое движение не пройдёт.
-    const next = judgeSprint(member.stamina, parsed.data);
+    const endless = hasEndlessStamina(member.role);
+    const next = judgeSprint(member.stamina, parsed.data, endless);
     const prev = member.state;
     // Ищущий в фазе пряток заморожен: поворачиваться можно, ходить нельзя.
     if (!canMove(room.phase, member.role) && Math.hypot(next.x - prev.x, next.z - prev.z) > FROZEN_SLACK) {
@@ -91,7 +92,7 @@ export class MovementGateway implements OnGatewayInit, OnModuleDestroy {
       return;
     }
 
-    recordSprint(member.stamina, next, now - member.stateAt);
+    recordSprint(member.stamina, next, now - member.stateAt, endless);
     member.state = next;
     member.stateAt = now;
     member.history.push(now, next);

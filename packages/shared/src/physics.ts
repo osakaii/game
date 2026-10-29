@@ -79,9 +79,13 @@ export function canSprint(state: StaminaState): boolean {
  * Шаг выносливости. Одна функция для клиента (физика) и сервера (свой учёт по принятым движениям):
  * сервер не верит запасу сил клиента, а считает его сам тем же кодом.
  */
-export function tickStamina(state: StaminaState, sprinting: boolean, dt: number): void {
+export function tickStamina(state: StaminaState, sprinting: boolean, dt: number, endless = false): void {
   const stamina = state.stamina ?? 1;
-  if (sprinting) {
+  if (endless) {
+    // Запас держим полным, а не просто не тратим: помощник ищущих мог стать им уставшим.
+    state.stamina = 1;
+    state.staminaRest = STAMINA.restDelay;
+  } else if (sprinting) {
     state.stamina = Math.max(0, stamina - dt / STAMINA.sprintSeconds);
     state.staminaRest = 0;
   } else {
@@ -126,6 +130,8 @@ export interface MoveInput {
   pose?: Pose;
   /** Хочет бежать (джойстик за кольцо, Shift). Побежит, если есть силы и идёт, а не стоит в позе. */
   sprint?: boolean;
+  /** Силы не тратятся (ищущий, `hasEndlessStamina`). */
+  endlessStamina?: boolean;
 }
 
 /** Джойстик отклонён хотя бы настолько — игрок идёт, а не просто чуть тронул стик: только тогда бег. */
@@ -181,7 +187,7 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   }
   updatePose(state, input, colliders);
   if (climb(state, input, colliders, dt)) {
-    tickStamina(state, false, dt); // на стене не бегут — отдыхают
+    tickStamina(state, false, dt, input.endlessStamina); // на стене не бегут — отдыхают
     return;
   }
 
@@ -190,7 +196,7 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
   let dirZ = input.dirZ;
   const len = Math.hypot(dirX, dirZ);
   const wantsSprint = !!input.sprint && len >= SPRINT_MIN_INPUT && !state.crouching && state.pose === 'none';
-  tickStamina(state, wantsSprint && canSprint(state), dt);
+  tickStamina(state, wantsSprint && canSprint(state), dt, input.endlessStamina);
   const speed = moveSpeed(state);
   if (len > 1) {
     dirX /= len;

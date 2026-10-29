@@ -15,9 +15,9 @@ const state = (sprinting: boolean): PlayerState => ({
 });
 
 /** Сервер принимает пакеты раз в 50 мс; true — бег принят. */
-function serverStep(server: StaminaState, claimSprint: boolean): boolean {
-  const judged = judgeSprint(server, state(claimSprint));
-  recordSprint(server, judged, 50);
+function serverStep(server: StaminaState, claimSprint: boolean, endless = false): boolean {
+  const judged = judgeSprint(server, state(claimSprint), endless);
+  recordSprint(server, judged, 50, endless);
   return judged.sprinting;
 }
 
@@ -46,6 +46,12 @@ describe('server stamina', () => {
     // Сил нет и бежать не перестаёт — восстановиться они не успевают: дальше только короткие рывки.
     const later = accepted.slice(firstRefusal);
     expect(later.filter(Boolean).length / later.length).toBeLessThan(0.5);
+  });
+
+  it('a seeker sprints endlessly, even one who joined the seekers tired', () => {
+    const server: StaminaState = { stamina: 0, sprinting: true };
+    for (let packet = 0; packet < 400; packet++) expect(serverStep(server, true, true)).toBe(true);
+    expect(server.stamina).toBe(1);
   });
 
   it('a refused sprint is judged as walking, so the sprint speed fails the speed check', () => {

@@ -5,9 +5,10 @@ import './styles/hud.css';
 import './styles/room.css';
 import './styles/studio.css';
 import './styles/screens.css';
+import './styles/menu.css';
 import {
   PHYSICS_DT,
-  PLAYROOM,
+  DEFAULT_SETTINGS,
   bodyHeight,
   cancelsPose,
   MAPS,
@@ -57,6 +58,8 @@ import { UpdateBanner } from './ui/update-banner';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { HintFx } from './world/hint-fx';
+import { MenuShowcase, showcaseSpot } from './world/menu-showcase';
+import { StudioCamera } from './paint/studio-camera';
 import { ShotFx } from './world/shot-fx';
 import { Splats } from './world/splats';
 import { applyShadows, createSceneContext, setRenderScale } from './world/scene-setup';
@@ -69,11 +72,13 @@ const canvas = $<HTMLCanvasElement>('#scene');
 const sceneContext = createSceneContext(canvas);
 const { renderer, scene, camera, sun } = sceneContext;
 
-// Карта по умолчанию, пока не вошли в комнату. Потом — та, что выбрал хост.
+// Главный экран — на карте по умолчанию (её же создатель комнаты получит без перестройки мира).
+// В комнате — та, что выбрал хост.
+const MENU_MAP = MAPS[DEFAULT_SETTINGS.mapId];
 const activeMap = new ActiveMap(scene, sun, sceneContext.renderer);
-activeMap.load(PLAYROOM);
+activeMap.load(MENU_MAP);
 
-const player = new LocalPlayer(PLAYROOM.spawns[0], activeMap);
+const player = new LocalPlayer(showcaseSpot(MENU_MAP).position, activeMap);
 scene.add(player.model.root);
 
 const followCamera = new ThirdPersonCamera(camera, activeMap);
@@ -85,6 +90,17 @@ const controls = new Controls({
   crouchButton: $('#crouch-button'),
 });
 new PoseWheel($<HTMLButtonElement>('#pose-button'), $('#pose-wheel'), controls);
+
+// Главный экран: свой персонаж на площади, камера сама ходит перед ним.
+const showcase = new MenuShowcase(new StudioCamera(camera, activeMap), (pose) => controls.setPose(pose));
+function enterShowcase() {
+  activeMap.load(MENU_MAP);
+  const spot = showcaseSpot(MENU_MAP);
+  player.teleport(spot.position);
+  player.setFacing(spot.facing);
+  showcase.start(spot.facing);
+}
+enterShowcase();
 
 // ---------- Сеть и лобби ----------
 
@@ -104,6 +120,7 @@ const menu = new MenuScreen(
       immerseOnPhone((text) => toast(text, 7000));
       runLobbyRequest(() => lobby.join(nickname, code));
     },
+    onSettings: () => gameMenu.setOpen(true),
   },
   roomCodeFromUrl(),
 );
@@ -127,6 +144,7 @@ const gameMenu = new GameMenu(
   controls.lookScale,
   formatBuild(CLIENT_BUILD),
 );
+gameMenu.setAvailable(false); // до входа в комнату — без ☰ и «Выйти»
 
 /** Посреди раунда выход подводит команду — спрашиваем. В лобби и на итогах выходим сразу. */
 async function leaveRoom() {
@@ -193,7 +211,7 @@ const wakeLock = new ScreenWakeLock();
 setupFullscreenButtons((text) => toast(text, 7000));
 preventPageZoom();
 
-const soundButtons = [$<HTMLButtonElement>('#sound-toggle'), $<HTMLButtonElement>('#sound-toggle-game')];
+const soundButtons = [$<HTMLButtonElement>('#sound-toggle-game')];
 function renderSoundButtons() {
   for (const button of soundButtons) button.textContent = sfx.muted ? 'Звук: выкл' : 'Звук: вкл';
 }
@@ -208,7 +226,7 @@ renderSoundButtons();
 // Шорох кисти в Мастерской.
 studio.on('stroke', ({ state, speed }) => sfx.brush(state, speed));
 
-const shadowsButtons = [$<HTMLButtonElement>('#shadows-toggle'), $<HTMLButtonElement>('#shadows-toggle-game')];
+const shadowsButtons = [$<HTMLButtonElement>('#shadows-toggle-game')];
 function renderShadowsButton() {
   for (const button of shadowsButtons) button.textContent = graphics.shadows ? 'Тени: вкл' : 'Тени: выкл';
 }
@@ -267,7 +285,6 @@ network.on('ping', (rtt) => hud.setPing(rtt));
 // ---------- Версия ----------
 
 // Версия видна и в меню, и в игре (HUD) — удобно, когда игрок присылает скриншот с багом.
-$('#app-version').textContent = formatBuild(CLIENT_BUILD);
 $('#hud-version').textContent = formatBuild(CLIENT_BUILD);
 const updateBanner = new UpdateBanner();
 network.on('welcome', ({ build }) => {
@@ -364,8 +381,13 @@ lobby.on('room', (room) => {
   wakeLock.enabled = !!room;
   if (room) {
     menu.hide();
+    showcase.stop();
     setRoomInUrl(room.code);
   } else {
+    if (!showcase.active) {
+      splats.clear();
+      enterShowcase();
+    }
     menu.show();
     setRoomInUrl(null);
   }
@@ -443,6 +465,7 @@ startFixedStepLoop(PHYSICS_DT, {
     skinPainter.update(frameDt);
     remotePlayers.render(network.clock.now(), frameDt);
     if (studio.active) studio.update(player.renderPosition);
+    else if (showcase.active) showcase.update(frameDt, player.renderPosition);
     // Присел или лёг — камера опускается следом: видно, что под столом.
     else followCamera.update(player.renderPosition, frameDt, bodyHeight(player.state) < 1.2);
     renderer.render(scene, camera);

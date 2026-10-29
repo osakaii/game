@@ -258,44 +258,57 @@
       </form>
     </div>
 
-    <div id="menu" class="overlay">
-      <form id="menu-form" class="card" novalidate>
-        <!-- На низком экране (телефон горизонтально) — две колонки: слева игра и настройки, справа вход. -->
-        <div class="menu-brand">
+    <!--
+      Главный экран как в мобильных играх: без окна — свой персонаж на площади (MenuShowcase),
+      вокруг кнопки. Слева сверху — название, справа — настройки, слева снизу — ник, справа снизу — «Играть».
+    -->
+    <div id="menu">
+      <form id="menu-form" novalidate>
+        <header class="menu-logo">
           <h1>MECHA</h1>
-          <p class="subtitle">прятки с красками</p>
-          <div class="menu-footer">
-            <button type="button" id="fullscreen" data-fullscreen hidden>На весь экран</button>
-            <button type="button" id="sound-toggle">Звук: вкл</button>
-            <button type="button" id="shadows-toggle">Тени: вкл</button>
+          <p>прятки с красками</p>
+        </header>
+
+        <button type="button" id="menu-settings" class="menu-round" aria-label="Настройки">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.6 4.6-1.7 1 .1 2-2 2-2-.1-1 1.7h-2.8l-1-1.7-2 .1-2-2 .1-2-1.7-1v-2.8l1.7-1-.1-2 2-2 2 .1 1-1.7h2.8l1 1.7 2-.1 2 2-.1 2 1.7 1Z" /></svg>
+        </button>
+
+        <label class="menu-nick">
+          <span>Ник</span>
+          <input id="nickname" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Как тебя зовут?" />
+        </label>
+
+        <div class="menu-actions">
+          <p id="menu-error" role="alert"></p>
+          <div class="menu-buttons">
+            <button type="button" id="menu-alt" class="menu-alt" disabled>По коду</button>
+            <button type="button" id="menu-play" class="menu-play" disabled>
+              <span id="menu-play-label">Играть</span>
+              <small id="menu-play-hint">новая комната</small>
+            </button>
           </div>
-          <p id="app-version"></p>
         </div>
 
-        <div class="menu-main">
-          <label class="field">
-            <span>Ник</span>
-            <input id="nickname" maxlength="16" autocomplete="nickname" enterkeyhint="done" placeholder="Как тебя зовут?" />
-          </label>
-
-          <button type="button" id="create-room" class="primary" disabled>Создать комнату</button>
-
-          <div class="divider"><span>или по коду друга</span></div>
-
-          <div class="join-row">
+        <!-- Вход по коду друга: шторка поверх главного экрана. submit формы = «Войти» (и «Go» на клавиатуре). -->
+        <div id="join-sheet" hidden>
+          <div class="card join-card">
+            <h2>Код комнаты</h2>
+            <p class="join-hint">Попроси у друга 4 буквы из его плашки комнаты</p>
             <input
               id="room-code"
-              placeholder="КОД"
+              placeholder="····"
               autocapitalize="characters"
               autocomplete="off"
               autocorrect="off"
               spellcheck="false"
               enterkeyhint="go"
             />
-            <button type="submit" id="join-room" disabled>Войти</button>
+            <p id="join-error" role="alert"></p>
+            <div class="join-buttons">
+              <button type="button" id="join-cancel">Отмена</button>
+              <button type="submit" id="join-room" class="primary" disabled>Войти</button>
+            </div>
           </div>
-
-          <p id="menu-error" role="alert"></p>
         </div>
       </form>
     </div>

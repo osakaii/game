@@ -1,0 +1,292 @@
+/* ---------- Главный экран: персонаж на площади, кнопки по углам ---------- */
+
+/*
+ * Раскладка как в мобильных играх (Fall Guys, Stumble Guys, Brawl Stars): в центре — свой персонаж
+ * (его ставит MenuShowcase), название — слева сверху, настройки — справа сверху, главная кнопка —
+ * справа снизу, под большой палец. Окна нет: сама игра — лучшая заставка.
+ * Слой пропускает касания мимо кнопок (pointer-events), затемнены только углы — под текстом.
+ */
+#menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 45% at 0% 0%, rgb(15 18 26 / 0.55), transparent 70%),
+    linear-gradient(to top, rgb(15 18 26 / 0.55), transparent 32%);
+}
+
+#menu[hidden] {
+  display: none;
+}
+
+#menu-form {
+  position: absolute;
+  inset: 0;
+}
+
+#menu-form > * {
+  pointer-events: auto;
+}
+
+/* Пока открыт главный экран, всё про ходьбу и раунд спрятано: персонаж сейчас — витрина. */
+body.menu-open .action,
+body.menu-open #joystick,
+body.menu-open #joystick-ghost,
+body.menu-open #desktop-hint,
+body.menu-open #stamina,
+body.menu-open #pose-wheel,
+body.menu-open #hud {
+  display: none;
+}
+
+.menu-logo {
+  position: absolute;
+  top: var(--edge-top);
+  left: var(--edge-left);
+  pointer-events: none;
+  /* Наклон и краска на буквах — игра про покраску, а не строгое приложение. */
+  transform: rotate(-4deg);
+  transform-origin: left top;
+}
+
+.menu-logo h1 {
+  margin: 4px 0 0;
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  background: linear-gradient(100deg, #ff6b9a 10%, #ffb648 35%, #5ee0a0 60%, #5ab8ff 85%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* text-shadow с прозрачным текстом не работает — обводку и тень даёт фильтр. */
+  filter: drop-shadow(0 2px 0 #1b1f2a) drop-shadow(0 4px 10px rgb(0 0 0 / 0.35));
+}
+
+.menu-logo p {
+  margin: 2px 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+}
+
+/* Круглая кнопка на фоне игры: та же «плашка», что у кнопок управления. */
+.menu-round {
+  position: absolute;
+  top: var(--edge-top);
+  right: var(--edge-right);
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+  border-radius: 50%;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+}
+
+.menu-round svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.menu-nick {
+  position: absolute;
+  left: var(--edge-left);
+  bottom: var(--edge-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(230px, 34vw);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgb(255 255 255 / 0.85);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+}
+
+.menu-nick input {
+  background: var(--panel);
+  border-color: rgb(255 255 255 / 0.2);
+  font-weight: 700;
+}
+
+.menu-actions {
+  position: absolute;
+  right: var(--edge-right);
+  bottom: var(--edge-bottom);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: calc(100% - min(230px, 34vw) - var(--edge-left) - var(--edge-right) - 16px);
+}
+
+/* Ошибка — пузырём над кнопками, рядом с тем, на что нажали. Пустая места не занимает. */
+#menu-error {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgb(127 29 29 / 0.9);
+  font-size: 13px;
+  text-align: right;
+}
+
+#menu-error:empty {
+  display: none;
+}
+
+.menu-buttons {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.menu-alt {
+  min-height: 56px;
+  padding: 0 18px;
+  border-radius: 16px;
+  background: var(--panel);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.18);
+}
+
+/* Главная кнопка: самая большая и яркая на экране — без вопроса «что тут нажимать». */
+.menu-play {
+  min-width: 190px;
+  min-height: 68px;
+  padding: 6px 26px 8px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ff7aa6, #f2457f);
+  box-shadow:
+    0 5px 0 #b02a5f,
+    0 10px 24px rgb(255 92 143 / 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+
+.menu-play span {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 0.15);
+}
+
+.menu-play small {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+/* Нажатие — кнопка «проседает» на высоту своей тени, как настоящая. */
+.menu-play:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow:
+    0 1px 0 #b02a5f,
+    0 4px 12px rgb(255 92 143 / 0.3);
+}
+
+.menu-alt:active:not(:disabled),
+.menu-round:active {
+  transform: scale(0.96);
+}
+
+/* ---------- Шторка «Код комнаты» ---------- */
+
+#join-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 11; /* над всем главным экраном (#menu — 10) */
+  display: flex;
+  padding: var(--edge-top) var(--edge-right) var(--edge-bottom) var(--edge-left);
+  background: rgb(15 18 26 / 0.6);
+  backdrop-filter: blur(4px);
+}
+
+#join-sheet[hidden] {
+  display: none;
+}
+
+.join-card {
+  margin: auto;
+  width: min(340px, 100%);
+  text-align: center;
+}
+
+.join-card h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.join-hint {
+  margin: -4px 0 0;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.6);
+}
+
+/* Четыре крупные буквы — их диктуют голосом через комнату, читать должно быть легко. */
+#room-code {
+  min-height: 60px;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  /* letter-spacing добавляет отступ и после последней буквы — компенсируем, чтобы код стоял по центру. */
+  padding-left: calc(0.5em + 10px);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#join-error {
+  margin: 0;
+  color: #f87171;
+  font-size: 13px;
+}
+
+#join-error:empty {
+  display: none;
+}
+
+.join-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+}
+
+/* ---------- Низкий экран: телефон горизонтально ---------- */
+
+@media (max-height: 500px) {
+  .menu-logo h1 {
+    font-size: 40px;
+  }
+
+  .menu-logo p {
+    font-size: 13px;
+  }
+
+  .menu-play {
+    min-width: 160px;
+    min-height: 60px;
+  }
+
+  .menu-play span {
+    font-size: 22px;
+  }
+
+  .join-card {
+    gap: 8px;
+  }
+
+  #room-code {
+    min-height: 52px;
+    font-size: 28px;
+  }
+}

@@ -52,6 +52,13 @@ export class LocalPlayer {
     this.aimTime = seconds;
   }
 
+  /** Сразу повернуться (главный экран: лицом к камере витрины). */
+  setFacing(yaw: number): void {
+    this.facingAngle = yaw;
+    this.aimTime = 0;
+    this.model.root.rotation.y = yaw;
+  }
+
   /** Сервер поставил нас в точку: спавн или откат. Без интерполяции — мгновенно. */
   teleport(position: Vec3): void {
     copyVec3(this.state.position, position);

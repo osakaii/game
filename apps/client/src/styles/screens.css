@@ -1,4 +1,4 @@
-/* ---------- Окна: стартовое меню, настройки, итоги, затемнение ищущего ---------- */
+/* ---------- Окна: настройки, итоги, затемнение ищущего, вопрос ---------- */
 
 /*
  * Окно поверх игры. Центрируем через flex + margin: auto, а не place-items: center:
@@ -42,55 +42,12 @@
   text-align: center;
 }
 
-.subtitle {
-  margin: -8px 0 4px;
-  text-align: center;
-  color: rgb(255 255 255 / 0.6);
-  font-size: 14px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
   color: rgb(255 255 255 / 0.7);
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: rgb(255 255 255 / 0.45);
-  font-size: 12px;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgb(255 255 255 / 0.15);
-}
-
-.join-row {
-  display: flex;
-  gap: 8px;
-}
-
-#room-code {
-  flex: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.3em;
-  text-align: center;
-}
-
-#menu-error {
-  min-height: 1.2em;
-  margin: 0;
-  color: #f87171;
-  font-size: 13px;
-  text-align: center;
 }
 
 #blind {
@@ -143,22 +100,6 @@
   font-size: 13px;
   color: rgb(255 255 255 / 0.5);
   font-variant-numeric: tabular-nums;
-}
-
-.menu-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.menu-footer button {
-  flex: 1;
-  padding: 8px;
-  font-size: 13px;
-}
-
-.menu-footer button[hidden] {
-  display: none;
 }
 
 select {
@@ -230,28 +171,6 @@ select option {
   text-align: right;
 }
 
-#app-version {
-  margin: 0;
-  font-size: 11px;
-  color: rgb(255 255 255 / 0.35);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Высокий экран (компьютер, планшет): обёртки колонок не нужны — меню одним столбцом, настройки внизу. */
-.menu-brand,
-.menu-main {
-  display: contents;
-}
-
-.menu-footer {
-  order: 1;
-}
-
-#app-version {
-  order: 2;
-}
-
 .settings-fields {
   display: flex;
   flex-direction: column;
@@ -268,7 +187,7 @@ select option {
 
 /*
  * Окна раскладываются в две колонки, чтобы всё влезало без прокрутки:
- * меню — слева игра и звук/тени, справа вход; настройки — поля сеткой; итоги — заголовок слева, очки справа.
+ * настройки — поля сеткой; итоги — заголовок слева, очки справа.
  */
 @media (max-height: 500px) {
   .overlay {
@@ -278,25 +197,6 @@ select option {
   .card {
     gap: 8px;
     padding: 14px 16px;
-  }
-
-  #menu-form {
-    width: min(640px, 100%);
-    display: grid;
-    grid-template-columns: 1fr 1.3fr;
-    align-items: center;
-    gap: 20px;
-  }
-
-  .menu-brand,
-  .menu-main {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .menu-brand h1 {
-    font-size: 36px;
   }
 
   #settings-form {

@@ -79,6 +79,11 @@ export interface MapDef {
    * на огромной площади за 2.5 минуты не обойти и половины укрытий. Нет — общее по умолчанию.
    */
   seekSeconds?: number;
+  /**
+   * Где стоит персонаж на главном экране и куда смотрит (yaw: 0 — к +Z). Камера встаёт перед ним,
+   * поэтому за спиной должно быть красивое (на площади — Манас и музей). Нет — первый спавн.
+   */
+  showcase?: { position: Vec3; facing: number };
 }
 
 /** AABB (axis-aligned bounding box) — то, с чем работает физика. */
@@ -136,6 +141,7 @@ export function scaleMap(map: MapDef, k: number): MapDef {
     props: map.props?.map((p) => ({ ...p, x: p.x * k, z: p.z * k, y: (p.y ?? 0) * k, scale: (p.scale ?? 1) * k })),
     spawns: map.spawns.map(point),
     seekerSpawns: map.seekerSpawns.map(point),
+    showcase: map.showcase && { ...map.showcase, position: point(map.showcase.position) },
   };
 }
 

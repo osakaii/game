@@ -29,7 +29,7 @@ const CONTROLS = 'button, input, select, [role="button"]';
  * Слои, которые перекрывают игру целиком: пока такой открыт, кнопки под ним закрыты нарочно.
  * Проверяем только самый верхний открытый слой (или всю страницу, если слоёв нет).
  */
-const LAYERS = '.overlay, #room-sheet, #game-menu, #pose-wheel, #rotate-screen';
+const LAYERS = '.overlay, #menu, #join-sheet, #room-sheet, #game-menu, #pose-wheel, #rotate-screen';
 
 /** Насколько прямоугольник выходит за экран (px), 0 — целиком внутри. */
 export function overflow(box: Box, width: number, height: number): number {

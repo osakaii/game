@@ -17,10 +17,22 @@ describe.each(MAP_IDS)('map %s', (id) => {
   });
 
   it('spawns are inside the map and not inside furniture', () => {
-    for (const spawn of [...map.spawns, ...map.seekerSpawns]) {
+    const showcase = map.showcase ? [map.showcase.position] : [];
+    for (const spawn of [...map.spawns, ...map.seekerSpawns, ...showcase]) {
       expect(Math.abs(spawn.x)).toBeLessThan(map.width / 2);
       expect(Math.abs(spawn.z)).toBeLessThan(map.depth / 2);
       expect(penetratesColliders(spawn, colliders, 0), `spawn ${JSON.stringify(spawn)}`).toBe(false);
+    }
+  });
+
+  it('the main-screen spot stands on the ground with room for the camera in front', () => {
+    if (!map.showcase) return;
+    const { position, facing } = map.showcase;
+    expect(supportHeight(position, colliders)).toBeCloseTo(position.y, 3);
+    // Камера витрины — в 3–5 м перед лицом: там не должно быть ничего, иначе она упрётся в куст.
+    for (let d = 0.5; d <= 5; d += 0.5) {
+      const point = { x: position.x + Math.sin(facing) * d, y: position.y, z: position.z + Math.cos(facing) * d };
+      expect(penetratesColliders(point, colliders, 0), `${d} м перед витриной`).toBe(false);
     }
   });
 

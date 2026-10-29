@@ -10,13 +10,14 @@ interface GameMenuHandlers {
  *
  * Игру оно не останавливает — это мультиплеер, остальные продолжают. Поэтому меню — шторка сбоку,
  * а не окно на весь экран: видно, что происходит, и закрыть можно тапом мимо.
- * Кнопки звука и теней подписывает main.ts (те же обработчики, что у стартового меню).
+ * Кнопки звука и теней подписывает main.ts.
  */
 export class GameMenu {
   private readonly button = $<HTMLButtonElement>('#menu-button');
   private readonly root = $('#game-menu');
   private readonly slider = $<HTMLInputElement>('#look-sensitivity');
   private readonly sliderValue = $('#look-sensitivity-value');
+  private readonly leaveButton = $<HTMLButtonElement>('#leave-room');
 
   constructor(handlers: GameMenuHandlers, sensitivity: number, version: string) {
     this.button.addEventListener('click', () => this.setOpen(!this.open));
@@ -24,7 +25,7 @@ export class GameMenu {
     this.root.addEventListener('pointerdown', (e) => {
       if (e.target === this.root) this.setOpen(false);
     });
-    $('#leave-room').addEventListener('click', () => {
+    this.leaveButton.addEventListener('click', () => {
       this.setOpen(false);
       handlers.onLeave();
     });
@@ -48,9 +49,13 @@ export class GameMenu {
     this.button.setAttribute('aria-expanded', String(open));
   }
 
-  /** Кнопка ☰ есть только в комнате: в стартовом меню свои кнопки звука и теней. */
+  /**
+   * Кнопка ☰ и «Выйти» — только в комнате. На главном экране та же шторка открывается шестерёнкой
+   * (MenuScreen → setOpen): настройки одни, просто без выхода.
+   */
   setAvailable(available: boolean): void {
     this.button.hidden = !available;
+    this.leaveButton.hidden = !available;
     if (!available) this.setOpen(false);
   }
 

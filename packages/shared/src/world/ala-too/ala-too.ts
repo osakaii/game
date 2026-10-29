@@ -381,6 +381,8 @@ const PLAN: MapDef = {
   seekerSpawns: [plaza(-1.5, -13.5), plaza(1.5, -13.5)],
   // Площадь в 4 раза больше квартиры: 4 минуты поиска вместо 2.5.
   seekSeconds: 240,
+  // Главный экран: на плитке за дорогой от Манаса, лицом на юг — за спиной Манас и музей.
+  showcase: { position: plaza(0, 2.6), facing: 0 },
 };
 
 export const ALA_TOO: MapDef = scaleMap(PLAN, ALA_TOO_SCALE);

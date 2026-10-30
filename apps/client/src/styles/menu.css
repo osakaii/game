@@ -50,7 +50,19 @@ body.menu-open #hud {
   transform-origin: left top;
 }
 
+/* Кляксы за буквами: чуть больше надписи и уходят за её край. */
+.menu-splats {
+  position: absolute;
+  left: -22px;
+  top: -18px;
+  width: calc(100% + 80px);
+  height: auto;
+  opacity: 0.85;
+  z-index: -1;
+}
+
 .menu-logo h1 {
+  position: relative;
   margin: 4px 0 0;
   font-size: 52px;
   font-weight: 900;
@@ -72,11 +84,18 @@ body.menu-open #hud {
   text-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
 }
 
-/* Круглая кнопка на фоне игры: та же «плашка», что у кнопок управления. */
-.menu-round {
+/* Правый верхний угол: «На весь экран», «?», настройки — в ряд. */
+.menu-corner {
   position: absolute;
   top: var(--edge-top);
   right: var(--edge-right);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Круглая кнопка на фоне игры: та же «плашка», что у кнопок управления. */
+.menu-round {
   width: var(--touch);
   height: var(--touch);
   padding: 0;
@@ -86,10 +105,52 @@ body.menu-open #hud {
   place-items: center;
 }
 
+#menu-help {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+/* Новичок ещё не открывал «Как играть» — кнопка мягко пульсирует краской. */
+#menu-help.unseen {
+  animation: menu-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes menu-glow {
+  50% {
+    box-shadow: 0 0 0 6px rgb(255 107 154 / 0.45);
+  }
+}
+
+.menu-pill {
+  min-height: var(--touch);
+  padding: 0 14px 0 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.menu-pill[hidden] {
+  display: none;
+}
+
 .menu-round svg {
   width: 26px;
   height: 26px;
+}
+
+.menu-pill svg {
+  width: 22px;
+  height: 22px;
+}
+
+.menu-pill svg,
+.menu-round svg {
   fill: none;
+  stroke-linecap: round;
   stroke: #fff;
   stroke-width: 1.8;
   stroke-linejoin: round;
@@ -200,6 +261,179 @@ body.menu-open #hud {
   transform: scale(0.96);
 }
 
+/* Главная кнопка «дышит» — взгляд сам находит, что нажимать. */
+.menu-play:not(:disabled) {
+  animation: menu-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes menu-breathe {
+  50% {
+    box-shadow:
+      0 5px 0 #b02a5f,
+      0 10px 34px rgb(255 92 143 / 0.6);
+  }
+}
+
+/* ---------- Появление: название падает, кнопки выезжают — экран не «включается», а оживает ---------- */
+
+body.menu-open .menu-logo {
+  animation: menu-drop 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+body.menu-open .menu-corner {
+  animation: menu-slide-down 0.4s 0.1s ease-out both;
+}
+
+body.menu-open .menu-nick,
+body.menu-open .menu-actions {
+  animation: menu-slide-up 0.45s 0.15s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+@keyframes menu-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-40px) rotate(-12deg) scale(0.8);
+  }
+}
+
+@keyframes menu-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes menu-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+}
+
+/* Капля брызг (paint-burst.ts): позицию и движение задаёт JS. */
+.paint-drop {
+  position: fixed;
+  z-index: 12;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ---------- Справки: «Как играть», «Играть без рамок» ---------- */
+
+/* Выше главного экрана и шторки меню (#game-menu — 20): «На весь экран» открывается и оттуда. */
+.info-sheet {
+  z-index: 30;
+}
+
+.howto-card,
+.install-card {
+  width: min(620px, 100%);
+}
+
+.howto-card h2,
+.install-card h2 {
+  margin: 0;
+  font-size: 20px;
+  text-align: center;
+}
+
+.howto-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.howto-steps li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 3px 0 var(--tint);
+  text-align: center;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.howto-steps b {
+  font-size: 16px;
+  color: #fff;
+}
+
+.howto-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  background: color-mix(in srgb, var(--tint) 30%, transparent);
+}
+
+.install-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  counter-reset: step;
+}
+
+.install-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.06);
+  font-size: 14px;
+  counter-increment: step;
+}
+
+/* Номер шага — порядок важен, «Ещё» без «Поделиться» не найти. */
+.install-steps li::before {
+  content: counter(step);
+  font-weight: 900;
+  color: var(--accent);
+}
+
+/* Значок, как он выглядит в Safari: игрок ищет глазами именно его. */
+.install-key {
+  flex: none;
+  min-width: 40px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 0.14);
+  font-weight: 800;
+  color: #4ea1ff;
+}
+
+.install-key svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.install-note {
+  margin: 0;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.65);
+  text-align: center;
+}
+
 /* ---------- Шторка «Код комнаты» ---------- */
 
 #join-sheet {
@@ -288,5 +522,29 @@ body.menu-open #hud {
   #room-code {
     min-height: 52px;
     font-size: 28px;
+  }
+
+  .howto-steps li {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .howto-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+
+  .install-steps li {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+}
+
+/* Пользователь просил меньше движения (настройка системы) — без появления, дыхания и пульса. */
+@media (prefers-reduced-motion: reduce) {
+  #menu *,
+  #menu-help.unseen {
+    animation: none !important;
   }
 }

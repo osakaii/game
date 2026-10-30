@@ -96,6 +96,18 @@ export class Sfx {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.18, { type: 'triangle', delay: i * 0.07, volume: 0.25 }));
   }
 
+  /** Кнопка интерфейса: мягкий «блоп», как пузырь краски. Тихий — его слышно на каждое нажатие. */
+  pop(): void {
+    this.tone(520, 0.07, { volume: 0.14, slideTo: 860 });
+  }
+
+  /** Главная кнопка «Играть»: сочный шлепок краски и короткий подъём — «поехали». */
+  play(): void {
+    this.noise(0.12, 0.25, 1400);
+    this.tone(392, 0.1, { type: 'triangle', volume: 0.2, delay: 0.04 });
+    this.tone(587, 0.16, { type: 'triangle', volume: 0.2, delay: 0.11 });
+  }
+
   /** Тиканье последних секунд фазы. */
   tick(): void {
     this.tone(1200, 0.05, { type: 'square', volume: 0.08 });

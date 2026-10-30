@@ -41,18 +41,18 @@ describe('preventPageZoom', () => {
 });
 
 describe('setupFullscreenButtons on iPhone', () => {
-  it('keeps the button and explains «Add to Home Screen» instead of hiding it', async () => {
-    const { setupFullscreenButtons, IOS_FULLSCREEN_HINT } = await import('../../src/platform/device');
+  it('keeps the button and shows the «Add to Home Screen» steps instead of hiding it', async () => {
+    const { setupFullscreenButtons } = await import('../../src/platform/device');
     document.body.innerHTML = '<button data-fullscreen hidden>На весь экран</button>';
     // iPhone Safari: Fullscreen API для страниц нет.
     Object.defineProperty(document, 'fullscreenEnabled', { value: false, configurable: true });
     Object.defineProperty(navigator, 'userAgent', { value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', configurable: true });
-    const hints: string[] = [];
-    setupFullscreenButtons((text) => hints.push(text));
+    const showSteps = vi.fn();
+    setupFullscreenButtons(showSteps);
     const button = document.querySelector<HTMLButtonElement>('[data-fullscreen]')!;
     expect(button.hidden).toBe(false);
     button.click();
-    expect(hints).toEqual([IOS_FULLSCREEN_HINT]);
+    expect(showSteps).toHaveBeenCalledOnce();
   });
 });
 

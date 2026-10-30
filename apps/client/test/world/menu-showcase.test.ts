@@ -36,4 +36,24 @@ describe('main-screen showcase', () => {
     expect(setPose).toHaveBeenLastCalledWith('none');
     expect(showcase.active).toBe(false);
   });
+
+  it('a tap makes the character jump once, out of a pose, without jerking the camera', () => {
+    const view = { yaw: 0, pitch: 0, distance: 0, screenShift: 0, update: vi.fn() } as unknown as StudioCamera;
+    const setPose = vi.fn();
+    const showcase = new MenuShowcase(view, setPose);
+    const target = { x: 0, y: 0, z: 0 } as never;
+    showcase.start(0);
+    for (let i = 0; i < 50; i++) showcase.update(0.1, target);
+    const yaw = view.yaw;
+    showcase.poke();
+    expect(setPose).toHaveBeenLastCalledWith('none');
+    expect(showcase.consumeJump()).toBe(true);
+    expect(showcase.consumeJump()).toBe(false);
+    showcase.update(0.1, target);
+    expect(Math.abs(view.yaw - yaw)).toBeLessThan(0.05);
+    // Не на главном экране — тап ничего не делает.
+    showcase.stop();
+    showcase.poke();
+    expect(showcase.consumeJump()).toBe(false);
+  });
 });

@@ -1,7 +1,8 @@
-/** Как попасть в полный экран на iPhone: другого способа Apple не даёт. */
-/** В iOS 26 «Поделиться» в Safari спрятано в «•••», а нужный пункт — за «Ещё»: без этого его не находят. */
-export const IOS_FULLSCREEN_HINT =
-  'На iPhone без рамок — только с экрана «Домой»: в Safari «•••» → «Поделиться» → «Ещё» → «На экран „Домой“», потом запускай игру с иконки';
+/**
+ * Короткая подсказка при входе в комнату на iPhone: другого способа убрать рамки Apple не даёт.
+ * Подробные шаги (в iOS 26 «Поделиться» спрятано в «•••», нужный пункт — за «Ещё») — в шторке установки.
+ */
+export const IOS_FULLSCREEN_HINT = 'Без рамок браузера — установи игру на экран «Домой»: ☰ → «На весь экран»';
 
 /** Игра открыта с главного экрана как приложение (рамок браузера уже нет). */
 export function isInstalledApp(): boolean {
@@ -17,17 +18,17 @@ function isIphone(): boolean {
 /**
  * Полноэкранный режим. На Android после него можно зафиксировать альбомную ориентацию.
  * iPhone Safari не умеет fullscreen для страниц — полный экран даёт только «На экран «Домой»»
- * (manifest + apple-mobile-web-app-capable). Там кнопка остаётся, но по нажатию объясняет, как это сделать:
- * иначе игроки не знают, что так вообще можно.
+ * (manifest + apple-mobile-web-app-capable). Там кнопка остаётся, но по нажатию показывает шаги установки
+ * (onIphone): иначе игроки не знают, что так вообще можно.
  */
-export function setupFullscreenButtons(hint: (text: string) => void): void {
-  // Кнопок две (стартовое меню и меню игры) — все помечены data-fullscreen.
+export function setupFullscreenButtons(onIphone: () => void): void {
+  // Кнопок две (главный экран и меню игры) — все помечены data-fullscreen.
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-fullscreen]')];
   if (!document.fullscreenEnabled) {
     if (!isIphone() || isInstalledApp()) return;
     for (const button of buttons) {
       button.hidden = false;
-      button.addEventListener('click', () => hint(IOS_FULLSCREEN_HINT));
+      button.addEventListener('click', onIphone);
     }
     return;
   }

@@ -34,9 +34,13 @@ export function showcaseSpot(map: MapDef): { position: Vec3; facing: number } {
  */
 export class MenuShowcase {
   active = false;
+  /** Время облёта камеры. */
   private time = 0;
+  /** Время цикла поз — отдельно: прыжок по тапу начинает цикл заново, а камера не должна дёрнуться. */
+  private poseTime = 0;
   private facing = 0;
   private pose: Pose = 'none';
+  private jumpQueued = false;
 
   constructor(
     private readonly view: StudioCamera,
@@ -46,6 +50,7 @@ export class MenuShowcase {
   start(facing: number): void {
     this.active = true;
     this.time = 0;
+    this.poseTime = 0;
     this.facing = facing;
     this.view.pitch = PITCH;
     this.view.distance = DISTANCE;
@@ -58,13 +63,34 @@ export class MenuShowcase {
   stop(): void {
     if (!this.active) return;
     this.active = false;
+    this.jumpQueued = false;
     this.pose = 'none';
     this.setPose('none');
   }
 
+  /**
+   * Тап по экрану главного экрана: персонаж подпрыгивает. Мелочь, но экран «живой» —
+   * в Fall Guys по персонажу в меню тоже хочется тыкать.
+   */
+  poke(): void {
+    if (!this.active) return;
+    this.jumpQueued = true;
+    // Из позы сразу в прыжок; цикл поз пойдёт заново — постоит и снова покажет позу.
+    this.poseTime = 0;
+    this.applyPose('none');
+  }
+
+  /** Прыжок для физики (как Controls.consumeJump): один раз на тап. */
+  consumeJump(): boolean {
+    const jump = this.jumpQueued;
+    this.jumpQueued = false;
+    return jump;
+  }
+
   update(dt: number, target: THREE.Vector3): void {
     this.time += dt;
-    this.applyPose(showcasePose(this.time));
+    this.poseTime += dt;
+    this.applyPose(showcasePose(this.poseTime));
     this.view.yaw = this.facing + Math.sin((this.time / SWING_PERIOD) * Math.PI * 2) * SWING;
     this.view.update(target);
   }

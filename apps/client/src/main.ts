@@ -44,6 +44,8 @@ import { Hud } from './ui/hud';
 import { StaminaBar } from './ui/stamina-bar';
 import { PoseWheel } from './ui/pose-wheel';
 import { MenuScreen } from './ui/menu-screen';
+import { HowToPlay, InfoSheet } from './ui/info-sheet';
+import { paintBurst } from './ui/paint-burst';
 import { StudioToolbar } from './ui/studio-toolbar';
 import { PhaseHud } from './ui/phase-hud';
 import { RoomPanel } from './ui/room-panel';
@@ -208,7 +210,30 @@ controls.onTap = (x, y) => void seekerControls.tap(x, y);
 const sfx = new Sfx();
 const gameSounds = new GameSounds(sfx);
 const wakeLock = new ScreenWakeLock();
-setupFullscreenButtons((text) => toast(text, 7000));
+// На iPhone «На весь экран» показывает шаги установки на экран «Домой» — другого пути нет.
+const installSheet = new InfoSheet('#install');
+setupFullscreenButtons(() => installSheet.open());
+new HowToPlay($('#menu-help'));
+
+// Отклик главного экрана: «блоп» на каждую кнопку, у «Играть» — шлепок и брызги краски.
+for (const root of [$('#menu'), $('#howto'), $('#install')]) {
+  root.addEventListener('click', (e) => {
+    const button = (e.target as HTMLElement).closest('button');
+    if (!button || button.disabled) return;
+    if (button.id === 'menu-play') {
+      sfx.play();
+      paintBurst(button);
+    } else {
+      sfx.pop();
+    }
+  });
+}
+// Тап мимо кнопок — по самой игре: персонаж на витрине подпрыгивает.
+canvas.addEventListener('pointerup', () => {
+  if (!showcase.active || installSheet.isOpen) return;
+  showcase.poke();
+  sfx.pop();
+});
 preventPageZoom();
 
 const soundButtons = [$<HTMLButtonElement>('#sound-toggle-game')];
@@ -447,7 +472,7 @@ startFixedStepLoop(PHYSICS_DT, {
     // right = (-f.z, f.x): вектор вперёд, повёрнутый на 90° по часовой (вид сверху).
     moveInput.dirX = f.x * axis.y - f.z * axis.x;
     moveInput.dirZ = f.z * axis.y + f.x * axis.x;
-    moveInput.jump = controls.consumeJump();
+    moveInput.jump = controls.consumeJump() || showcase.consumeJump();
     moveInput.crouch = controls.enabled && controls.crouch;
     moveInput.pose = controls.pose;
     moveInput.sprint = controls.sprint;

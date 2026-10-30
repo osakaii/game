@@ -88,6 +88,107 @@
   padding-left: 4px;
 }
 
+/* Карта — плашкой под панелью лобби (54 px — панель 44 + отступы 2×4 + зазор). */
+#lobby-map {
+  position: fixed;
+  top: calc(var(--edge-top) + 58px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+#lobby-map[hidden] {
+  display: none;
+}
+
+#lobby-map span {
+  color: rgb(255 255 255 / 0.7);
+}
+
+/* Не хосту — подпись, а не кнопка: без стрелки, но читается так же ясно. */
+#lobby-map:disabled {
+  opacity: 1;
+}
+
+#lobby-map:not(.editable) .lobby-map-arrow {
+  display: none;
+}
+
+#lobby-map.editable {
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.18);
+}
+
+/* ---------- Выбор карты ---------- */
+
+/* Выше шторки комнаты (20), как настройки. */
+#map-picker {
+  z-index: 25;
+}
+
+#map-picker .card {
+  width: min(620px, 100%);
+}
+
+.map-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.map-picker-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* Карты в ряд: альбомный экран широкий и низкий — столбик из трёх не влез бы на 300 px. */
+#map-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.map-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  text-align: left;
+  background: rgb(255 255 255 / 0.07);
+}
+
+.map-option b {
+  font-size: 16px;
+}
+
+.map-option span {
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgb(255 255 255 / 0.75);
+  white-space: normal;
+}
+
+.map-option small {
+  margin-top: auto;
+  font-size: 12px;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.map-option[aria-pressed='true'] {
+  background: rgb(255 107 154 / 0.22);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 /* ---------- Шторка комнаты ---------- */
 
 #room-sheet {
@@ -235,6 +336,7 @@
 
 /* В Мастерской экран — под кисть: комната и лобби подождут. */
 body.studio-open #room-chip,
-body.studio-open #lobby-bar {
+body.studio-open #lobby-bar,
+body.studio-open #lobby-map {
   display: none;
 }

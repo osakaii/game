@@ -55,6 +55,7 @@ import { GameMenu } from './ui/game-menu';
 // Только для dev-хука ниже: в продакшене блок вырезается, и модуль не попадает в бандл.
 import { auditUi } from './dev/ui-audit';
 import { SettingsDialog } from './ui/settings-dialog';
+import { MapPicker } from './ui/map-picker';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
 import { registerServiceWorker } from './platform/service-worker';
@@ -157,6 +158,7 @@ async function leaveRoom() {
   lobby.leave();
 }
 const settingsDialog = new SettingsDialog((patch) => void lobby.updateSettings(patch));
+const mapPicker = new MapPicker((mapId) => void lobby.updateSettings({ mapId }));
 const phaseHud = new PhaseHud();
 
 // ---------- Покраска ----------
@@ -391,6 +393,7 @@ lobby.on('room', (room) => {
   lobbyBar.render(room, network.playerId);
   gameMenu.setAvailable(!!room);
   settingsDialog.render(room, lobby.isHost);
+  mapPicker.render(room, lobby.isHost);
   phaseHud.renderScores(room, network.playerId);
   remotePlayers.applyRoom(room, network.playerId);
   // Свои цвета тоже берём из room:state: сервер — источник правды (например, форма ищущего).

@@ -102,6 +102,10 @@
       <button type="button" id="lobby-invite">Пригласить</button>
       <button type="button" id="start-game" class="primary" hidden>Начать игру</button>
     </div>
+    <!-- Карта — на виду под панелью лобби: хост меняет её одним тапом, остальные видят, где сыграют. -->
+    <button type="button" id="lobby-map" hidden>
+      <span>Карта</span> <b id="lobby-map-name"></b> <span class="lobby-map-arrow" aria-hidden="true">▾</span>
+    </button>
 
     <div id="room-sheet" hidden>
       <section class="sheet" role="dialog" aria-label="Комната">
@@ -222,6 +226,16 @@
         </div>
         <ol id="results-scores"></ol>
       </div>
+    </div>
+
+    <div id="map-picker" class="overlay" hidden>
+      <section class="card" role="dialog" aria-label="Выбор карты">
+        <header class="map-picker-header">
+          <h2>Где прячемся?</h2>
+          <button type="button" id="map-picker-close" class="icon-button" aria-label="Закрыть">✕</button>
+        </header>
+        <div id="map-options"></div>
+      </section>
     </div>
 
     <div id="settings" class="overlay" hidden>

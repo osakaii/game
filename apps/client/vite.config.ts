@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
+import { serviceWorker } from './build/sw-plugin.ts';
 
 /**
  * Хэш коммита, из которого собран клиент. В Docker папки .git нет — тогда берём из переменной окружения.
@@ -16,6 +18,8 @@ function buildCommit(): string {
 }
 
 export default defineConfig({
+  // Service worker: после сборки пишет dist/sw.js со списком файлов этой сборки.
+  plugins: [serviceWorker(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)))],
   // define подставляет значения прямо в код при сборке: в бандле будет строка, а не переменная.
   define: {
     __BUILD_COMMIT__: JSON.stringify(buildCommit()),

@@ -11,11 +11,14 @@
     "types": [
       "vite/client"
     ],
-    "noEmit": true
+    "noEmit": true,
+    // vite.config.ts импортирует плагин с расширением .ts: так его понимает и будущий нативный загрузчик конфига Vite.
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src",
     "test",
+    "build",
     "vite.config.ts"
   ]
 }

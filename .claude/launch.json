@@ -9,6 +9,18 @@
         "dev"
       ],
       "port": 3000
+    },
+    {
+      "name": "prod-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "apps/server/dist/main.js"
+      ],
+      "port": 3100,
+      "env": {
+        "PORT": "3100",
+        "CLIENT_DIST": "apps/client/dist"
+      }
     }
   ]
 }

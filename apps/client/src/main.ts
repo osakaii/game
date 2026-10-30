@@ -57,6 +57,7 @@ import { auditUi } from './dev/ui-audit';
 import { SettingsDialog } from './ui/settings-dialog';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
+import { registerServiceWorker } from './platform/service-worker';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
 import { HintFx } from './world/hint-fx';
@@ -316,6 +317,7 @@ network.on('welcome', ({ build }) => {
   if (isUpdateAvailable(CLIENT_BUILD, build)) updateBanner.showOptional(build.version);
 });
 network.on('outdated', () => updateBanner.showRequired());
+registerServiceWorker();
 
 // ---------- Синхронизация игроков ----------
 

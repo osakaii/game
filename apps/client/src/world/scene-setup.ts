@@ -71,6 +71,11 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
     camera.fov = fovForAspect(camera.aspect);
     camera.updateProjectionMatrix();
   }
+  // Следим за самим холстом, а не за окном: iPhone при повороте и при запуске с экрана «Домой» шлёт
+  // `resize` раньше, чем пересчитает раскладку, — холст ещё старого размера, камера запоминала старую
+  // пропорцию, и картинка 4:3 растягивалась на широкий экран. ResizeObserver срабатывает после раскладки.
+  // `resize` окна оставляем: в фоновой вкладке раскладки нет и ResizeObserver молчит; лишний вызов безвреден.
+  if (typeof ResizeObserver === 'function') new ResizeObserver(resize).observe(canvas);
   window.addEventListener('resize', resize);
   resize();
 

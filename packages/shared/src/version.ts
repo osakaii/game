@@ -7,7 +7,7 @@
  * Не меняй руками: `pnpm release <major|minor|patch>` обновит её здесь, во всех package.json и в CHANGELOG.
  * Тест version.test.ts проверяет, что все места совпадают.
  */
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.5.0';
 
 /** Что за сборка: версия + коммит. Коммит отличает два деплоя одной версии. */
 export interface BuildInfo {

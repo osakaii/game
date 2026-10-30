@@ -51,7 +51,8 @@ test('a room restored after a server restart keeps its code; a late second resto
   const b = await connect('restore-b');
   sockets.push(a.socket, b.socket);
   // Случайный код: комната прошлого прогона ещё живёт 60 с (игроку дают время вернуться).
-  const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+  // Только буквы алфавита кодов (без похожих I, L, O): иначе сервер отвергнет код как неверный.
+  const code = Array.from({ length: 4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.floor(Math.random() * 23)]).join('');
 
   const first = await request(a.socket, 'room:create', { nickname: 'A', code });
   assert.ok(first.ok, JSON.stringify(first));

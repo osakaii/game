@@ -21,5 +21,6 @@ export * from './world/garden.js';
 export * from './world/maps.js';
 export * from './world/apartment.js';
 export * from './world/ala-too/ala-too.js';
+export * from './world/supermarket/supermarket.js';
 export * from './world/layout.js';
 export * from './world/builders.js';

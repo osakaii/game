@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mapBoxes, type MapBox, type MapDef, type SurfaceId } from '@mecha/shared';
+import { bevelBoxGeometry } from './bevel-box';
 import { buildPaintings } from './paintings';
 import { surfaceTexture } from './surfaces';
 
@@ -98,6 +98,9 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
   return { group, obstacles };
 }
 
+/** Радиус скругления (м), меньше которого ребро рисуем острым: с игровой камеры разницы не видно. */
+const MIN_VISIBLE_ROUND = 0.05;
+
 /** Геометрия блока в мировых координатах, с UV «в метрах» — рисунок одного масштаба на любом предмете. */
 function boxGeometry(box: MapBox): THREE.BufferGeometry {
   let geometry: THREE.BufferGeometry;
@@ -105,11 +108,14 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
     // Детализация — по размеру: ручке шкафа и мячику хватит нескольких граней, дивану нужно больше.
     // На телефоне треугольники не бесплатны, а мелочь издалека всё равно выглядит круглой.
     case 'rounded': {
-      // Число сегментов скругления дорого: каждая грань — сетка (2s+1)², 1 → 108 треугольников, 2 → 300,
-      // 3 → 588. При s = 3 площадь Ала-Тоо давала 450 тыс. треугольников. Одна грань скругления со
-      // сглаженными нормалями на радиусе до 30 см на глаз почти круглая; крупнее — две.
+      // Скругление — фаской с гладкими нормалями (bevel-box.ts): 44 треугольника вместо 108 у
+      // RoundedBoxGeometry, 92 вместо 300 у крупного. До 30 см радиуса хватает одной полоски на ребро.
+      // Скругление меньше 5 см с игровой камеры не видно — это просто коробка (12 треугольников).
       const radius = Math.min(box.round ?? 0.05, box.w / 2, box.h / 2, box.d / 2);
-      geometry = new RoundedBoxGeometry(box.w, box.h, box.d, radius < 0.3 ? 1 : 2, radius);
+      geometry =
+        radius < MIN_VISIBLE_ROUND
+          ? new THREE.BoxGeometry(box.w, box.h, box.d)
+          : bevelBoxGeometry(box.w, box.h, box.d, radius, radius < 0.3 ? 1 : 2);
       break;
     }
     case 'cylinder': {

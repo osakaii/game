@@ -1,8 +1,53 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER, penetratesColliders, supportHeight } from '../../src/physics.js';
-import { buildColliders } from '../../src/world/map.js';
+import { buildColliders, mapBoxes, type MapBox, type MapDef } from '../../src/world/map.js';
+import { POSE_RULES } from '../../src/poses.js';
 import { MAPS, MAP_IDS } from '../../src/world/maps.js';
 import { APARTMENT, APARTMENT_ROOM_CENTERS } from '../../src/world/apartment.js';
+
+/** Насколько тело может уйти в видимый, но проходимый блок (листва, вода, ткань): чуть-чуть — живо, больше — прятки «в текстуре». */
+const MAX_SINK = 0.25;
+/** Уже тела (цилиндр 0.7 м) декорация целиком никого не скроет: кружка, мячик, книга. */
+const BODY_WIDTH = PLAYER.radius * 2 * 0.85;
+/** Ниже всего тело лёжа: где не встать, можно лечь — и тоже уйти в декорацию. */
+const LOWEST_BODY = Math.min(...Object.values(POSE_RULES).map((rule) => rule.height));
+
+/**
+ * Где игрок может уйти в декорацию: точки внутри видимых проходимых блоков (solid: false), под которыми
+ * есть опора, на которой помещается тело (стоя или хотя бы лёжа). Достижимость не считаем — прыжки
+ * и лазание слишком хитрые; правило строже нужного: любую такую декорацию делаем твёрдой или тоньше.
+ */
+function sinkSpots(map: MapDef): string[] {
+  const colliders = buildColliders(map);
+  const spots: string[] = [];
+  const decor = mapBoxes(map).filter((b) => b.solid === false && !b.hidden && b.h > MAX_SINK && Math.min(b.w, b.d) >= BODY_WIDTH);
+  for (const b of decor) {
+    const bottom = b.y ?? 0;
+    const worst = sinkInto(b, bottom, colliders);
+    if (worst > MAX_SINK) spots.push(`${b.color} ${b.shape ?? 'box'} ${b.w.toFixed(2)}×${b.h.toFixed(2)}×${b.d.toFixed(2)} в (${b.x.toFixed(1)}, ${bottom.toFixed(1)}, ${b.z.toFixed(1)}): ${worst.toFixed(2)} м`);
+  }
+  return spots;
+}
+
+/** Глубже всего, на сколько тело уходит в блок (м), по сетке точек внутри его следа. */
+function sinkInto(b: MapBox, bottom: number, colliders: ReturnType<typeof buildColliders>): number {
+  const inset = 0.05;
+  const nx = Math.max(1, Math.ceil((b.w - 2 * inset) / 0.3));
+  const nz = Math.max(1, Math.ceil((b.d - 2 * inset) / 0.3));
+  let worst = 0;
+  for (let i = 0; i <= nx; i++) {
+    for (let k = 0; k <= nz; k++) {
+      const x = b.x - b.w / 2 + inset + ((b.w - 2 * inset) * i) / nx;
+      const z = b.z - b.d / 2 + inset + ((b.d - 2 * inset) * k) / nz;
+      // Опора на уровне верха блока или ниже: на ней игрок и стоял бы внутри декорации.
+      const y = supportHeight({ x, y: bottom + b.h, z }, colliders);
+      const height = !penetratesColliders({ x, y, z }, colliders, 0) ? PLAYER.height : LOWEST_BODY;
+      if (height === LOWEST_BODY && penetratesColliders({ x, y, z }, colliders, 0, LOWEST_BODY)) continue;
+      worst = Math.max(worst, Math.min(bottom + b.h, y + height) - Math.max(bottom, y));
+    }
+  }
+  return worst;
+}
 
 /**
  * Проверки карт, которые легко сломать руками: точка появления внутри шкафа
@@ -34,6 +79,10 @@ describe.each(MAP_IDS)('map %s', (id) => {
       const point = { x: position.x + Math.sin(facing) * d, y: position.y, z: position.z + Math.cos(facing) * d };
       expect(penetratesColliders(point, colliders, 0), `${d} м перед витриной`).toBe(false);
     }
+  });
+
+  it('no decoration lets a player sink in deeper than a hand: hiding inside "textures" is not a strategy', () => {
+    expect(sinkSpots(map)).toEqual([]);
   });
 
   it('has enough spawns for a full room', () => {

@@ -1,5 +1,5 @@
 import { vec3 } from '../../math.js';
-import { PALETTE as P, assembly, box, collide, cylinder, paintFace, sphere, stepMotif, type Assembly } from './kit.js';
+import { PALETTE as P, assembly, box, collide, cylinder, paintFace, sphere, stepMotif, type Assembly } from '../procedural.js';
 
 /**
  * Предметы площади. Каждый — в своей системе: центр основания в 0, «лицом» к +Z, `cy` — центр блока.
@@ -53,21 +53,24 @@ export function buildPlanter(color: string, flowers: string): Assembly {
   for (const x of [-0.43, 0, 0.43]) {
     for (const z of [-0.43, 0, 0.43]) {
       cylinder(a, x, 1.23, z, 0.07, 0.34, 0.07, P.leaf);
-      sphere(a, x, 1.43, z, 0.3, 0.24, 0.3, flowers);
+      sphere(a, x, 1.43, z, 0.3, 0.24, 0.3, flowers, true);
       sphere(a, x, 1.53, z, 0.11, 0.08, 0.11, P.yellow);
     }
   }
   return a;
 }
 
-/** Дерево: ствол — препятствие (по нему не лезть), крона — только вид: в листве можно спрятаться. */
+/**
+ * Дерево: ствол — препятствие (по нему не лезть). Крона твёрдая: иначе забрался в неё — и тебя не видно
+ * целиком, с любой стороны. Прятаться можно рядом с деревом, а не внутри него.
+ */
 export function buildTree(variant: number): Assembly {
   const a = assembly();
   const odd = variant % 2 !== 0;
   cylinder(a, 0, 1.45, 0, 0.4, 2.9, 0.4, P.wood);
   collide(a, 0, 1.45, 0, 0.4, 2.9, 0.4, true);
-  sphere(a, 0, 3.42, 0, 2.45, 2.8, 2.3, odd ? P.leafLight : P.leaf);
-  sphere(a, -0.58, 3.0, 0.21, 1.5, 1.65, 1.5, odd ? P.leaf : P.leafLight);
+  sphere(a, 0, 3.42, 0, 2.45, 2.8, 2.3, odd ? P.leafLight : P.leaf, true);
+  sphere(a, -0.58, 3.0, 0.21, 1.5, 1.65, 1.5, odd ? P.leaf : P.leafLight, true);
   return a;
 }
 
@@ -80,7 +83,8 @@ export function buildKiosk(accent: string): Assembly {
   box(a, 0, 2.58, 0, 2.9, 0.22, 2.0, P.white, true, 0.08);
   box(a, 0, 0.74, -0.72, 2.5, 1.48, 0.16, P.wood, true, 0.05);
   box(a, 0, 1.58, -0.65, 2.65, 0.18, 0.54, P.woodLight, true, 0.055);
-  for (let i = 0; i < 9; i++) box(a, -1.28 + i * 0.32, 2.79, 0, 0.3, 0.18, 2.08, i % 2 ? P.ivory : accent, false, 0.035);
+  // Полосатый тент твёрдый: в нём (0.54 м) лёжа пропадаешь.
+  for (let i = 0; i < 9; i++) box(a, -1.28 + i * 0.32, 2.79, 0, 0.3, 0.18, 2.08, i % 2 ? P.ivory : accent, true, 0.035);
   box(a, 0, 2.28, -0.71, 1.1, 0.33, 0.13, P.blue, false, 0.05);
   for (const sign of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
@@ -91,7 +95,7 @@ export function buildKiosk(accent: string): Assembly {
     paintFace(a, 'front', vec3(-0.32 + i * 0.32, 2.28, -0.638), [0.19, 0.18], [P.yellow, P.pink, P.mint][i]);
     box(a, -0.7 + i * 0.7, 2.89, 0, 0.12, 0.04, 1.8, P.yellow, false, 0);
   }
-  for (const x of [-0.6, 0.15, 0.75]) cylinder(a, x, 1.81, -0.61, 0.27, 0.28, 0.27, x < 0 ? P.yellow : P.mint);
+  for (const x of [-0.6, 0.15, 0.75]) cylinder(a, x, 1.81, -0.61, 0.27, 0.28, 0.27, x < 0 ? P.yellow : P.mint, true);
   a.passages.push({ id: 'side-passage', from: vec3(-1.65, 0, 0), to: vec3(1.65, 0, 0) });
   return a;
 }
@@ -113,8 +117,8 @@ export function buildLamp(): Assembly {
   const a = assembly();
   cylinder(a, 0, 2.05, 0, 0.16, 4.1, 0.16, P.dark);
   collide(a, 0, 2.05, 0, 0.18, 4.1, 0.18, true);
-  box(a, 0, 4.19, 0, 0.75, 0.18, 0.75, P.dark, false, 0.06);
-  sphere(a, 0, 4.43, 0, 0.5, 0.46, 0.5, P.paint).glow = true;
-  box(a, 0, 4.72, 0, 0.64, 0.12, 0.64, P.dark, false, 0.04);
+  box(a, 0, 4.19, 0, 0.75, 0.18, 0.75, P.dark, true, 0.06);
+  sphere(a, 0, 4.43, 0, 0.5, 0.46, 0.5, P.paint, true).glow = true;
+  box(a, 0, 4.72, 0, 0.64, 0.12, 0.64, P.dark, true, 0.04);
   return a;
 }

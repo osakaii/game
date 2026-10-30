@@ -19,8 +19,9 @@ export const MISC = {
         const x = (random() - 0.5) * (length - size - 0.1);
         const z = (random() - 0.5) * (d - size - 0.1);
         const ball = random() > 0.5;
+        // Игрушки торчат из ящика и твёрдые: лёжа среди них на крышке (×3 — до 0.4 м) не спрячешься.
         boxes.push(
-          decor(x, 0.4, z, size, size, size, pick(BRIGHT, random), ball ? { shape: 'sphere' } : { shape: 'rounded', round: 0.02 }),
+          part(x, 0.4, z, size, size, size, pick(BRIGHT, random), ball ? { shape: 'sphere' } : { shape: 'rounded', round: 0.02 }),
         );
       }
       return boxes;

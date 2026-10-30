@@ -1,15 +1,15 @@
-import { vec3, type Vec3 } from '../../math.js';
-import type { MapBox, Shape } from '../map.js';
+import { vec3, type Vec3 } from '../math.js';
+import type { MapBox, Shape } from './map.js';
 
 /**
- * Набор для площади Ала-Тоо. План перенесён из внешнего генератора карты, и числа в нём оставлены
- * как есть, поэтому у помощников здесь своя договорённость: `cy` — ЦЕНТР блока по высоте
+ * Набор для карт внешнего процедурного генератора (площадь Ала-Тоо, супермаркет). Планы перенесены
+ * как есть, поэтому у помощников своя договорённость: `cy` — ЦЕНТР блока по высоте
  * (в `MapBox` и в мебели квартиры y — низ). Перевод в низ делает `block()` один раз.
  *
- * План — в «обычных» метрах (площадь 36 × 60); итоговое увеличение ×3 делает `scaleMap`, как у квартиры.
+ * План — в «обычных» метрах; итоговое увеличение ×3 делает `scaleMap`, как у квартиры.
  */
 
-/** Палитра площади: 15 цветов полей для маскировки + архитектура. */
+/** Палитра генератора: цвета полей для маскировки + архитектура. Общая у его карт — они в одной гамме. */
 export const PALETTE = {
   ivory: '#f4efdf',
   cream: '#e7ddc2',
@@ -45,7 +45,7 @@ export const PALETTE = {
   peach: '#f9bb98',
 } as const;
 
-/** Проход, который обязан оставаться открытым (под скамейкой, сквозь киоск, по колоннаде). Проверяет тест. */
+/** Проход, который обязан оставаться открытым (под скамейкой, под стеллажом, по колоннаде). Проверяет тест. */
 export interface Passage {
   id: string;
   from: Vec3;
@@ -105,8 +105,8 @@ export function box(
   return block(a, x, cy, z, w, h, d, color, round ? 'rounded' : 'box', round, solid, noClimb);
 }
 
-export function sphere(a: Assembly, x: number, cy: number, z: number, w: number, h: number, d: number, color: string): MapBox {
-  return block(a, x, cy, z, w, h, d, color, 'sphere');
+export function sphere(a: Assembly, x: number, cy: number, z: number, w: number, h: number, d: number, color: string, solid = false): MapBox {
+  return block(a, x, cy, z, w, h, d, color, 'sphere', 0, solid);
 }
 
 export function cylinder(a: Assembly, x: number, cy: number, z: number, w: number, h: number, d: number, color: string, solid = false): MapBox {
@@ -171,6 +171,59 @@ export function floorMosaic(a: Assembly, x: number, z: number, colors: string[],
       const v = (row - 0.5) * 0.94;
       const at = vec3(x + (turn ? v : u), floorY + 0.007, z + (turn ? u : v));
       paintFace(a, 'top', at, turn ? [0.9, 0.68] : [0.68, 0.9], colors[(col + row * 2) % colors.length]);
+    }
+  }
+}
+
+/** Пиксельный шрифт 5 × 5 для вывесок: буквы из обычных цветных блоков — пипетка их читает, атлас не нужен. */
+const FONT: Record<string, readonly string[]> = {
+  A: ['01110', '10001', '11111', '10001', '10001'],
+  B: ['11110', '10001', '11110', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '01111'],
+  D: ['11110', '10001', '10001', '10001', '11110'],
+  E: ['11111', '10000', '11110', '10000', '11111'],
+  F: ['11111', '10000', '11110', '10000', '10000'],
+  H: ['10001', '10001', '11111', '10001', '10001'],
+  K: ['10010', '10100', '11000', '10100', '10010'],
+  L: ['10000', '10000', '10000', '10000', '11111'],
+  M: ['10001', '11011', '10101', '10001', '10001'],
+  O: ['01110', '10001', '10001', '10001', '01110'],
+  R: ['11110', '10001', '11110', '10100', '10010'],
+  S: ['01111', '10000', '01110', '00001', '11110'],
+  T: ['11111', '00100', '00100', '00100', '00100'],
+  U: ['10001', '10001', '10001', '10001', '01110'],
+  Y: ['10001', '01010', '00100', '00100', '00100'],
+  '0': ['01110', '10011', '10101', '11001', '01110'],
+  '1': ['00100', '01100', '00100', '00100', '01110'],
+  '2': ['11110', '00001', '01110', '10000', '11111'],
+  '3': ['11110', '00001', '01110', '00001', '11110'],
+  '4': ['10010', '10010', '11111', '00010', '00010'],
+  '5': ['11111', '10000', '11110', '00001', '11110'],
+  '6': ['01111', '10000', '11110', '10001', '01110'],
+};
+
+/**
+ * Надпись в плоскости XY (читается с +Z), центр — (x, y). Каждая непрерывная полоска пикселей строки —
+ * один блок: «MECHA MART» — около сотни блоков, а не пять сотен пикселей.
+ */
+export function lettering(a: Assembly, text: string, x: number, y: number, z: number, height: number, color: string): void {
+  const px = height / 5;
+  const total = (text.length * 6 - 1) * px;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ' ') continue;
+    const glyph = FONT[text[i]!];
+    if (!glyph) throw new Error(`Нет буквы в шрифте вывесок: ${text[i]}`);
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 5; ) {
+        if (glyph[row]![col] !== '1') {
+          col++;
+          continue;
+        }
+        const start = col;
+        while (col < 5 && glyph[row]![col] === '1') col++;
+        const cx = x - total / 2 + (i * 6 + (start + col) / 2) * px;
+        box(a, cx, y + (2 - row) * px, z, (col - start) * px * 0.94, px * 0.88, 0.012, color, false, 0);
+      }
     }
   }
 }

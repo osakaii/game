@@ -13,7 +13,7 @@ import {
   stepMotif,
   type Assembly,
   type Passage,
-} from './kit.js';
+} from '../procedural.js';
 import { buildBench, buildBin, buildKiosk, buildLamp, buildPlanter, buildTree } from './props.js';
 
 /**
@@ -98,7 +98,10 @@ function terrain(root: Assembly) {
   }
 }
 
-/** Исторический музей: мраморный объём (не залезть), рёбра и стёкла — только вид, лестница к входу. */
+/**
+ * Исторический музей: мраморный объём (не залезть), рёбра и стёкла — только вид, лестница к входу.
+ * Слои крыши твёрдые: толстая «только для вида» плита — место, где можно лечь и пропасть из виду.
+ */
 function museum(): Assembly {
   const a = assembly();
   box(a, 0, 0.36, 0, 12, 0.72, 10.3, P.stone, true, 0.1).surface = 'marble';
@@ -113,10 +116,10 @@ function museum(): Assembly {
       box(a, s * 6.5, 0.42, -3.6 + i * 2.2, 0.78, 0.045, 1.18, P.waterDark, false, 0.03);
     }
   }
-  box(a, 0, 4.48, 0, 11.4, 0.22, 9.3, P.white, false, 0.07);
-  box(a, 0, 4.69, 0, 10.8, 0.2, 8.7, P.ivory, false, 0.1);
-  box(a, 0, 4.86, 0, 9.8, 0.16, 7.7, P.cream, false, 0.1);
-  box(a, 0, 5.1, 0, 3.3, 0.4, 2.6, P.white, false, 0.1);
+  box(a, 0, 4.48, 0, 11.4, 0.22, 9.3, P.white, true, 0.07);
+  box(a, 0, 4.69, 0, 10.8, 0.2, 8.7, P.ivory, true, 0.1);
+  box(a, 0, 4.86, 0, 9.8, 0.16, 7.7, P.cream, true, 0.1);
+  box(a, 0, 5.1, 0, 3.3, 0.4, 2.6, P.white, true, 0.1);
   box(a, 0, 5.32, 0, 2.8, 0.045, 2.1, P.blue, false, 0.04);
   // Лестница: 9 ступеней по 0.08 (×3 = 0.24 м) — ниже шага, поднимаешься пешком.
   for (let i = 0; i < 9; i++) box(a, 0, (i + 1) * 0.04, 6.51 - i * 0.16, 5.4, (i + 1) * 0.08, 0.16, P.white, true, 0.012);
@@ -131,7 +134,7 @@ function museum(): Assembly {
   return a;
 }
 
-/** Манас на белом ступенчатом постаменте. Постамент — препятствие (не залезть), бронза — только вид. */
+/** Манас на белом ступенчатом постаменте. Постамент — препятствие (не залезть), бронза твёрдая — внутри коня не спрячешься. */
 function manas(): Assembly {
   const a = assembly();
   box(a, 0, 0.12, 0, 2.3, 0.24, 2.5, P.stone, true, 0.07);
@@ -143,21 +146,21 @@ function manas(): Assembly {
   }
   const y = 3.25;
   const z = 0.52;
-  box(a, 0, y + 0.45, z, 0.55, 0.64, 1.2, P.bronze, false, 0.18);
-  box(a, 0, y + 0.83, z + 0.42, 0.42, 0.7, 0.42, P.bronze, false, 0.13);
-  box(a, 0, y + 1.16, z + 0.69, 0.35, 0.38, 0.57, P.bronze, false, 0.12);
+  box(a, 0, y + 0.45, z, 0.55, 0.64, 1.2, P.bronze, true, 0.18);
+  box(a, 0, y + 0.83, z + 0.42, 0.42, 0.7, 0.42, P.bronze, true, 0.13);
+  box(a, 0, y + 1.16, z + 0.69, 0.35, 0.38, 0.57, P.bronze, true, 0.12);
   for (const s of [-1, 1]) {
-    box(a, s * 0.18, y + 0.06, z - 0.39, 0.17, 0.55, 0.2, P.bronze, false, 0.06);
-    box(a, s * 0.18, y - 0.13, z - 0.58, 0.17, 0.18, 0.43, P.bronze, false, 0.06);
-    box(a, s * 0.2, y + 0.87, z + 0.6, 0.15, 0.17, 0.55, P.bronze, false, 0.06);
-    box(a, s * 0.2, y + 0.79, z + 0.85, 0.15, 0.25, 0.17, P.bronze, false, 0.06);
-    box(a, s * 0.29, y + 0.55, z - 0.03, 0.16, 0.7, 0.18, P.bronze, false, 0.06);
+    box(a, s * 0.18, y + 0.06, z - 0.39, 0.17, 0.55, 0.2, P.bronze, true, 0.06);
+    box(a, s * 0.18, y - 0.13, z - 0.58, 0.17, 0.18, 0.43, P.bronze, true, 0.06);
+    box(a, s * 0.2, y + 0.87, z + 0.6, 0.15, 0.17, 0.55, P.bronze, true, 0.06);
+    box(a, s * 0.2, y + 0.79, z + 0.85, 0.15, 0.25, 0.17, P.bronze, true, 0.06);
+    box(a, s * 0.29, y + 0.55, z - 0.03, 0.16, 0.7, 0.18, P.bronze, true, 0.06);
   }
-  box(a, 0, y + 1.1, z - 0.05, 0.48, 0.65, 0.3, P.bronze, false, 0.1);
-  sphere(a, 0, y + 1.58, z - 0.03, 0.29, 0.34, 0.29, P.bronze);
-  cylinder(a, 0, y + 1.79, z - 0.03, 0.17, 0.16, 0.17, P.bronze);
-  box(a, -0.36, y + 1.78, z + 0.12, 0.035, 1.32, 0.035, P.bronze, false, 0.012);
-  box(a, -0.36, y + 2.3, z + 0.02, 0.04, 0.3, 0.35, P.bronze, false, 0.02);
+  box(a, 0, y + 1.1, z - 0.05, 0.48, 0.65, 0.3, P.bronze, true, 0.1);
+  sphere(a, 0, y + 1.58, z - 0.03, 0.29, 0.34, 0.29, P.bronze, true);
+  cylinder(a, 0, y + 1.79, z - 0.03, 0.17, 0.16, 0.17, P.bronze, true);
+  box(a, -0.36, y + 1.78, z + 0.12, 0.035, 1.32, 0.035, P.bronze, true, 0.012);
+  box(a, -0.36, y + 2.3, z + 0.02, 0.04, 0.3, 0.35, P.bronze, true, 0.02);
   return a;
 }
 
@@ -184,14 +187,16 @@ function flag(): Assembly {
 function island(): Assembly {
   const a = assembly();
   box(a, 0, 0.36, 0, 2.05, 0.72, 1.45, P.white, true, 0.12);
-  box(a, 0, 0.8, 0, 1.85, 0.22, 1.25, P.leafLight, false, 0.1);
+  // Наверх островка можно залезть и спрятаться — но не В зелень: газон тонкий (×3 — 0.21 м, тело
+  // уходит в него по щиколотку), цветы мельче тела. Толстый куст «только для вида» скрывал лежащего целиком.
+  box(a, 0, 0.755, 0, 1.85, 0.07, 1.25, P.leafLight, false, 0.03);
   for (const sign of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
       paintFace(a, 'front', vec3(-0.56 + i * 0.56, 0.37, sign * 0.728), [0.53, 0.53], [P.coral, P.peach, P.yellow][i]);
       paintFace(a, 'side', vec3(sign * 1.028, 0.37, -0.38 + i * 0.38), [0.35, 0.53], [P.peach, P.coral, P.yellow][i]);
     }
   }
-  for (let i = 0; i < 5; i++) sphere(a, -0.7 + i * 0.35, 0.98, 0, 0.28, 0.21, 0.28, i % 2 ? P.pink : P.yellow);
+  for (let i = 0; i < 5; i++) sphere(a, -0.7 + i * 0.35, 0.85, 0, 0.18, 0.16, 0.18, i % 2 ? P.pink : P.yellow);
   return a;
 }
 
@@ -227,7 +232,8 @@ function fountain(w: number, d: number): Assembly {
     }
   }
   for (const s of [-1, 1]) {
-    box(a, s * w * 0.24, 0.31, 0, w * 0.27, 0.15, d * 0.52, P.waterLight, false, 0.08);
+    // Струи — твёрдые: в «воде» по пояс (0.45 м) лёжа не видно.
+    box(a, s * w * 0.24, 0.31, 0, w * 0.27, 0.15, d * 0.52, P.waterLight, true, 0.08);
     for (let j = 0; j < 3; j++) cylinder(a, s * w * 0.24, 0.51, -d * 0.22 + j * d * 0.22, 0.08, 0.44, 0.08, P.waterLight);
   }
   return a;
@@ -238,12 +244,12 @@ function arcade(s: number): Assembly {
   const a = assembly();
   box(a, s * 0.75, 2.0, 0, 1.9, 4, 15.8, P.ivory, true, 0.12, true);
   box(a, 0, 4.05, 0, 4.0, 0.28, 16.4, P.white, true, 0.08);
-  box(a, 0, 4.29, 0, 4.05, 0.16, 16.45, P.cream, false, 0.07);
+  box(a, 0, 4.29, 0, 4.05, 0.16, 16.45, P.cream, true, 0.07);
   for (let i = 0; i < 8; i++) {
     const z = -7.2 + i * 2.05;
     box(a, -s * 1.5, 1.92, z, 0.36, 3.84, 0.36, P.white, true, 0.09);
     box(a, -s * 1.5, 0.18, z, 0.56, 0.36, 0.56, P.white, true, 0.07);
-    box(a, -s * 1.5, 3.72, z, 0.58, 0.25, 0.58, P.white, false, 0.06);
+    box(a, -s * 1.5, 3.72, z, 0.58, 0.25, 0.58, P.white, true, 0.06);
     box(a, -s * 0.24, 2.23, z, 0.04, 1.9, 1.35, i % 2 ? P.glass : P.blue, false, 0.015);
     const accent = (s < 0 ? [P.coral, P.peach, P.orange, P.yellow] : [P.purple, P.lavender, P.teal, P.mint])[i % 4];
     paintFace(a, 'side', vec3(-s * 0.204, 0.6, z), [1.58, 1.12], accent);
@@ -254,16 +260,16 @@ function arcade(s: number): Assembly {
   return a;
 }
 
-/** Южный портал — белая стена с синими арками, замыкает площадь. */
+/** Южный портал — белая стена с синими арками, замыкает площадь. Пилоны твёрдые: в пилоне 0.9 м не встать. */
 function southBackdrop(): Assembly {
   const a = assembly();
   box(a, 0, 2, 0, 16, 4, 2.4, P.cream, true, 0.14, true);
-  box(a, 0, 4.18, 0, 16.7, 0.3, 2.9, P.white, false, 0.1);
+  box(a, 0, 4.18, 0, 16.7, 0.3, 2.9, P.white, true, 0.1);
   for (let i = 0; i < 9; i++) {
-    box(a, -7 + i * 1.75, 2.1, -1.28, 0.3, 3.9, 0.35, P.white, false, 0.06);
+    box(a, -7 + i * 1.75, 2.1, -1.28, 0.3, 3.9, 0.35, P.white, true, 0.06, true);
     box(a, -6.6 + i * 1.65, 2.2, -1.23, 1.1, 2.65, 0.045, P.blue, false, 0.025);
   }
-  box(a, 0, 4.59, 0, 4.8, 0.55, 2.8, P.roof, false, 0.1);
+  box(a, 0, 4.59, 0, 4.8, 0.55, 2.8, P.roof, true, 0.1);
   return a;
 }
 

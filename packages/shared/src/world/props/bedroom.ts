@@ -31,7 +31,8 @@ export const BEDROOM = {
       ];
       for (let i = 0; i < pillows; i++) {
         const x = pillows === 1 ? 0 : (i - 0.5) * (length / 2);
-        boxes.push(decor(x, mattressTop - 0.02, -d / 2 + 0.38, length / pillows - 0.16, 0.14, 0.42, '#ffffff', { ...soft, round: 0.06 }));
+        // Подушки твёрдые: лёжа «в подушке» (0.42 м при ×3) почти не видно.
+        boxes.push(part(x, mattressTop - 0.02, -d / 2 + 0.38, length / pillows - 0.16, 0.14, 0.42, '#ffffff', { ...soft, round: 0.06 }));
       }
       return boxes;
     },
@@ -51,7 +52,7 @@ export const BEDROOM = {
         handle(0, 0.46, d / 2),
         decor(0.08, 0.56, -0.05, 0.12, 0.02, 0.12, '#6c757d', { shape: 'cylinder' }),
         decor(0.08, 0.58, -0.05, 0.02, 0.18, 0.02, '#6c757d', { shape: 'cylinder' }),
-        decor(0.08, 0.72, -0.05, 0.2, 0.16, 0.2, accent, { shape: 'cylinder', surface: 'fabric' }),
+        part(0.08, 0.72, -0.05, 0.2, 0.16, 0.2, accent, { shape: 'cylinder', surface: 'fabric' }),
       ];
     },
   },

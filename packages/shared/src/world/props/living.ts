@@ -37,10 +37,10 @@ export const LIVING = {
       ];
       for (let i = 0; i < seats; i++) {
         const x = -length / 2 + arm + seatW * (i + 0.5);
-        // Подушки — только вид: их коробки внутри основания и спинки.
+        // Подушки твёрдые: «только вид» толщиной 0.4 м (×3) — лёг на диван и утонул в подушках.
         boxes.push(
-          decor(x, 0.36, 0.08, seatW - 0.04, 0.14, d - 0.28, accent, { ...soft, round: 0.06 }),
-          decor(x, 0.5, -d / 2 + 0.26, seatW - 0.06, 0.36, 0.14, accent, { ...soft, round: 0.06 }),
+          part(x, 0.36, 0.08, seatW - 0.04, 0.14, d - 0.28, accent, { ...soft, round: 0.06 }),
+          part(x, 0.5, -d / 2 + 0.26, seatW - 0.06, 0.36, 0.14, accent, { ...soft, round: 0.06 }),
         );
       }
       return boxes;
@@ -60,7 +60,7 @@ export const LIVING = {
         part(0, 0.42, -d / 2 + 0.12, length, 0.55, 0.24, color, soft),
         part(-length / 2 + 0.11, 0.42, 0.02, 0.22, 0.3, d - 0.04, color, soft),
         part(length / 2 - 0.11, 0.42, 0.02, 0.22, 0.3, d - 0.04, color, soft),
-        decor(0, 0.4, 0.08, length - 0.44, 0.13, d - 0.3, accent, { ...soft, round: 0.06 }),
+        part(0, 0.4, 0.08, length - 0.44, 0.13, d - 0.3, accent, { ...soft, round: 0.06 }),
         ...legs(length, d, 0.08, 0.08, 0.06, '#5a3e2b'),
       ];
     },
@@ -109,7 +109,7 @@ export const LIVING = {
     },
   },
 
-  /** Торшер: тяжёлое основание, тонкая стойка, абажур. Абажур не твёрдый — под ним не застрянешь. */
+  /** Торшер: тяжёлое основание, тонкая стойка, абажур. Абажур выше головы и твёрдый — в нём не спрячешься. */
   floorLamp: {
     color: '#f6e7c8',
     accent: '#2b2d42',
@@ -117,7 +117,7 @@ export const LIVING = {
     build: ({ color, accent, length }) => [
       part(0, 0, 0, 0.34, 0.04, 0.34, accent, { shape: 'cylinder' }),
       part(0, 0.04, 0, 0.04, 1.4, 0.04, accent, { shape: 'cylinder' }),
-      decor(0, 1.4, 0, length, 0.34, length, color, { shape: 'cylinder', surface: 'fabric' }),
+      part(0, 1.4, 0, length, 0.34, length, color, { shape: 'cylinder', surface: 'fabric' }),
     ],
   },
 
@@ -185,14 +185,17 @@ export const LIVING = {
     },
   },
 
-  /** Растение в горшке: горшок твёрдый, сквозь листву можно пройти — за ней удобно прятаться. */
+  /**
+   * Растение в горшке. Листва твёрдая: сквозь неё раньше можно было пройти и встать внутри — тебя не видно
+   * целиком, с любой стороны. Прятаться — за листвой и под её цвет, а не в ней.
+   */
   plant: {
     color: '#52b788',
     accent: '#bc6c25',
     length: 0.5,
     build: ({ color, accent, length }) => [
       part(0, 0, 0, length * 0.7, 0.45, length * 0.7, accent, { shape: 'cylinder' }),
-      decor(0, 0.4, 0, length * 1.5, length * 1.7, length * 1.5, color, { shape: 'sphere', surface: 'carpet' }),
+      part(0, 0.4, 0, length * 1.5, length * 1.7, length * 1.5, color, { shape: 'sphere', surface: 'carpet' }),
     ],
   },
 
@@ -211,7 +214,7 @@ export const LIVING = {
         const r = 0.12 + random() * 0.12;
         const size = 0.45 + random() * 0.2;
         boxes.push(
-          decor(Math.cos(angle) * r, 0.8 + i * 0.25, Math.sin(angle) * r, size, size * 0.8, size, color, {
+          part(Math.cos(angle) * r, 0.8 + i * 0.25, Math.sin(angle) * r, size, size * 0.8, size, color, {
             shape: 'sphere',
             surface: 'carpet',
           }),

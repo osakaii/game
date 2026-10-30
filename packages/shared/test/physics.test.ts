@@ -322,10 +322,28 @@ describe('keepBodyOutOfWalls', () => {
     expect(s.position.z + head).toBeLessThanOrEqual(wall + 0.07);
   });
 
-  it('lying sideways along the wall is fine — nothing moves', () => {
+  it('lying sideways along the wall: the arm stays out of it too, but only by a few centimetres', () => {
     const s = lying(wall - PLAYER.radius);
+    keepBodyOutOfWalls(s, Math.PI / 2, colliders); // смотрит на +X, левый бок — к стене (+Z)
+    const side = Math.max(...BODY_HITBOXES.flat.map((b) => -b[0]));
+    expect(s.position.z + side).toBeLessThanOrEqual(wall + 0.07);
+    expect(wall - PLAYER.radius - s.position.z).toBeLessThan(0.2);
+  });
+
+  it('the statue’s outstretched arm does not go into the wall', () => {
+    const s = { ...lying(wall - PLAYER.radius), pose: 'statue' as const };
+    // Рука «Статуи» — влево (−X модели) на 0.8 м. Смотрит на +X: лево модели — это +Z, стена.
     keepBodyOutOfWalls(s, Math.PI / 2, colliders);
-    expect(s.position.z).toBeCloseTo(wall - PLAYER.radius, 6);
+    const arm = Math.max(...BODY_HITBOXES.statue.map((b) => -b[0]));
+    expect(arm).toBeGreaterThan(0.7);
+    expect(s.position.z + arm).toBeLessThanOrEqual(wall + 0.07);
+  });
+
+  it('crouching facing the wall, the head does not go into it', () => {
+    const s = { ...lying(wall - PLAYER.radius), pose: 'none' as const, crouching: true };
+    keepBodyOutOfWalls(s, 0, colliders);
+    const headReach = Math.max(...BODY_HITBOXES.crouch.map((b) => b[5]));
+    expect(s.position.z + headReach).toBeLessThanOrEqual(wall + 0.07);
   });
 
   it('does nothing when standing', () => {

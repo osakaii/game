@@ -8,21 +8,28 @@ import * as S from '../../packages/shared/dist/index.js';
 let socket;
 after(() => socket?.close());
 
-test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbacks', { timeout: 120_000 }, async () => {
+/**
+ * Бежать по маршруту нашей физикой в реальном времени и слать состояние 20 Гц, как StateSender.
+ * Возвращает откаты сервера (player:teleport) после старта.
+ */
+async function sprintRoute(mapId, start, route) {
   ({ socket } = await connect('runner'));
   const created = await request(socket, 'room:create', { nickname: 'Runner' });
   assert.ok(created.ok, JSON.stringify(created));
-  // Первая расстановка приходит сразу после создания — её не считаем.
+  if (mapId !== 'ala-too') {
+    // Смена карты переставляет игроков: где окажемся — скажет сервер (подписка ДО запроса).
+    const moved = new Promise((resolve) => socket.once('player:teleport', resolve));
+    const changed = await request(socket, 'room:settings', { mapId });
+    assert.ok(changed.ok, JSON.stringify(changed));
+    start = await moved;
+  }
+  // Первая расстановка приходит сразу после создания (и после смены карты) — её не считаем.
   await new Promise((r) => setTimeout(r, 300));
   const rollbacks = [];
   socket.on('player:teleport', (p) => rollbacks.push(p));
 
-  const map = S.MAPS['ala-too'];
-  const colliders = S.buildColliders(map);
-  const start = map.spawns[0]; // первый в комнате встаёт на первую точку
+  const colliders = S.buildColliders(S.MAPS[mapId]);
   const state = { position: S.vec3(start.x, start.y, start.z), velocity: S.vec3(), grounded: true, crouching: false, pose: 'none' };
-  // Через лестницу музея на террасу и обратно, по бульвару, через мостики фонтанов.
-  const route = [[-10, -36], [0, -36], [0, -43.5], [0, -36], [12, -30], [12, 20], [0, 26], [0, 66], [20, 70]];
   let next = 0;
   let sinceProgress = 0;
   let last = performance.now();
@@ -48,7 +55,6 @@ test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbac
       S.stepPlayer(state, { dirX: dx / left, dirZ: dz / left, jump: false, crouch: false, sprint: true }, colliders, S.PHYSICS_DT);
       assert.ok(++sinceProgress < 60 * 15, `stuck on the way to ${route[next]} at ${JSON.stringify(state.position)}`);
     }
-    // 20 Гц, как StateSender.
     if (sendTime >= 0.05) {
       sendTime = 0;
       const p = state.position;
@@ -59,5 +65,29 @@ test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbac
     }
   }
   await new Promise((r) => setTimeout(r, 300));
-  assert.deepEqual(rollbacks, []);
+  socket.close();
+  return rollbacks;
+}
+
+test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbacks', { timeout: 120_000 }, async () => {
+  // Через лестницу музея на террасу и обратно, по бульвару, через мостики фонтанов.
+  const route = [[-10, -36], [0, -36], [0, -43.5], [0, -36], [12, -30], [12, 20], [0, 26], [0, 66], [20, 70]];
+  // Первый в комнате встаёт на первую точку появления.
+  assert.deepEqual(await sprintRoute('ala-too', S.MAPS['ala-too'].spawns[0], route), []);
+});
+
+test('sprinting through the supermarket (stock door, under a gondola and a checkout) gets no rollbacks', { timeout: 120_000 }, async () => {
+  const map = S.MAPS.supermarket;
+  const passage = (id) => S.SUPERMARKET_PASSAGES.find((p) => p.id === id);
+  const gondola = passage('under-gondola');
+  const belt = passage('under-belt');
+  // Хост после смены карты — на одной из точек склада (±24, −24): идём к западной двери.
+  const route = [
+    [-24, -24.3], [-24, -16.5], [-24, -0.6],
+    [gondola.from.x, -0.6], [gondola.from.x, gondola.from.z], [gondola.to.x, gondola.to.z],
+    // По проходу между стеллажами к кассам, вдоль витрины — и под лентой первой кассы.
+    [-9, gondola.to.z], [-9, 18.6], [belt.from.x - 3, 18.6], [belt.from.x - 3, belt.from.z],
+    [belt.from.x, belt.from.z], [belt.to.x, belt.to.z],
+  ];
+  assert.deepEqual(await sprintRoute('supermarket', map.spawns[0], route), []);
 });

@@ -292,6 +292,23 @@ describe('climbing', () => {
     expect(s.position.x).toBeLessThan(0.5); // стоит на стене сверху
   });
 
+  it('mantles over a low slab lying back from the edge (soil in a planter), like a step', () => {
+    const slab = { minX: -0.3, maxX: 0.3, minY: 4, maxY: 4.2, minZ: -2.7, maxZ: 2.7 };
+    const s = at(2);
+    for (let i = 0; i < 300 && !s.grounded; i++) run(s, -1, PHYSICS_DT, -1, [...wall, slab]);
+    for (let i = 0; i < 300 && !(s.grounded && s.position.y > 3.9); i++) run(s, -1, PHYSICS_DT, -1, [...wall, slab]);
+    expect(s.position.y).toBeCloseTo(4.2, 2);
+    expect(s.grounded).toBe(true);
+    expect(s.climbing).toBe(false);
+  });
+
+  it('still hangs at the edge when a crate on top is too tall to step onto', () => {
+    const crate = { minX: -0.3, maxX: 0.3, minY: 4, maxY: 4.6, minZ: -2.7, maxZ: 2.7 };
+    const s = run(at(2), -1, 3, -1, [...wall, crate]);
+    expect(s.climbing).toBe(true);
+    expect(s.position.y).toBeLessThan(4);
+  });
+
   it('the ceiling stops the climb — hanging under it instead of going through', () => {
     const ceiling = { minX: -10, maxX: 10, minY: 3, maxY: 4, minZ: -10, maxZ: 10 };
     const s = run(at(2), -1, 4, -1, [{ ...wall[0], maxY: 3 }, ceiling]);

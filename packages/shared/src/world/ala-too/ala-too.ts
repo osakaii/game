@@ -78,12 +78,13 @@ function terrain(root: Assembly) {
   ]) {
     box(root, x, 0.035, z, w, 0.07, d, P.ivory, true, 0.08).surface = 'tiles';
   }
-  // Дороги и разметка — тонкие, только вид.
-  for (const x of [-10.25, 10.25]) box(root, x, 0.016, -6, 1.8, 0.032, 58, P.road, false, 0);
-  box(root, 0, 0.018, 0, 36, 0.036, 3.8, P.road, false, 0);
-  box(root, 0, 0.018, 20.1, 36, 0.036, 1.9, P.road, false, 0);
-  for (const x of [-11.35, -9.15, 9.15, 11.35]) box(root, x, 0.04, -6, 0.35, 0.08, 57, P.cream, false, 0.02);
-  for (const z of [-2.15, 2.15, 18.9, 21.3]) box(root, 0, 0.035, z, 35, 0.07, 0.3, P.cream, false, 0.02);
+  // Дороги и бордюры твёрдые (ступенька до 0.24 м — ниже шага): сквозь них лёжа уходил наполовину.
+  // Разметка ниже — тонкая (до 6 см), только вид.
+  for (const x of [-10.25, 10.25]) box(root, x, 0.016, -6, 1.8, 0.032, 58, P.road, true, 0);
+  box(root, 0, 0.018, 0, 36, 0.036, 3.8, P.road, true, 0);
+  box(root, 0, 0.018, 20.1, 36, 0.036, 1.9, P.road, true, 0);
+  for (const x of [-11.35, -9.15, 9.15, 11.35]) box(root, x, 0.04, -6, 0.35, 0.08, 57, P.cream, true, 0.02);
+  for (const z of [-2.15, 2.15, 18.9, 21.3]) box(root, 0, 0.035, z, 35, 0.07, 0.3, P.cream, true, 0.02);
   for (let x = -16; x < 17; x += 2.5) box(root, x, 0.045, 0, 1.2, 0.02, 0.045, P.paint, false, 0);
   for (const x of [-8.5, 8.5]) {
     for (let k = 0; k < 6; k++) box(root, x, 0.045, -1.5 + k * 0.58, 0.7, 0.02, 0.2, P.white, false, 0);
@@ -108,19 +109,19 @@ function museum(): Assembly {
   box(a, 0, 2.54, 0, 10.6, 3.64, 8.5, P.cream, true, 0.16, true).surface = 'marble';
   for (const s of [-1, 1]) {
     box(a, 0, 2.58, s * 4.29, 10.1, 3.1, 0.045, P.glass, false, 0.02);
-    for (let i = 0; i <= 14; i++) box(a, -5.2 + i * (10.4 / 14), 2.61, s * 4.43, 0.13, 3.8, 0.32, P.white, false, 0.035);
+    for (let i = 0; i <= 14; i++) box(a, -5.2 + i * (10.4 / 14), 2.61, s * 4.43, 0.13, 3.8, 0.32, P.white, true, 0.035);
     box(a, s * 5.34, 2.58, 0, 0.045, 3.1, 8.0, P.glass, false, 0.02);
-    for (let i = 0; i <= 11; i++) box(a, s * 5.47, 2.61, -4.05 + i * (8.1 / 11), 0.32, 3.8, 0.13, P.white, false, 0.035);
+    for (let i = 0; i <= 11; i++) box(a, s * 5.47, 2.61, -4.05 + i * (8.1 / 11), 0.32, 3.8, 0.13, P.white, true, 0.035);
     for (let i = 0; i < 4; i++) {
       box(a, s * 6.5, 0.2, -3.6 + i * 2.2, 1.0, 0.4, 1.5, P.white, true, 0.07);
-      box(a, s * 6.5, 0.42, -3.6 + i * 2.2, 0.78, 0.045, 1.18, P.waterDark, false, 0.03);
+      box(a, s * 6.5, 0.42, -3.6 + i * 2.2, 0.78, 0.045, 1.18, P.waterDark, true, 0.03);
     }
   }
   box(a, 0, 4.48, 0, 11.4, 0.22, 9.3, P.white, true, 0.07);
   box(a, 0, 4.69, 0, 10.8, 0.2, 8.7, P.ivory, true, 0.1);
   box(a, 0, 4.86, 0, 9.8, 0.16, 7.7, P.cream, true, 0.1);
   box(a, 0, 5.1, 0, 3.3, 0.4, 2.6, P.white, true, 0.1);
-  box(a, 0, 5.32, 0, 2.8, 0.045, 2.1, P.blue, false, 0.04);
+  box(a, 0, 5.32, 0, 2.8, 0.045, 2.1, P.blue, true, 0.04);
   // Лестница: 9 ступеней по 0.08 (×3 = 0.24 м) — ниже шага, поднимаешься пешком.
   for (let i = 0; i < 9; i++) box(a, 0, (i + 1) * 0.04, 6.51 - i * 0.16, 5.4, (i + 1) * 0.08, 0.16, P.white, true, 0.012);
   // Сам музей белый; орнамент — только по цоколю и фризу над входом.
@@ -187,16 +188,16 @@ function flag(): Assembly {
 function island(): Assembly {
   const a = assembly();
   box(a, 0, 0.36, 0, 2.05, 0.72, 1.45, P.white, true, 0.12);
-  // Наверх островка можно залезть и спрятаться — но не В зелень: газон тонкий (×3 — 0.21 м, тело
-  // уходит в него по щиколотку), цветы мельче тела. Толстый куст «только для вида» скрывал лежащего целиком.
-  box(a, 0, 0.755, 0, 1.85, 0.07, 1.25, P.leafLight, false, 0.03);
+  // Наверх островка можно залезть и спрятаться — но не В зелень: газон твёрдый (×3 — ступенька 0.21 м),
+  // цветы мельче тела. Сквозной газон прятал лежащего на три четверти, толстый куст — целиком.
+  box(a, 0, 0.755, 0, 1.85, 0.07, 1.25, P.leafLight, true, 0.03);
   for (const sign of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
       paintFace(a, 'front', vec3(-0.56 + i * 0.56, 0.37, sign * 0.728), [0.53, 0.53], [P.coral, P.peach, P.yellow][i]);
       paintFace(a, 'side', vec3(sign * 1.028, 0.37, -0.38 + i * 0.38), [0.35, 0.53], [P.peach, P.coral, P.yellow][i]);
     }
   }
-  for (let i = 0; i < 5; i++) sphere(a, -0.7 + i * 0.35, 0.85, 0, 0.18, 0.16, 0.18, i % 2 ? P.pink : P.yellow);
+  for (let i = 0; i < 5; i++) sphere(a, -0.7 + i * 0.35, 0.83, 0, 0.11, 0.08, 0.11, i % 2 ? P.pink : P.yellow);
   return a;
 }
 
@@ -206,7 +207,8 @@ function fountain(w: number, d: number): Assembly {
   const big = w > 3;
   const gap = big ? 1.18 : 0;
   box(a, 0, 0.1, 0, w + 0.45, 0.2, d + 0.45, P.stone, true, 0.09);
-  box(a, 0, 0.22, 0, w - 0.3, 0.08, d - 0.3, P.water, false, 0.08);
+  // Вода твёрдая: по ней ходишь, как по льду. Сквозь неё лёжа уходил под воду больше чем наполовину.
+  box(a, 0, 0.22, 0, w - 0.3, 0.08, d - 0.3, P.water, true, 0.08);
   ring(a, w, d, 0.32, 0.39, 0.52, P.white, gap);
   ring(a, w + 0.12, d + 0.12, 0.18, 0.68, 0.13, P.ivory, gap);
   const count = big ? 8 : 2;

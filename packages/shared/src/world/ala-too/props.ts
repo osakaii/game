@@ -38,7 +38,7 @@ export function buildPlanter(color: string, flowers: string): Assembly {
   const a = assembly();
   box(a, 0, 0.46, 0, 1.6, 0.92, 1.6, color, true, 0.12);
   box(a, 0, 0.96, 0, 1.78, 0.16, 1.78, P.white, true, 0.06);
-  box(a, 0, 1.06, 0, 1.5, 0.1, 1.5, P.woodDark, false, 0.03);
+  box(a, 0, 1.06, 0, 1.5, 0.1, 1.5, P.woodDark, true, 0.03);
   const second =
     color === P.mint ? P.teal : color === P.blue ? P.deep : color === P.purple ? P.lavender : color === P.yellow ? P.orange : P.peach;
   for (const sign of [-1, 1]) {
@@ -67,8 +67,7 @@ export function buildPlanter(color: string, flowers: string): Assembly {
 export function buildTree(variant: number): Assembly {
   const a = assembly();
   const odd = variant % 2 !== 0;
-  cylinder(a, 0, 1.45, 0, 0.4, 2.9, 0.4, P.wood);
-  collide(a, 0, 1.45, 0, 0.4, 2.9, 0.4, true);
+  cylinder(a, 0, 1.45, 0, 0.4, 2.9, 0.4, P.wood, true);
   sphere(a, 0, 3.42, 0, 2.45, 2.8, 2.3, odd ? P.leafLight : P.leaf, true);
   sphere(a, -0.58, 3.0, 0.21, 1.5, 1.65, 1.5, odd ? P.leaf : P.leafLight, true);
   return a;
@@ -85,7 +84,7 @@ export function buildKiosk(accent: string): Assembly {
   box(a, 0, 1.58, -0.65, 2.65, 0.18, 0.54, P.woodLight, true, 0.055);
   // Полосатый тент твёрдый: в нём (0.54 м) лёжа пропадаешь.
   for (let i = 0; i < 9; i++) box(a, -1.28 + i * 0.32, 2.79, 0, 0.3, 0.18, 2.08, i % 2 ? P.ivory : accent, true, 0.035);
-  box(a, 0, 2.28, -0.71, 1.1, 0.33, 0.13, P.blue, false, 0.05);
+  box(a, 0, 2.28, -0.71, 1.1, 0.33, 0.13, P.blue, true, 0.05);
   for (const sign of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
       paintFace(a, 'front', vec3(-0.8 + i * 0.8, 0.75, -0.72 + sign * 0.083), [0.77, 1.26], [accent, P.mint, P.orange][i]);

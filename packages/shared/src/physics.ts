@@ -302,6 +302,9 @@ function climb(state: PlayerPhysicsState, input: MoveInput, colliders: readonly 
       y: top,
       z: state.position.z - wall.nz * (PLAYER.radius + 0.12),
     };
+    // Наверху низкая плитка с отступом от края (земля в клумбе, вода в бассейне, подушка на стуле) —
+    // встаём на неё, как шагом по полу: иначе она «занимает» место, и игрок навсегда висит у края.
+    target.y = Math.max(top, supportHeight({ ...target, y: top + PLAYER.stepHeight }, colliders));
     if (!penetratesColliders(target, colliders, EPS, height)) {
       state.position.x = target.x;
       state.position.y = target.y;

@@ -139,7 +139,7 @@ function buildPlan(): Assembly {
     place(a, build(f), f.x, f.z, f.turn);
     if (f.kind === 'gondola') {
       const color = f.color ?? P.ivory;
-      box(a, f.x, 2.86, f.z + 2.12, 1.65, 0.48, 0.09, color, false, 0.035);
+      box(a, f.x, 2.86, f.z + 2.12, 1.65, 0.48, 0.09, color, true, 0.035);
       lettering(a, `0${(f.variant ?? 0) + 1}`, f.x, 2.86, f.z + 2.171, 0.3, P.ivory);
       box(a, f.x, 2.58, f.z + 2.12, 0.065, 0.2, 0.065, P.dark, false, 0.01);
     }

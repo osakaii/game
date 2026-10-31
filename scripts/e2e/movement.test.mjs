@@ -70,8 +70,8 @@ async function sprintRoute(mapId, start, route) {
 }
 
 test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbacks', { timeout: 120_000 }, async () => {
-  // Через лестницу музея на террасу и обратно, по бульвару, через мостики фонтанов.
-  const route = [[-10, -36], [0, -36], [0, -43.5], [0, -36], [12, -30], [12, 20], [0, 26], [0, 66], [20, 70]];
+  // Через лестницу музея на террасу (до стоек витража — они твёрдые) и обратно, по бульвару, через мостики фонтанов.
+  const route = [[-10, -36], [0, -36], [0, -42.6], [0, -36], [12, -30], [12, 20], [0, 26], [0, 66], [20, 70]];
   // Первый в комнате встаёт на первую точку появления.
   assert.deepEqual(await sprintRoute('ala-too', S.MAPS['ala-too'].spawns[0], route), []);
 });

@@ -12,7 +12,7 @@ export const MISC = {
       const d = 0.55;
       const boxes: MapBox[] = [
         part(0, 0, 0, length, 0.48, d, color, { shape: 'rounded', round: 0.04, surface: 'wood' }),
-        decor(0, 0.48, -d / 2 + 0.03, length, 0.32, 0.04, accent, { shape: 'rounded', round: 0.02, surface: 'wood' }),
+        part(0, 0.48, -d / 2 + 0.03, length, 0.32, 0.04, accent, { shape: 'rounded', round: 0.02, surface: 'wood' }),
       ];
       for (let i = 0; i < 5; i++) {
         const size = 0.12 + random() * 0.1;
@@ -117,7 +117,8 @@ export const MISC = {
 
   /**
    * Окно со шторами — на внешнюю стену, стоит на полу. Стекло светится «небом».
-   * Шторы до пола и не твёрдые: за ними (и в них) можно встать — классический тайник.
+   * Шторы до пола твёрдые: сквозными в них вставали и пропадали из виду почти целиком (×3 — 0.36 м ткани).
+   * Прятаться — рядом со шторой, перекрасившись под неё.
    * length — ширина проёма окна; color — рама, accent — шторы.
    */
   window: {
@@ -138,8 +139,8 @@ export const MISC = {
         decor(0, sill + frame, 0.065, 0.05, h - 2 * frame, 0.02, color),
         decor(0, sill - 0.04, 0.08, length + 0.2, 0.04, 0.2, color, { shape: 'rounded', round: 0.01 }),
         decor(0, 2.45, 0.12, length + 0.9, 0.04, 0.04, '#8d99ae', { shape: 'cylinder' }),
-        decor(-length / 2 - 0.25, 0, 0.14, 0.5, 2.45, 0.12, accent, { shape: 'rounded', round: 0.05, surface: 'fabric' }),
-        decor(length / 2 + 0.25, 0, 0.14, 0.5, 2.45, 0.12, accent, { shape: 'rounded', round: 0.05, surface: 'fabric' }),
+        part(-length / 2 - 0.25, 0, 0.14, 0.5, 2.45, 0.12, accent, { shape: 'rounded', round: 0.05, surface: 'fabric' }),
+        part(length / 2 + 0.25, 0, 0.14, 0.5, 2.45, 0.12, accent, { shape: 'rounded', round: 0.05, surface: 'fabric' }),
       ];
     },
   },

@@ -124,7 +124,8 @@ export const KITCHEN_PROPS = {
       return [
         collider(0, 0, 0, length, 0.47, d),
         decor(0, 0.43, 0, length, 0.04, d, color, { shape: 'rounded', round: 0.015, surface: 'wood' }),
-        decor(0, 0.47, 0.01, length - 0.06, 0.04, d - 0.08, accent, { shape: 'rounded', round: 0.02, surface: 'fabric' }),
+        // Подушка твёрдая: лёжа на стуле тело уходило в неё на треть.
+        part(0, 0.47, 0.01, length - 0.06, 0.04, d - 0.08, accent, { shape: 'rounded', round: 0.02, surface: 'fabric' }),
         ...legs(length, d, 0.43, 0.04, 0.035, color).map((leg) => ({ ...leg, solid: false })),
         part(0, 0.47, -d / 2 + 0.02, length, 0.45, 0.04, color, { shape: 'rounded', round: 0.015, surface: 'wood' }),
       ];

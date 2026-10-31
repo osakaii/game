@@ -59,7 +59,7 @@ export function buildGondola(color: string = P.coral, variant = 0): Assembly {
 export function buildFridge(color: string = P.blue): Assembly {
   const a = assembly();
   box(a, 0, 1.32, 0, 2.65, 2.64, 0.92, P.ivory, true, 0.09, true);
-  box(a, 0, 0.15, 0.48, 2.7, 0.3, 0.1, color, false, 0.025);
+  box(a, 0, 0.15, 0.48, 2.7, 0.3, 0.1, color, true, 0.025);
   for (let i = 0; i < 3; i++) {
     const x = -0.86 + i * 0.86;
     box(a, x, 1.4, 0.477, 0.79, 2.08, 0.035, color, false, 0.025);
@@ -138,9 +138,9 @@ export function buildCheckout(color: string = P.mint): Assembly {
   box(a, 0, 0.86, 0.53, 1.7, 0.2, 2.1, P.ivory, true, 0.07);
   for (const x of [-0.65, 0.65]) box(a, x, 0.38, 1.35, 0.17, 0.76, 0.17, color, true, 0.035);
   box(a, 0, 0.973, 0.53, 1.4, 0.024, 1.85, P.dark, false, 0.02);
-  for (const x of [-0.755, 0.755]) box(a, x, 1.03, 0.53, 0.06, 0.12, 2.0, color, false, 0.02);
+  for (const x of [-0.755, 0.755]) box(a, x, 1.03, 0.53, 0.06, 0.12, 2.0, color, true, 0.02);
   cylinder(a, 0.48, 1.28, -1.0, 0.08, 0.58, 0.08, P.dark, true);
-  box(a, 0.48, 1.63, -1.0, 0.84, 0.55, 0.12, P.dark, false, 0.055);
+  box(a, 0.48, 1.63, -1.0, 0.84, 0.55, 0.12, P.dark, true, 0.055);
   label(a, 0.48, 1.64, -0.933, 0.67, 0.36, P.mint);
   box(a, -0.33, 1.1, -0.93, 0.6, 0.18, 0.53, P.dark, true, 0.055);
   box(a, -0.33, 1.205, -0.93, 0.38, 0.035, 0.34, P.red, false, 0.02);

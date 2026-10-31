@@ -10,7 +10,8 @@ import { MAX_COVER, coverSpots, describeSpot } from './hiding-cover.js';
  * сами — через MAP_IDS: сквозную штору, воду или газон толще нормы тест не пропустит.
  */
 describe.each(MAP_IDS)('map %s', (id) => {
-  it(`no decoration hides more than ${MAX_COVER * 100}% of a body`, () => {
+  // Перебор долгий (у большой площади — секунды), на машине CI в 2–3 раза дольше: обычных 5 с мало.
+  it(`no decoration hides more than ${MAX_COVER * 100}% of a body`, { timeout: 120_000 }, () => {
     expect(coverSpots(MAPS[id]).map(describeSpot)).toEqual([]);
   });
 });

@@ -61,7 +61,6 @@ import { UpdateBanner } from './ui/update-banner';
 import { registerServiceWorker } from './platform/service-worker';
 import { ActiveMap } from './world/active-map';
 import { RemotePlayers } from './world/remote-players';
-import { HintFx } from './world/hint-fx';
 import { MenuShowcase, showcaseSpot } from './world/menu-showcase';
 import { StudioCamera } from './paint/studio-camera';
 import { ShotFx } from './world/shot-fx';
@@ -342,14 +341,12 @@ network.on('shot', (shot) => seekerEffects.onServerShot(shot));
 
 // ---------- Подсказки: ненайденные прячущиеся свистят со своих мест ----------
 
-const hintFx = new HintFx(scene);
-/** В каком раунде уже объяснили, что за свист: тост — один раз за раунд, дальше хватает звука и нот. */
+/** В каком раунде уже объяснили, что за свист: тост — один раз за раунд, дальше хватает звука. */
 let hintExplainedRound = -1;
 network.on('hint', (ping) => {
   // Правое ухо — первый столбец матрицы камеры (её ось X в мире).
   const m = camera.matrixWorld.elements;
   gameSounds.onHint(ping, network.playerId, { position: camera.position, rightX: m[0], rightZ: m[2] });
-  for (const p of ping.players) hintFx.show(p);
   const round = lobby.room?.round ?? 0;
   if (round === hintExplainedRound) return;
   hintExplainedRound = round;
@@ -514,7 +511,6 @@ startFixedStepLoop(PHYSICS_DT, {
     gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);
     shotFx.update(frameDt);
-    hintFx.update(frameDt);
   },
 });
 

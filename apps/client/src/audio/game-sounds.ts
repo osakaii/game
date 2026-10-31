@@ -19,7 +19,7 @@ export interface Listener {
 
 /**
  * Объёмность без PannerNode: громкость по расстоянию и стерео по стороне. Звук сзади и спереди
- * в стерео звучит одинаково — направление подскажут ноты над прячущимся.
+ * в стерео звучит одинаково — повернись, и станет ясно, с какой стороны свист.
  */
 export function spatialize(listener: Listener, source: Vec3): { volume: number; pan: number } {
   const dx = source.x - listener.position.x;

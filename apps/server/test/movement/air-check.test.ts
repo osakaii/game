@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYROOM, buildColliders, type PlayerState } from '@mecha/shared';
+import { buildColliders, type PlayerState } from '@mecha/shared';
+import { PLAYROOM } from '@mecha/shared/maps';
 import { checkAirborne, type AirState } from '../../src/movement/air-check';
 
 const colliders = buildColliders(PLAYROOM);

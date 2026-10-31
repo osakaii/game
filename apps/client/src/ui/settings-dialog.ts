@@ -1,7 +1,7 @@
 import {
   FOUND_MODE_OPTIONS,
   HIDE_SECONDS_OPTIONS,
-  MAPS,
+  MAP_INFO,
   MAP_CHOICES,
   SEEKER_OPTIONS,
   SEEK_SECONDS_OPTIONS,
@@ -16,7 +16,7 @@ import { $ } from './dom';
 export function describeSettings(settings: RoomSettings): string {
   const seekers = settings.seekers === 'auto' ? 'авто' : settings.seekers;
   const hints = settings.hints ? '' : ' · без подсказок';
-  return `${MAPS[settings.mapId].name} · ${settings.hideSeconds}/${settings.seekSeconds} с · ищущих: ${seekers}${hints}`;
+  return `${MAP_INFO[settings.mapId].name} · ${settings.hideSeconds}/${settings.seekSeconds} с · ищущих: ${seekers}${hints}`;
 }
 
 /**
@@ -40,7 +40,7 @@ export class SettingsDialog {
       foundMode: select('foundMode'),
       hints: select('hints'),
     };
-    fill(this.selects.mapId, MAP_CHOICES.map((id) => [id, MAPS[id].name]));
+    fill(this.selects.mapId, MAP_CHOICES.map((id) => [id, MAP_INFO[id].name]));
     fill(this.selects.hideSeconds, HIDE_SECONDS_OPTIONS.map((s) => [String(s), `${s} с`]));
     fill(this.selects.seekSeconds, SEEK_SECONDS_OPTIONS.map((s) => [`${s}`, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`]));
     fill(this.selects.seekers, SEEKER_OPTIONS.map((s) => [String(s), s === 'auto' ? 'Авто (по числу игроков)' : String(s)]));

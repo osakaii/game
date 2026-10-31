@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAP_IDS } from './world/maps.js';
+import { MAP_IDS } from './world/catalog.js';
 import { ROOM_PHASES } from './game.js';
 
 /**

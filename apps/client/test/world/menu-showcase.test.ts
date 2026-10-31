@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ALA_TOO, PLAYROOM } from '@mecha/shared';
+import { ALA_TOO, PLAYROOM } from '@mecha/shared/maps';
 import { MenuShowcase, showcasePose, showcaseSpot } from '../../src/world/menu-showcase';
 import type { StudioCamera } from '../../src/paint/studio-camera';
 

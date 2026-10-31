@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PLAYER, PLAYROOM, POSE_RULES, buildColliders, type PlayerState, type Pose } from '@mecha/shared';
+import { PLAYER, POSE_RULES, buildColliders, type PlayerState, type Pose } from '@mecha/shared';
+import { PLAYROOM } from '@mecha/shared/maps';
 import { freshBudget, validateMove } from '../../src/movement/move-validator';
 
 const colliders = buildColliders(PLAYROOM);

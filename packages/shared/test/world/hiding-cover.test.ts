@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { scaleMap, type MapBox, type MapDef } from '../../src/world/map.js';
-import { MAPS, MAP_IDS } from '../../src/world/maps.js';
+import { MAP_IDS } from '../../src/world/catalog.js';
+import { MAPS } from '../../src/world/maps.js';
 import { MAX_COVER, coverSpots, describeSpot } from './hiding-cover.js';
 
 /**

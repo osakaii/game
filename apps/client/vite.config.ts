@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_SETTINGS } from '@mecha/shared';
 import { defineConfig } from 'vite';
 import { serviceWorker } from './build/sw-plugin.ts';
 
@@ -18,8 +19,9 @@ function buildCommit(): string {
 }
 
 export default defineConfig({
-  // Service worker: после сборки пишет dist/sw.js со списком файлов этой сборки.
-  plugins: [serviceWorker(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)))],
+  // Service worker: после сборки пишет dist/sw.js со списком файлов этой сборки. Карты комнат не
+  // качает заранее (грузятся при входе), кроме карты главного экрана — чанк называется как её id.
+  plugins: [serviceWorker(fileURLToPath(new URL('./src/pwa/sw.js', import.meta.url)), [DEFAULT_SETTINGS.mapId])],
   // define подставляет значения прямо в код при сборке: в бандле будет строка, а не переменная.
   define: {
     __BUILD_COMMIT__: JSON.stringify(buildCommit()),

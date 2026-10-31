@@ -1,6 +1,5 @@
 import {
   DEFAULT_SETTINGS,
-  MAPS,
   MAX_PLAYERS,
   SCORING,
   buildColliders,
@@ -19,6 +18,8 @@ import {
   type StaminaState,
   type Vec3,
 } from '@mecha/shared';
+// Все карты сразу: серверу нужна любая, какую выберет хост (браузер грузит только свою).
+import { MAPS } from '@mecha/shared/maps';
 
 import type { AirState } from '../movement/air-check';
 import { freshBudget, type MoveBudget } from '../movement/move-validator';

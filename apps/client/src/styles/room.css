@@ -149,11 +149,14 @@
   font-size: 20px;
 }
 
-/* Карты в ряд: альбомный экран широкий и низкий — столбик из трёх не влез бы на 300 px. */
+/* Карты в ряд: альбомный экран широкий и низкий — столбик из шести не влез бы на 300 px.
+   Не влезли и две строки — список прокручивается внутри окна, а не уезжает за край экрана. */
 #map-options {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+  max-height: calc(100dvh - var(--edge-top, 0px) - 96px);
+  overflow-y: auto;
 }
 
 .map-option {
@@ -187,6 +190,27 @@
 .map-option[aria-pressed='true'] {
   background: rgb(255 107 154 / 0.22);
   box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Низкий телефон: карточки плотнее, чтобы все шесть были видны без прокрутки. */
+@media (max-height: 360px) {
+  #map-options {
+    gap: 6px;
+  }
+
+  .map-option {
+    gap: 2px;
+    padding: 8px 10px;
+  }
+
+  .map-option b {
+    font-size: 15px;
+  }
+
+  .map-option span,
+  .map-option small {
+    font-size: 11px;
+  }
 }
 
 /* ---------- Шторка комнаты ---------- */

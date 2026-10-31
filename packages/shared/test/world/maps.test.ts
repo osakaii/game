@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER, penetratesColliders, supportHeight } from '../../src/physics.js';
 import { buildColliders } from '../../src/world/map.js';
-import { MAPS, MAP_IDS } from '../../src/world/maps.js';
+import { MAP_IDS } from '../../src/world/catalog.js';
+import { MAPS } from '../../src/world/maps.js';
 import { APARTMENT, APARTMENT_ROOM_CENTERS } from '../../src/world/apartment.js';
 
 /**

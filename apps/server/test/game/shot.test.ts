@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HIT_INFLATE, PLAYROOM, buildColliders, vec3 } from '@mecha/shared';
+import { HIT_INFLATE, buildColliders, vec3 } from '@mecha/shared';
+import { PLAYROOM } from '@mecha/shared/maps';
 import { resolveShot } from '../../src/game/shot';
 
 const colliders = buildColliders(PLAYROOM);

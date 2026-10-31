@@ -15,12 +15,7 @@ export * from './physics.js';
 export * from './raycast.js';
 export * from './world/map.js';
 export * from './world/props/index.js';
-export * from './world/playroom.js';
-export * from './world/kitchen.js';
-export * from './world/garden.js';
-export * from './world/maps.js';
-export * from './world/apartment.js';
-export * from './world/ala-too/ala-too.js';
-export * from './world/supermarket/supermarket.js';
+// Карты — не здесь: браузер грузит нужную через loadMap, сервер и тесты берут все из '@mecha/shared/maps'.
+export * from './world/catalog.js';
 export * from './world/layout.js';
 export * from './world/builders.js';

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAPS, MAP_IDS, type MapId } from './world/maps.js';
+import { MAP_IDS, MAP_INFO, type MapId } from './world/catalog.js';
 
 /** Варианты для интерфейса. Сервер принимает любые значения в пределах схемы. */
 /** Свободная покраска кистью дольше, чем тык в зоны, — поэтому на прятки больше времени. */
@@ -30,7 +30,7 @@ const SEEK_SECONDS = 150;
 
 /** Время поиска по умолчанию для карты: своё у большой площади, общее у остальных. */
 export function defaultSeekSeconds(mapId: MapId): number {
-  return MAPS[mapId].seekSeconds ?? SEEK_SECONDS;
+  return MAP_INFO[mapId].seekSeconds ?? SEEK_SECONDS;
 }
 
 /**

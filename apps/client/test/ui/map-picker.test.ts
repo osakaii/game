@@ -32,7 +32,7 @@ describe('MapPicker', () => {
     picker.render(room('supermarket'), true);
     expect(el('#lobby-map').hidden).toBe(false);
     expect(el('#lobby-map-name').textContent).toBe('Супермаркет');
-    expect(document.querySelectorAll('.map-option')).toHaveLength(3);
+    expect(document.querySelectorAll('.map-option')).toHaveLength(6);
     expect(option('Супермаркет').textContent).toContain('поиск 5:00');
     expect(option('Супермаркет').getAttribute('aria-pressed')).toBe('true');
     expect(option('Квартира').getAttribute('aria-pressed')).toBe('false');

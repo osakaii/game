@@ -4,12 +4,13 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { connect, request } from './client.mjs';
 import * as S from '../../packages/shared/dist/index.js';
+import * as M from '../../packages/shared/dist/world/maps.js';
 
 let socket;
 after(() => socket?.close());
 
 /**
- * Бежать по маршруту нашей физикой в реальном времени и слать состояние 20 Гц, как StateSender.
+ * Бежать по маршруту (массив точек или функция от точки старта) нашей физикой в реальном времени и слать состояние 20 Гц, как StateSender.
  * Возвращает откаты сервера (player:teleport) после старта.
  */
 async function sprintRoute(mapId, start, route) {
@@ -23,12 +24,14 @@ async function sprintRoute(mapId, start, route) {
     assert.ok(changed.ok, JSON.stringify(changed));
     start = await moved;
   }
+  // Маршрут может зависеть от того, куда сервер поставил игрока.
+  if (typeof route === 'function') route = route(start);
   // Первая расстановка приходит сразу после создания (и после смены карты) — её не считаем.
   await new Promise((r) => setTimeout(r, 300));
   const rollbacks = [];
   socket.on('player:teleport', (p) => rollbacks.push(p));
 
-  const colliders = S.buildColliders(S.MAPS[mapId]);
+  const colliders = S.buildColliders(M.MAPS[mapId]);
   const state = { position: S.vec3(start.x, start.y, start.z), velocity: S.vec3(), grounded: true, crouching: false, pose: 'none' };
   let next = 0;
   let sinceProgress = 0;
@@ -73,12 +76,12 @@ test('sprinting across Ala-Too (museum stairs, fountain bridges) gets no rollbac
   // Через лестницу музея на террасу (до стоек витража — они твёрдые) и обратно, по бульвару, через мостики фонтанов.
   const route = [[-10, -36], [0, -36], [0, -42.6], [0, -36], [12, -30], [12, 20], [0, 26], [0, 66], [20, 70]];
   // Первый в комнате встаёт на первую точку появления.
-  assert.deepEqual(await sprintRoute('ala-too', S.MAPS['ala-too'].spawns[0], route), []);
+  assert.deepEqual(await sprintRoute('ala-too', M.MAPS['ala-too'].spawns[0], route), []);
 });
 
 test('sprinting through the supermarket (stock door, under a gondola and a checkout) gets no rollbacks', { timeout: 120_000 }, async () => {
-  const map = S.MAPS.supermarket;
-  const passage = (id) => S.SUPERMARKET_PASSAGES.find((p) => p.id === id);
+  const map = M.MAPS.supermarket;
+  const passage = (id) => M.SUPERMARKET_PASSAGES.find((p) => p.id === id);
   const gondola = passage('under-gondola');
   const belt = passage('under-belt');
   // Хост после смены карты — на одной из точек склада (±24, −24): идём к западной двери.
@@ -90,4 +93,11 @@ test('sprinting through the supermarket (stock door, under a gondola and a check
     [belt.from.x, belt.from.z], [belt.to.x, belt.to.z],
   ];
   assert.deepEqual(await sprintRoute('supermarket', map.spawns[0], route), []);
+});
+
+test('sprinting through the restaurant (kitchen, service door, between the tables) gets no rollbacks', { timeout: 120_000 }, async () => {
+  // Хост после смены карты — на одной из точек кухни (±24, −15). Через кухню к западной служебной двери,
+  // в зал и по проходу между рядами столов (через пятно соуса с крошками).
+  const route = (start) => [[start.x, -24], [24, -24], [-24, -24], [-24, -9], [-28.5, -9], [-28.5, 7.05], [28.5, 7.05]];
+  assert.deepEqual(await sprintRoute('restaurant', M.MAPS.restaurant.spawns[0], route), []);
 });

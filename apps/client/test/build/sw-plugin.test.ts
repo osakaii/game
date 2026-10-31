@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cacheName, precacheList, serviceWorkerSource } from '../../build/sw-plugin';
+import { cacheName, lazyChunks, precacheList, serviceWorkerSource, type ChunkInfo } from '../../build/sw-plugin';
 
 describe('service worker plugin', () => {
   it('precaches every build file, index.html as the page itself, never sw.js', () => {
@@ -8,6 +8,25 @@ describe('service worker plugin', () => {
       '/assets/three-abc.js',
       '/icon-192.png',
     ]);
+  });
+
+  it('does not precache what is loaded on demand: room maps come when someone enters them', () => {
+    const chunk = (fileName: string, name: string, imports: string[] = [], isEntry = false): ChunkInfo => ({ type: 'chunk', fileName, name, imports, isEntry });
+    const lazy = lazyChunks(
+      [
+        chunk('assets/index.js', 'index', ['assets/three.js', 'assets/map.js'], true),
+        chunk('assets/three.js', 'three'),
+        chunk('assets/map.js', 'map'),
+        // Карта главного экрана и её детали нужны сразу — даже если сервер спит.
+        chunk('assets/ala-too.js', 'ala-too', ['assets/procedural.js', 'assets/map.js']),
+        chunk('assets/procedural.js', 'procedural'),
+        chunk('assets/castle.js', 'castle', ['assets/recipe.js', 'assets/procedural.js']),
+        chunk('assets/recipe.js', 'recipe'),
+      ],
+      ['ala-too'],
+    );
+    expect([...lazy].sort()).toEqual(['assets/castle.js', 'assets/recipe.js']);
+    expect(precacheList(['index.html', 'assets/castle.js', 'assets/ala-too.js'], lazy)).toEqual(['/', '/assets/ala-too.js']);
   });
 
   it('names the cache by content: one changed byte gives a new cache, file order does not matter', () => {

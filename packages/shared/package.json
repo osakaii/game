@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./maps": {
+      "types": "./dist/world/maps.d.ts",
+      "default": "./dist/world/maps.js"
     }
   },
   "scripts": {

@@ -11,11 +11,12 @@ import {
   DEFAULT_SETTINGS,
   bodyHeight,
   cancelsPose,
-  MAPS,
   canMove,
   canPaint,
   hasEndlessStamina,
   isUpdateAvailable,
+  loadMap,
+  type MapId,
   type MoveInput,
 } from '@mecha/shared';
 import { GameSounds } from './audio/game-sounds';
@@ -76,8 +77,8 @@ const sceneContext = createSceneContext(canvas);
 const { renderer, scene, camera, sun } = sceneContext;
 
 // Главный экран — на карте по умолчанию (её же создатель комнаты получит без перестройки мира).
-// В комнате — та, что выбрал хост.
-const MENU_MAP = MAPS[DEFAULT_SETTINGS.mapId];
+// В комнате — та, что выбрал хост. Каждая карта — свой файл: ждём только эту, остальные — когда понадобятся.
+const MENU_MAP = await loadMap(DEFAULT_SETTINGS.mapId);
 const activeMap = new ActiveMap(scene, sun, sceneContext.renderer);
 activeMap.load(MENU_MAP);
 
@@ -375,6 +376,20 @@ network.on('teleport', (position) => {
   stateSender.reset();
 });
 
+/**
+ * Карта комнаты грузится, только когда в неё вошли или хост её выбрал: телефон не качает и не строит
+ * все шесть карт заранее. Загруженная карта остаётся в памяти — повторный выбор мгновенный.
+ * Пока грузится, виден прежний мир; опоздавшую загрузку (хост успел выбрать другую) не показываем.
+ */
+function showRoomMap(id: MapId) {
+  loadMap(id).then(
+    (map) => {
+      if (lobby.room?.settings.mapId === id && activeMap.load(map)) splats.clear();
+    },
+    () => toast('Не удалось загрузить карту — проверь связь'),
+  );
+}
+
 async function runLobbyRequest(request: () => Promise<boolean>) {
   menu.setBusy(true);
   menu.showError('');
@@ -384,8 +399,8 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 
 // Единая точка реакции на «вошли/вышли/изменилась комната».
 lobby.on('room', (room) => {
-  // Хост сменил карту — перестраиваем мир. Новую позицию на ней пришлёт сервер (player:teleport).
-  if (room && activeMap.load(MAPS[room.settings.mapId])) splats.clear();
+  // Вошли в комнату или хост сменил карту — грузим и перестраиваем мир. Позицию на ней пришлёт сервер.
+  if (room) showRoomMap(room.settings.mapId);
   roomPanel.render(room, network.playerId);
   lobbyBar.render(room, network.playerId);
   gameMenu.setAvailable(!!room);

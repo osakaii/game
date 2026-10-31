@@ -6,13 +6,13 @@ import type { Plugin } from 'vite';
 const SW_FILE = 'sw.js';
 
 /**
- * Что кладём в кэш при установке: все файлы сборки. index.html — под адресом `/`: так его просит
+ * Что кладём в кэш при установке: все файлы сборки, кроме `lazy`. index.html — под адресом `/`: так его просит
  * браузер, и с `?room=CODE` service worker отдаёт ту же страницу. Сам sw.js — нет: его браузер
  * всегда берёт с сервера, иначе обновление никогда бы не пришло.
  */
-export function precacheList(files: readonly string[]): string[] {
+export function precacheList(files: readonly string[], lazy: ReadonlySet<string> = new Set()): string[] {
   return files
-    .filter((file) => file !== SW_FILE && !file.startsWith('.'))
+    .filter((file) => file !== SW_FILE && !file.startsWith('.') && !lazy.has(file))
     .map((file) => (file === 'index.html' ? '/' : `/${file}`))
     .sort();
 }
@@ -32,6 +32,32 @@ export function serviceWorkerSource(template: string, precache: readonly string[
   return `self.__MECHA_PRECACHE__ = ${JSON.stringify(precache)};\nself.__MECHA_CACHE__ = ${JSON.stringify(cache)};\n${template}`;
 }
 
+/** Что нужно знать о чанке сборки: кто его грузит сразу (`imports`), а кто — по требованию. */
+export interface ChunkInfo {
+  type: 'chunk';
+  fileName: string;
+  name: string;
+  isEntry: boolean;
+  imports: readonly string[];
+}
+
+/**
+ * Чанки, которые грузятся только по требованию (карты комнат): при установке их не качаем —
+ * телефон скачает карту, когда в неё войдут, и тогда же положит в кэш. Исключение — `eager`
+ * (карта главного экрана): без неё игра не откроется, если сервер спит.
+ */
+export function lazyChunks(chunks: readonly ChunkInfo[], eager: readonly string[]): Set<string> {
+  const byFile = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+  const needed = new Set<string>();
+  const visit = (file: string) => {
+    if (needed.has(file)) return;
+    needed.add(file);
+    for (const next of byFile.get(file)?.imports ?? []) visit(next);
+  };
+  for (const chunk of chunks) if (chunk.isEntry || eager.includes(chunk.name)) visit(chunk.fileName);
+  return new Set(chunks.map((chunk) => chunk.fileName).filter((file) => !needed.has(file)));
+}
+
 /** Все файлы папки с подпапками — путями от её корня. */
 function listFiles(root: string, dir = root): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -44,7 +70,7 @@ function listFiles(root: string, dir = root): string[] {
  * Плагин Vite: после сборки пишет `dist/sw.js`. Смотрим на готовую папку, а не на бандл:
  * в ней уже есть и файлы из public/ (иконки, manifest), и index.html.
  */
-export function serviceWorker(templatePath: string): Plugin {
+export function serviceWorker(templatePath: string, eager: readonly string[] = []): Plugin {
   let outDir = '';
   return {
     name: 'mecha-service-worker',
@@ -52,12 +78,14 @@ export function serviceWorker(templatePath: string): Plugin {
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir);
     },
-    writeBundle() {
+    writeBundle(_options, bundle) {
+      const chunks = Object.values(bundle).filter((item): item is ChunkInfo & typeof item => item.type === 'chunk');
+      const lazy = lazyChunks(chunks, eager);
       const files = listFiles(outDir)
         .map((file) => file.split(sep).join('/'))
         .filter((file) => file !== SW_FILE);
       const contents = new Map(files.map((file) => [file, readFileSync(join(outDir, file))]));
-      const source = serviceWorkerSource(readFileSync(templatePath, 'utf8'), precacheList(files), cacheName(contents));
+      const source = serviceWorkerSource(readFileSync(templatePath, 'utf8'), precacheList(files, lazy), cacheName(contents));
       writeFileSync(join(outDir, SW_FILE), source);
     },
   };

@@ -1,4 +1,4 @@
-import { MAPS, MAP_CHOICES, defaultSeekSeconds, type MapId, type RoomSnapshot } from '@mecha/shared';
+import { MAP_CHOICES, MAP_INFO, defaultSeekSeconds, type MapId, type RoomSnapshot } from '@mecha/shared';
 import { $ } from './dom';
 
 /** Чем карта отличается — одной строкой: выбирают по впечатлению, а не по названию. */
@@ -6,6 +6,9 @@ const MAP_BLURBS: Partial<Record<MapId, string>> = {
   'ala-too': 'Площадь под открытым небом: Манас, фонтаны, колоннады',
   apartment: 'Большая квартира: прячься под мебелью и среди вещей',
   supermarket: 'Стеллажи, кассы, холодильники и склад',
+  restaurant: 'Зал со столами под скатертями и кухня за стеной',
+  courtyard: 'Домики насквозь, машины, горка и сушилка с бельём',
+  castle: 'Башни, тронный зал, ящики, бочки и рыцари',
 };
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
@@ -30,7 +33,7 @@ export class MapPicker {
       button.type = 'button';
       button.className = 'map-option';
       const name = document.createElement('b');
-      name.textContent = MAPS[id].name;
+      name.textContent = MAP_INFO[id].name;
       const blurb = document.createElement('span');
       blurb.textContent = MAP_BLURBS[id] ?? '';
       const seek = document.createElement('small');
@@ -61,7 +64,7 @@ export class MapPicker {
       return;
     }
     this.current = room.settings.mapId;
-    this.chipName.textContent = MAPS[this.current].name;
+    this.chipName.textContent = MAP_INFO[this.current].name;
     // Не хосту плашка — просто подпись: менять карту может только он.
     this.chip.disabled = !isHost;
     this.chip.classList.toggle('editable', isHost);

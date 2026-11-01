@@ -8,6 +8,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { CreateRoomSchema, JoinRoomSchema, type RoomResult } from '@mecha/shared';
+import { AnalyticsService, playerKey } from '../analytics/analytics.service';
 import { parseInput, respond } from '../common/game-error';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import {
@@ -41,6 +42,7 @@ export class RoomsGateway implements OnGatewayInit {
     private readonly rooms: RoomsService,
     private readonly events: RoomEvents,
     private readonly sessions: SessionService,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   afterInit() {
@@ -62,6 +64,8 @@ export class RoomsGateway implements OnGatewayInit {
       const { nickname, code } = parseInput(CreateRoomSchema, body);
       this.leaveCurrentRoom(client);
       const room = this.rooms.create(playerIdOf(client), nickname, code);
+      // restored — комнату пересоздал клиент после перезапуска сервера: это не новая игра.
+      this.analytics.track({ type: 'room_created', player: playerKey(client.data.sessionId), room: room.code, data: { nickname, restored: !!code } });
       return this.enter(client, room);
     });
   }
@@ -81,6 +85,7 @@ export class RoomsGateway implements OnGatewayInit {
       this.rooms.assertJoinable(code);
       this.leaveCurrentRoom(client);
       const room = this.rooms.join(playerIdOf(client), nickname, code);
+      this.analytics.track({ type: 'room_joined', player: playerKey(client.data.sessionId), room: room.code, data: { nickname } });
       return this.enter(client, room);
     });
   }

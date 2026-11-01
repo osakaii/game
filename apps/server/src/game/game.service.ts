@@ -15,6 +15,7 @@ import {
   type ShotResult,
   type Vec3,
 } from '@mecha/shared';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { GameError } from '../common/game-error';
 import type { Room, RoomMember } from '../rooms/room';
 import { RoomEvents } from '../rooms/room-events';
@@ -60,6 +61,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly rooms: RoomsService,
     private readonly events: RoomEvents,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   onModuleInit() {
@@ -91,6 +93,11 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
       this.teleport(room, member, room.nextSpawn(points));
     }
     this.logger.log(`room ${room.code}: round started, seekers: ${[...seekers].length}/${room.size}`);
+    this.analytics.track({
+      type: 'round_started',
+      room: room.code,
+      data: { map: room.settings.mapId, players: room.size, seekers: seekers.size, round: room.round },
+    });
     this.events.changed.next(room);
 
     this.schedule(room, hideSeconds, () => this.startSeeking(room));
@@ -237,6 +244,20 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     this.clearHints(room);
     room.finishRound(result, Date.now() + GAME_RULES.resultsSeconds * 1000);
     this.logger.log(`room ${room.code}: ${result.winner} won (${result.reason})`);
+    const hiders = room.allMembers().filter((m) => m.role === 'hider');
+    this.analytics.track({
+      type: 'round_finished',
+      room: room.code,
+      data: {
+        map: room.settings.mapId,
+        winner: result.winner,
+        reason: result.reason,
+        players: room.size,
+        hiders: hiders.length,
+        found: hiders.filter((m) => m.found).length,
+        seconds: Math.round((Date.now() - room.roundStartedAt) / 1000),
+      },
+    });
     this.events.changed.next(room);
     this.schedule(room, GAME_RULES.resultsSeconds, () => this.backToLobby(room));
   }

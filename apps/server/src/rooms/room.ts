@@ -63,6 +63,8 @@ export class Room {
   phaseEndsAt: number | null = null;
   result: GameResult | null = null;
   round = 0;
+  /** Когда начался текущий раунд — длительность для статистики. */
+  roundStartedAt = 0;
   private _settings: RoomSettings = { ...DEFAULT_SETTINGS };
   private _map: MapDef;
   private _colliders: Aabb[];
@@ -181,8 +183,9 @@ export class Room {
 
   // ---------- Переходы между фазами ----------
 
-  startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number): void {
+  startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number, now = Date.now()): void {
     this.round++;
+    this.roundStartedAt = now;
     for (const m of this.members.values()) {
       m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
       if (m.role === 'seeker') m.timesSeeker++;

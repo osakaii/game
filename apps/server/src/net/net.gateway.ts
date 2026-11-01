@@ -8,7 +8,8 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { PROTOCOL_VERSION, SessionIdSchema, type PingPayload, type PongPayload } from '@mecha/shared';
+import { PROTOCOL_VERSION, SessionIdSchema, clip, type PingPayload, type PongPayload } from '@mecha/shared';
+import { AnalyticsService, playerKey } from '../analytics/analytics.service';
 import { BUILD_INFO, SERVER_STARTED_AT } from '../common/build-info';
 import { RateLimit, RateLimitGuard } from '../common/rate-limit';
 import { GATEWAY_OPTIONS, playerRoom, type GameServer, type GameSocket } from '../common/socket-types';
@@ -33,6 +34,7 @@ export class NetGateway implements OnGatewayInit, OnGatewayConnection, OnGateway
     private readonly sessions: SessionService,
     private readonly rooms: RoomsService,
     private readonly events: RoomEvents,
+    private readonly analytics: AnalyticsService,
   ) {}
 
   /**
@@ -76,6 +78,11 @@ export class NetGateway implements OnGatewayInit, OnGatewayConnection, OnGateway
       const { x, y, z } = member.state;
       this.events.teleported.next({ playerId, position: { x, y, z } });
       emitRoomSkins(client, room);
+    }
+    // Новая сессия — игрок открыл игру (переподключение — тот же визит). Ник ещё неизвестен: он придёт со входом в комнату.
+    // User-Agent — чтобы потом разделить iPhone, Android и компьютеры; IP не храним.
+    if (!resumed) {
+      this.analytics.track({ type: 'player_seen', player: playerKey(client.data.sessionId), data: { ua: clip(client.handshake.headers['user-agent'], 300) } });
     }
     this.logger.log(`${resumed ? 'reconnected' : 'connected'} ${playerId} (sockets: ${this.server.engine.clientsCount})`);
   }

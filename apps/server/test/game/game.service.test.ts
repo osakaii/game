@@ -1,18 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, GAME_RULES, type RoomPhase } from '@mecha/shared';
 import { GameError } from '../../src/common/game-error';
+import { AnalyticsService } from '../../src/analytics/analytics.service';
+import { NullSink, type EventSink } from '../../src/analytics/event-sink';
 import { RoomEvents } from '../../src/rooms/room-events';
 import { RoomsService } from '../../src/rooms/rooms.service';
 import { GameService } from '../../src/game/game.service';
+import { RecordingSink } from '../analytics/recording-sink';
 
 /**
  * Таймеры фаз тестируем с «фальшивым временем»: vi.advanceTimersByTime(ms)
  * мгновенно прокручивает часы, и 150-секундный раунд проходит за миллисекунды.
  */
-function setup(players = 3) {
+function setup(players = 3, sink: EventSink = new NullSink()) {
   const rooms = new RoomsService();
   const events = new RoomEvents();
-  const game = new GameService(rooms, events);
+  const analytics = new AnalyticsService(sink);
+  const game = new GameService(rooms, events, analytics);
   game.onModuleInit();
 
   const room = rooms.create('p0', 'Host');
@@ -31,7 +35,7 @@ function setup(players = 3) {
     const result = rooms.leave(id);
     if (result?.room) events.playerLeft.next(result.room);
   };
-  return { rooms, events, game, room, phases, teleports, leave };
+  return { rooms, events, game, analytics, room, phases, teleports, leave };
 }
 
 describe('GameService', () => {
@@ -71,6 +75,22 @@ describe('GameService', () => {
     expect(room.phase).toBe('lobby');
     expect(room.allMembers().every((m) => m.role === null)).toBe(true);
     expect(phases).toEqual(['hiding', 'seeking', 'results', 'lobby']);
+  });
+
+  it('reports round start and finish to analytics: map, players, winner, length', async () => {
+    const sink = new RecordingSink();
+    const { game, analytics, room } = setup(3, sink);
+    game.start(room, 'p0');
+    vi.advanceTimersByTime((room.settings.hideSeconds + room.settings.seekSeconds) * 1000);
+    await analytics.flush();
+
+    const [started, finished] = sink.events;
+    expect(started).toMatchObject({ type: 'round_started', room: room.code, data: { map: 'playroom', players: 3, seekers: 1, round: 1 } });
+    expect(finished).toMatchObject({
+      type: 'round_finished',
+      room: room.code,
+      data: { map: 'playroom', winner: 'hider', reason: 'time_up', players: 3, hiders: 2, found: 0, seconds: room.settings.hideSeconds + room.settings.seekSeconds },
+    });
   });
 
   it('ends the round early when all seekers leave, and cancels the old timer', () => {

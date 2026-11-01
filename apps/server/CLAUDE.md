@@ -24,6 +24,7 @@
 | `game/game.gateway.ts` | `game:start`, `room:settings`, `seek:shoot`, `player:skin` |
 | `game/shot.ts` | Ближайшее пересечение луча (пол, карта, прячущиеся по `rayHitsBody`: поза + yaw) — стены закрывают |
 | `telemetry/` | `client:report` → `TelemetryService` (строка JSON в лог `client-perf`/`client-error`, последние 500 замеров и 50 разных ошибок в памяти), `GET /stats` — сводка (FPS медиана/p10, по видеокартам, уровни автокачества, ошибки); id игроков наружу не отдаются |
+| `analytics/` | Статистика в Postgres (Neon): `AnalyticsService.track(event)` — в очередь, раз в 10 с одной пачкой (`MAX_BATCH` 500) в таблицу `events` (`at, type, player, room, version, data jsonb`; `PgSink` сам создаёт её при первой записи, вставка — `unnest` массивов-параметров). База лежит — пачка возвращается в очередь (не больше `MAX_QUEUE` 5000, старые теряются), игра не замечает; SIGTERM — дописать остаток. Нет `DATABASE_URL` — `NullSink`, статистика выключена (локально, CI, e2e). `player` — `playerKey(sessionId)` (хэш: sessionId — секрет, playerId меняется при перезапуске). События: `player_seen` (новая сессия, User-Agent; IP не храним), `room_created` (ник, `restored`), `room_joined` (ник), `round_started` (карта, игроки, ищущие), `round_finished` (карта, победитель, причина, найдено, секунды). Новое событие — имя в `EventType` и `track` в нужном месте, схема базы не меняется |
 | `movement/movement.gateway.ts` | Приём `player:state`: заморозка ищущих, `validateMove`, `checkAirborne`, история; 20 Гц снимки (ищущим в прятках — без прячущихся, призраки скрыты) |
 | `movement/move-validator.ts`, `air-check.ts`, `stamina-check.ts`, `position-history.ts` | Античит скорости (по позе и бегу; `MoveBudget` — бюджет расстояния, копится со временем, а не запас к каждому пакету)/стен (рост по позе)/полёта; бег — по серверной выносливости (`judgeSprint`/`recordSprint`, тратит на 15% медленнее клиента; ищущему — `endless`, бег принимается всегда), история позиций (с yaw, приседом, позой) для перемотки |
 
@@ -32,4 +33,5 @@
 - `Room.teleport` обновляет принятую позицию, air-state, бюджет расстояния и историю — иначе валидатор примет следующий пакет за чит.
 - Таймеры фаз — по объекту `Room` (не коду): после удаления комнаты код мог переиспользоваться.
 - Тесты стрельбы/раундов (`game.service.test.ts`) ставят карту «Детская» явно: по умолчанию квартира со стенами, и координаты тестов упёрлись бы в стену.
-- В тестах сервисы создаются напрямую (`new GameService(rooms, events)`), таймеры — `vi.useFakeTimers()`.
+- В тестах сервисы создаются напрямую (`new GameService(rooms, events, new AnalyticsService(new NullSink()))`), таймеры — `vi.useFakeTimers()`. Проверить события — `RecordingSink` из `test/analytics/recording-sink.ts` и `await analytics.flush()`.
+- Локально статистика выключена: продовую `DATABASE_URL` в dev не ставь — тестовые комнаты попадут в цифры. Проверка с базой — временный Postgres и `DATABASE_URL=postgres://… node dist/main.js`.

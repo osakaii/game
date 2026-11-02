@@ -22,11 +22,11 @@ export function buildBarrel(color: string = P.woodLight): Assembly {
   return a;
 }
 
-/** Башня — закрытый объём: по стене не лезть, внутри пусто. */
+/** Башня — закрытый объём, внутри пусто. По стене влезть можно до карниза: крыша шире стены и не пускает выше. */
 export function buildTower(color: string = P.purple): Assembly {
   const a = assembly();
   cylinder(a, 0, 2.05, 0, 4.4, 4.1, 4.4, P.cream);
-  collide(a, 0, 2.05, 0, 4.4, 4.1, 4.4, true);
+  collide(a, 0, 2.05, 0, 4.4, 4.1, 4.4);
   // Крыша твёрдая: на неё не попасть, но если попал — стоишь на ней, а не внутри.
   cylinder(a, 0, 4.18, 0, 4.95, 0.28, 4.95, P.ivory, true);
   for (let i = 0; i < 3; i++) cylinder(a, 0, 4.5 + i * 0.4, 0, 4.7 - i * 1.25, 0.42, 4.7 - i * 1.25, color, true);

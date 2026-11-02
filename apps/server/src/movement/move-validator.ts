@@ -9,6 +9,19 @@ const SPEED_TOLERANCE = 1.25;
 const DISTANCE_SLACK = 0.35; // м — постоянный запас на джиттер
 const MAX_ELAPSED_S = 1; // долгая пауза не даёт «накопить» право на телепорт через полкарты
 const WALL_TOLERANCE = 0.1;
+/** Выше этого над самым высоким коллайдером честно не оказаться: прыжок с вершины плюс запас. */
+const ABOVE_TOP = 3;
+
+/** Верх карты для проверки границ. Считаем раз на набор коллайдеров: пакеты идут 20 раз в секунду от каждого. */
+const tops = new WeakMap<readonly Aabb[], number>();
+function topOf(colliders: readonly Aabb[]): number {
+  let top = tops.get(colliders);
+  if (top === undefined) {
+    top = colliders.reduce((max, c) => Math.max(max, c.maxY), 0);
+    tops.set(colliders, top);
+  }
+  return top;
+}
 
 export type MoveVerdict = { ok: true } | { ok: false; reason: string };
 
@@ -46,7 +59,8 @@ export function validateMove(
 
   const halfW = map.width / 2;
   const halfD = map.depth / 2;
-  if (Math.abs(next.x) > halfW || Math.abs(next.z) > halfD || next.y < -0.05 || next.y > 20) {
+  // Верх — по самой высокой вещи карты, а не числом: на флагшток площади (43 м) теперь можно влезть.
+  if (Math.abs(next.x) > halfW || Math.abs(next.z) > halfD || next.y < -0.05 || next.y > topOf(colliders) + ABOVE_TOP) {
     return { ok: false, reason: 'out of bounds' };
   }
 

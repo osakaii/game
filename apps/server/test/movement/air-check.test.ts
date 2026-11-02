@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildColliders, type PlayerState } from '@mecha/shared';
 import { PLAYROOM } from '@mecha/shared/maps';
-import { checkAirborne, type AirState } from '../../src/movement/air-check';
+import { checkAirborne, fallMs, type AirState } from '../../src/movement/air-check';
 
 const colliders = buildColliders(PLAYROOM);
 const at = (x: number, y: number, z: number): PlayerState => ({ x, y, z, yaw: 0, grounded: y === 0, crouching: false, pose: 'none', climbing: false, sprinting: false });
@@ -41,6 +41,27 @@ describe('checkAirborne on walls', () => {
   it('hanging on a wall for a long time is not flying', () => {
     const air = { since: null, takeoffY: 0 };
     for (let t = 0; t <= 10_000; t += 500) expect(checkAirborne(air, hanging(2 + t / 5000), wall, t).ok).toBe(true);
+  });
+
+  it('a long honest fall from the top of a tall pole is not flying', () => {
+    const pole = [{ minX: -0.09, maxX: 0.09, minY: 0, maxY: 43, minZ: -0.09, maxZ: 0.09 }];
+    const air = { since: null, takeoffY: 0 };
+    // Висел на флагштоке на 40 м, отпустился и падает почти 3 с — вдали от столба.
+    expect(checkAirborne(air, { ...hanging(40), x: 0.09 + 0.36 }, pole, 0).ok).toBe(true);
+    const fall = fallMs(40);
+    expect(fall).toBeGreaterThan(2000);
+    for (let t = 100; t < fall + 1500; t += 100) {
+      const y = Math.max(0.5, 40 - (40 * t) / fall);
+      expect(checkAirborne(air, { ...hanging(y), x: 3, climbing: false }, pole, t).ok, `t=${t}`).toBe(true);
+    }
+  });
+
+  it('but hovering high in the air still runs out of time', () => {
+    const pole = [{ minX: -0.09, maxX: 0.09, minY: 0, maxY: 43, minZ: -0.09, maxZ: 0.09 }];
+    const air = { since: null, takeoffY: 0 };
+    checkAirborne(air, { ...hanging(40), x: 0.09 + 0.36 }, pole, 0);
+    expect(checkAirborne(air, { ...hanging(40), x: 3, climbing: false }, pole, 100).ok).toBe(true);
+    expect(checkAirborne(air, { ...hanging(40), x: 3, climbing: false }, pole, 2000 + fallMs(40) + 200).ok).toBe(false);
   });
 
   it('the same height in open air, away from the wall, is caught', () => {

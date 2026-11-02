@@ -34,6 +34,14 @@ describe('validateMove', () => {
     expect(check(at(-2, 0, 6), at(-2 + run, 0, 6), 500)).toBe(false);
   });
 
+  it('the height limit follows the tallest thing on the map, not a fixed number', () => {
+    const pole = [...colliders, { minX: -0.09, maxX: 0.09, minY: 0, maxY: 43, minZ: 8, maxZ: 8.18 }];
+    const top = at(0, 43, 8.09);
+    expect(validateMove(top, { ...top, x: 0.05 }, 50, PLAYROOM, pole).ok).toBe(true); // стоит на флагштоке
+    expect(validateMove(top, { ...top, y: 50 }, 1000, PLAYROOM, pole)).toEqual({ ok: false, reason: 'out of bounds' });
+    expect(check(at(0, 0, 6), at(0, 25, 6), 1000)).toBe(false); // в детской так высоко нечему быть
+  });
+
   it('rejects speed hacks', () => {
     expect(check(at(0, 0, 6), at(3, 0, 6), 100)).toBe(false);
   });

@@ -153,15 +153,21 @@ const MANTLE_REACH = 0.45;
  * Стена, к которой прижат игрок: вертикальная грань коллайдера в пределах WALL_REACH от цилиндра.
  * Низкое (ковёр, ступенька) — не стена: на него наступают, а не лезут. Возвращает ближайшую.
  * Нужна и клиенту (лазание), и серверу (висящий на стене — не «летающий» читер).
+ *
+ * Лезть можно по любой боковой грани на уровне тела: стена, столб фонаря, край столешницы, полка.
+ * Потолок стеной не бывает: игрок стоит под ним, внутри его площади (distance = 0), а не сбоку.
  */
-export function wallContact(position: Vec3, colliders: readonly Aabb[]): { nx: number; nz: number; box: Aabb } | null {
+export function wallContact(
+  position: Vec3,
+  colliders: readonly Aabb[],
+  height: number = PLAYER.height,
+): { nx: number; nz: number; box: Aabb } | null {
   let best: { nx: number; nz: number; box: Aabb } | null = null;
   let bestDistance = Infinity;
   const reach = PLAYER.radius + WALL_REACH;
   for (const b of colliders) {
-    // Стена — то, что доходит почти до ног и выше ступеньки. Столешница на ножках — не стена:
-    // её край висит над полом, за него не ухватишься снизу.
-    if (b.noClimb || b.maxY - position.y <= PLAYER.stepHeight || b.minY > position.y + 0.5) continue;
+    // Грань должна быть сбоку от тела: выше головы (вывеска, крона) — до неё не дотянуться.
+    if (b.noClimb || b.maxY - position.y <= PLAYER.stepHeight || b.minY >= position.y + height) continue;
     const cx = clamp(position.x, b.minX, b.maxX);
     const cz = clamp(position.z, b.minZ, b.maxZ);
     const dx = position.x - cx;
@@ -243,7 +249,7 @@ export function stepPlayer(state: PlayerPhysicsState, input: MoveInput, collider
 function climb(state: PlayerPhysicsState, input: MoveInput, colliders: readonly Aabb[], dt: number): boolean {
   const v = state.velocity;
   const height = bodyHeight(state);
-  const wall = state.pose === 'none' ? wallContact(state.position, colliders) : null;
+  const wall = state.pose === 'none' ? wallContact(state.position, colliders, height) : null;
   if (!wall) {
     state.climbing = false;
     state.wallNormal = undefined;

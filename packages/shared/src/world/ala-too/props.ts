@@ -111,11 +111,11 @@ export function buildBin(color: string): Assembly {
   return a;
 }
 
-/** Фонарь: плафон светится сам (glow), столб — тонкое препятствие, по которому не лезть. */
+/** Фонарь: плафон светится сам (glow). По столбу можно влезть — под плафон, как под карниз. */
 export function buildLamp(): Assembly {
   const a = assembly();
   cylinder(a, 0, 2.05, 0, 0.16, 4.1, 0.16, P.dark);
-  collide(a, 0, 2.05, 0, 0.18, 4.1, 0.18, true);
+  collide(a, 0, 2.05, 0, 0.18, 4.1, 0.18);
   box(a, 0, 4.19, 0, 0.75, 0.18, 0.75, P.dark, true, 0.06);
   sphere(a, 0, 4.43, 0, 0.5, 0.46, 0.5, P.paint, true).glow = true;
   box(a, 0, 4.72, 0, 0.64, 0.12, 0.64, P.dark, true, 0.04);

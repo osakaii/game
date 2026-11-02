@@ -84,9 +84,13 @@ describe('stepPlayer on Playroom', () => {
     expect(s.grounded).toBe(true);
   });
 
-  it('cannot walk under a table lower than the player', () => {
-    const s = simulate(vec3(3, 0, -11), 0, 1, 1.2);
-    expect(s.position.z).toBeLessThan(-9);
+  it('cannot walk under a table lower than the player — climbs onto it instead', () => {
+    const s = simulate(vec3(3, 0, -11), 0, 1, 0.3);
+    expect(s.position.z).toBeLessThan(-9); // упёрся в край столешницы
+    simulate(s.position, 0, 1, 0.6, -1, false, s);
+    // За край ухватился и залез: стоит на столешнице, а не под ней.
+    expect(s.position.y).toBeCloseTo(1.1, 2);
+    expect(s.grounded).toBe(true);
   });
 
   it('stays grounded when idle', () => {
@@ -318,6 +322,38 @@ describe('climbing', () => {
 
   it('cannot climb walls marked noClimb (outer walls of open maps)', () => {
     const s = run(at(2), -1, 2, -1, [{ ...wall[0], noClimb: true }]);
+    expect(s.position.y).toBe(0);
+  });
+
+  it('grabs the edge of a table top hanging above the floor and climbs onto it', () => {
+    const top = { minX: -0.5, maxX: 0.5, minY: 0.7, maxY: 0.78, minZ: -1, maxZ: 1 };
+    const s = at(2);
+    for (let i = 0; i < 300 && !(s.grounded && s.position.y > 0.7); i++) run(s, -1, PHYSICS_DT, -1, [top]);
+    expect(s.position.y).toBeCloseTo(0.78, 2);
+    expect(s.position.x).toBeLessThan(0.5);
+  });
+
+  it('climbs a thin pole (lamp post) to the top', () => {
+    const pole = { minX: -0.09, maxX: 0.09, minY: 0, maxY: 12, minZ: -0.09, maxZ: 0.09 };
+    const s = run(at(1), -1, 3, -1, [pole]);
+    expect(s.climbing).toBe(true);
+    expect(s.position.y).toBeGreaterThan(5);
+  });
+
+  it('a sign high above the head is not a wall: nothing to grab from the floor', () => {
+    const sign = { minX: -0.5, maxX: 0.5, minY: 2, maxY: 3, minZ: -1, maxZ: 1 };
+    const s = run(at(2), -1, 1, -1, [sign]);
+    expect(s.climbing).toBeFalsy();
+    expect(s.position.y).toBe(0);
+  });
+
+  it('never climbs along the ceiling: under it, hanging on the wall stays below it', () => {
+    const ceiling = { minX: -10, maxX: 10, minY: 3, maxY: 4, minZ: -10, maxZ: 10 };
+    const s = run(at(2), -1, 4, -1, [{ ...wall[0], maxY: 3 }, ceiling]);
+    // Ползём от стены и вбок: потолок не держит — висим только на стене или падаем.
+    run(s, 1, 0.5, -1, [{ ...wall[0], maxY: 3 }, ceiling]);
+    expect(s.climbing).toBe(false);
+    run(s, 1, 1, -1, [{ ...wall[0], maxY: 3 }, ceiling]);
     expect(s.position.y).toBe(0);
   });
 });

@@ -23,3 +23,6 @@ services:
       # Без переменной статистика выключена, игра работает как раньше.
       - key: DATABASE_URL
         sync: false
+      # Ключ страницы статистики /stats/admin. Без него страницы нет (404).
+      - key: ADMIN_KEY
+        sync: false

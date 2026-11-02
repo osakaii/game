@@ -17,6 +17,7 @@ import { PgSink } from './pg-sink';
     },
     AnalyticsService,
   ],
-  exports: [AnalyticsService],
+  // EventSink — и для чтения: страница /stats/admin считает цифры запросами к той же базе.
+  exports: [AnalyticsService, EventSink],
 })
 export class AnalyticsModule {}

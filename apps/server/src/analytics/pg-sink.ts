@@ -74,6 +74,11 @@ export class PgSink extends EventSink {
     await this.pool.query(insertQuery(events));
   }
 
+  async query<T>(text: string, values: unknown[] = []): Promise<T[]> {
+    const result = await this.pool.query(text, values);
+    return result.rows as T[];
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GameModule } from './game/game.module';
 import { HealthController } from './health.controller';
@@ -8,7 +9,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 
 @Module({
-  imports: [AnalyticsModule, NetModule, RoomsModule, MovementModule, GameModule, TelemetryModule],
+  imports: [AnalyticsModule, NetModule, RoomsModule, MovementModule, GameModule, TelemetryModule, AdminModule],
   controllers: [HealthController],
 })
 export class AppModule {}

@@ -27,6 +27,8 @@ export abstract class EventSink {
   abstract readonly enabled: boolean;
   /** Записать пачку. Бросает, если база недоступна, — очередь попробует ещё раз. */
   abstract write(events: readonly StoredEvent[]): Promise<void>;
+  /** Запрос чтения (страница /stats/admin). Значения — только параметрами `$1…`, не в тексте запроса. */
+  abstract query<T>(text: string, values?: unknown[]): Promise<T[]>;
   async close(): Promise<void> {}
 }
 
@@ -34,4 +36,7 @@ export abstract class EventSink {
 export class NullSink extends EventSink {
   readonly enabled = false;
   async write(): Promise<void> {}
+  async query<T>(): Promise<T[]> {
+    throw new Error('статистика выключена: нет DATABASE_URL');
+  }
 }

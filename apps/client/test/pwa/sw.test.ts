@@ -172,6 +172,9 @@ describe('service worker: files', () => {
     ['the socket', request('/socket.io/?EIO=4&transport=polling')],
     ['health', request('/health')],
     ['stats', request('/stats')],
+    // Страница статистики живёт под /stats именно поэтому: её пропускают и SW, уже стоящие на телефонах.
+    ['the admin page (it would replace the game page in the cache)', request('/stats/admin', { mode: 'navigate' })],
+    ['the admin API', request('/stats/admin/api?days=14')],
     ['a POST', request('/', { method: 'POST' })],
     ['another site', { url: 'https://fonts.example/a.css', method: 'GET', mode: 'cors' }],
   ])('leaves %s alone', async (_name, req) => {

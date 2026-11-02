@@ -12,6 +12,10 @@ export class RecordingSink extends EventSink {
     this.batches.push([...events]);
   }
 
+  async query<T>(): Promise<T[]> {
+    return [];
+  }
+
   async close(): Promise<void> {
     this.closed = true;
   }

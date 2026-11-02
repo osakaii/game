@@ -9,6 +9,7 @@ const MAP_BLURBS: Partial<Record<MapId, string>> = {
   restaurant: 'Зал со столами под скатертями и кухня за стеной',
   courtyard: 'Домики насквозь, машины, горка и сушилка с бельём',
   castle: 'Башни, тронный зал, ящики, бочки и рыцари',
+  school: 'Кабинеты, спортзал, столовая и двор под открытым небом',
 };
 
 const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;

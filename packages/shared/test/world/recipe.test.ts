@@ -7,12 +7,14 @@ import { buildColliders, mapBoxes, type MapDef } from '../../src/world/map.js';
 import { PALETTE as P } from '../../src/world/procedural.js';
 import { compileRecipe, RECIPE_SCALE } from '../../src/world/recipe.js';
 import { RESTAURANT, RESTAURANT_PASSAGES } from '../../src/world/restaurant.js';
+import { SCHOOL, SCHOOL_PASSAGES } from '../../src/world/school.js';
 import type { Passage } from '../../src/world/procedural.js';
 
 const MAPS: [string, MapDef, Passage[], number, number][] = [
   ['restaurant', RESTAURANT, RESTAURANT_PASSAGES, 78, 66],
   ['courtyard', COURTYARD, COURTYARD_PASSAGES, 84, 78],
   ['castle', CASTLE, CASTLE_PASSAGES, 84, 84],
+  ['school', SCHOOL, SCHOOL_PASSAGES, 132, 108],
 ];
 
 describe('compileRecipe', () => {

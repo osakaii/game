@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp } from '@mecha/shared';
+import { clamp, rayToWorld } from '@mecha/shared';
 import type { WorldGeometry } from '../world/active-map';
 
 const PIVOT_HEIGHT = 0.85; // середина корпуса
@@ -35,7 +35,6 @@ export class StudioCamera {
   private readonly direction = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
   private readonly lookAt = new THREE.Vector3();
-  private readonly raycaster = new THREE.Raycaster();
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -114,9 +113,8 @@ export class StudioCamera {
   private freeDistance(yaw: number, pitch: number, wanted: number): number {
     const cosPitch = Math.cos(pitch);
     this.direction.set(Math.sin(yaw) * cosPitch, Math.sin(pitch), Math.cos(yaw) * cosPitch);
-    this.raycaster.set(this.pivot, this.direction);
-    this.raycaster.far = wanted + WALL_PADDING;
-    const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
-    return hit ? hit.distance - WALL_PADDING : wanted;
+    const reach = wanted + WALL_PADDING;
+    const free = rayToWorld(this.pivot, this.direction, this.world.colliders, reach);
+    return free < reach ? free - WALL_PADDING : wanted;
   }
 }

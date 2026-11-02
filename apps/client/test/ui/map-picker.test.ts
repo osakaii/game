@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, type MapId, type RoomSnapshot } from '@mecha/shared';
+import { DEFAULT_SETTINGS, MAP_CHOICES, type MapId, type RoomSnapshot } from '@mecha/shared';
 import { MapPicker } from '../../src/ui/map-picker';
 
 function setup() {
@@ -32,7 +32,7 @@ describe('MapPicker', () => {
     picker.render(room('supermarket'), true);
     expect(el('#lobby-map').hidden).toBe(false);
     expect(el('#lobby-map-name').textContent).toBe('Супермаркет');
-    expect(document.querySelectorAll('.map-option')).toHaveLength(6);
+    expect(document.querySelectorAll('.map-option')).toHaveLength(MAP_CHOICES.length);
     expect(option('Супермаркет').textContent).toContain('поиск 5:00');
     expect(option('Супермаркет').getAttribute('aria-pressed')).toBe('true');
     expect(option('Квартира').getAttribute('aria-pressed')).toBe('false');

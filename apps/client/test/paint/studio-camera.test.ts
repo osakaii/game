@@ -1,18 +1,16 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import type { Aabb } from '@mecha/shared';
 import { StudioCamera } from '../../src/paint/studio-camera';
 
-/** Стена-коробка: центр (x, z), размеры w×d, высота 3 м. */
-function wall(x: number, z: number, w: number, d: number): THREE.Mesh {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, 3, d));
-  mesh.position.set(x, 1.5, z);
-  mesh.updateMatrixWorld();
-  return mesh;
+/** Стена-коробка столкновений: центр (x, z), размеры w×d, высота 3 м. Камера ищет стены по коробкам. */
+function wall(x: number, z: number, w: number, d: number): Aabb {
+  return { minX: x - w / 2, maxX: x + w / 2, minY: 0, maxY: 3, minZ: z - d / 2, maxZ: z + d / 2 };
 }
 
-function setup(obstacles: THREE.Object3D[] = []) {
+function setup(colliders: Aabb[] = []) {
   const camera = new THREE.PerspectiveCamera(60, 740 / 340, 0.1, 100);
-  const studio = new StudioCamera(camera, { obstacles } as never);
+  const studio = new StudioCamera(camera, { colliders, obstacles: [] });
   const target = new THREE.Vector3(3, 0, -2);
   /** Где на экране центр корпуса: x в NDC (−1 — левый край, +1 — правый). */
   const screenX = () => {

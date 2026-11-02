@@ -42,6 +42,47 @@ export function rayAabb(origin: Vec3, dir: Vec3, box: Aabb, maxT: number): numbe
 const AXES = ['x', 'y', 'z'] as const;
 
 /**
+ * Сколько от origin до ближайшей твёрдой поверхности мира по лучу dir (единичному): коробки
+ * столкновений и пол (y = 0). Ничего ближе maxT — вернёт maxT.
+ *
+ * Для камеры, которая каждый кадр ищет стену между игроком и собой. Луч по склеенным мешам карты
+ * проверяет все треугольники подряд (у школы — 90 тыс., ~2.6 мс на кадр на компьютере, на телефоне
+ * в разы дольше), а по коробкам — тысяча коротких проверок. Коробка, внутри которой луч начинается,
+ * не считается: как у меша, видимого только снаружи, — иначе камера прилипала бы к спине.
+ */
+export function rayToWorld(origin: Vec3, dir: Vec3, colliders: readonly Aabb[], maxT: number): number {
+  let best = maxT;
+  if (dir.y < -1e-9 && origin.y > 0) best = Math.min(best, -origin.y / dir.y);
+  const ix = 1 / dir.x;
+  const iy = 1 / dir.y;
+  const iz = 1 / dir.z;
+  for (const b of colliders) {
+    if (
+      origin.x > b.minX && origin.x < b.maxX &&
+      origin.y > b.minY && origin.y < b.maxY &&
+      origin.z > b.minZ && origin.z < b.maxZ
+    ) {
+      continue;
+    }
+    // Slab-метод через обратные компоненты: деление на 0 даёт ±Infinity, и сравнения остаются верными.
+    let t1 = (b.minX - origin.x) * ix;
+    let t2 = (b.maxX - origin.x) * ix;
+    let near = Math.min(t1, t2);
+    let far = Math.max(t1, t2);
+    t1 = (b.minY - origin.y) * iy;
+    t2 = (b.maxY - origin.y) * iy;
+    near = Math.max(near, Math.min(t1, t2));
+    far = Math.min(far, Math.max(t1, t2));
+    t1 = (b.minZ - origin.z) * iz;
+    t2 = (b.maxZ - origin.z) * iz;
+    near = Math.max(near, Math.min(t1, t2));
+    far = Math.min(far, Math.max(t1, t2));
+    if (near <= far && far > 0 && near >= 0 && near < best) best = near;
+  }
+  return best;
+}
+
+/**
  * Запас вокруг каждой части тела (м). Ищущий видит прячущегося с задержкой интерполяции,
  * тело чуть шевелится (дыхание, шаг), а палец на телефоне — не снайперский прицел.
  */

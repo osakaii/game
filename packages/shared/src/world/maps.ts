@@ -8,11 +8,12 @@ import { KITCHEN } from './kitchen.js';
 import type { MapDef } from './map.js';
 import { PLAYROOM } from './playroom.js';
 import { RESTAURANT } from './restaurant.js';
+import { SCHOOL } from './school.js';
 import { SUPERMARKET } from './supermarket/supermarket.js';
 
 /**
  * Все карты сразу, синхронно — для сервера и тестов (`@mecha/shared/maps`). Браузер сюда не ходит:
- * он грузит одну нужную карту через `loadMap` (catalog.ts), иначе каждый телефон строил бы все девять.
+ * он грузит одну нужную карту через `loadMap` (catalog.ts), иначе каждый телефон строил бы все десять.
  */
 export const MAPS: Record<MapId, MapDef> = {
   'ala-too': ALA_TOO,
@@ -21,6 +22,7 @@ export const MAPS: Record<MapId, MapDef> = {
   restaurant: RESTAURANT,
   courtyard: COURTYARD,
   castle: CASTLE,
+  school: SCHOOL,
   playroom: PLAYROOM,
   kitchen: KITCHEN,
   garden: GARDEN,
@@ -34,4 +36,5 @@ export * from './garden.js';
 export * from './kitchen.js';
 export * from './playroom.js';
 export * from './restaurant.js';
+export * from './school.js';
 export * from './supermarket/supermarket.js';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { vec3 } from '../src/math.js';
-import { rayAabb, rayHitsBody, surfaceNormalAt } from '../src/raycast.js';
+import { rayAabb, rayHitsBody, rayToWorld, surfaceNormalAt } from '../src/raycast.js';
 import { BODY_HITBOXES } from '../src/pose-hitboxes.js';
 
 const box = { minX: -1, maxX: 1, minY: 0, maxY: 2, minZ: -1, maxZ: 1 };
@@ -76,5 +76,29 @@ describe('rayHitsBody', () => {
     const hand = center(BODY_HITBOXES.handsUp[4]); // handLeft
     expect(hand.y).toBeGreaterThan(1.3);
     expect(rayHitsBody(vec3(hand.x, hand.y, 5), vec3(0, 0, -1), at, 0, { crouching: false, pose: 'handsUp' }, 100)).not.toBeNull();
+  });
+});
+
+describe('rayToWorld', () => {
+  const wall = { minX: -1, maxX: 1, minY: 0, maxY: 3, minZ: 4, maxZ: 5 };
+
+  it('stops at the nearest box face on the ray', () => {
+    const far = { ...wall, minZ: 8, maxZ: 9 };
+    expect(rayToWorld(vec3(0, 1.4, 0), vec3(0, 0, 1), [far, wall], 10)).toBeCloseTo(4, 6);
+  });
+
+  it('returns maxT when nothing is in the way, and sees the floor below', () => {
+    expect(rayToWorld(vec3(0, 1.4, 0), vec3(0, 0, -1), [wall], 6)).toBe(6);
+    const down = Math.SQRT1_2;
+    expect(rayToWorld(vec3(0, 1, 0), vec3(0, -down, -down), [], 6)).toBeCloseTo(Math.SQRT2, 6);
+  });
+
+  it('ignores a box the ray starts inside, like a mesh seen only from outside', () => {
+    expect(rayToWorld(vec3(0, 1, 4.5), vec3(0, 0, 1), [wall], 6)).toBe(6);
+  });
+
+  it('works along an axis (zero direction components) and misses boxes beside the ray', () => {
+    expect(rayToWorld(vec3(0, 1, 0), vec3(1, 0, 0), [wall], 6)).toBe(6);
+    expect(rayToWorld(vec3(0, 1, 0), vec3(0, 1, 0), [{ ...wall, minY: 2, maxY: 3, minZ: -1, maxZ: 1 }], 6)).toBeCloseTo(1, 6);
   });
 });

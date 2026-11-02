@@ -15,6 +15,6 @@ describe('map catalog', () => {
 
   it('offers every playable map, the default first', () => {
     expect(MAP_CHOICES[0]).toBe('ala-too');
-    expect(MAP_CHOICES).toEqual(['ala-too', 'apartment', 'supermarket', 'restaurant', 'courtyard', 'castle']);
+    expect(MAP_CHOICES).toEqual(['ala-too', 'apartment', 'supermarket', 'restaurant', 'courtyard', 'castle', 'school']);
   });
 });

@@ -100,6 +100,24 @@ export function buildMapGroup(map: MapDef): { group: THREE.Group; obstacles: THR
 
 /** Радиус скругления (м), меньше которого ребро рисуем острым: с игровой камеры разницы не видно. */
 const MIN_VISIBLE_ROUND = 0.05;
+/** Тоньше этого (м) коробка — наклейка: надпись, полоска на полу, лист бумаги. Её торцы с камеры не видны. */
+const DECAL_THICKNESS = 0.05;
+
+/**
+ * Простая коробка. Тонкая — только две большие грани (4 треугольника вместо 12): у школы таких
+ * больше тысячи, это десятая часть треугольников карты. Торцы в пару сантиметров не разглядеть.
+ */
+function plainBox(w: number, h: number, d: number): THREE.BufferGeometry {
+  const geometry = new THREE.BoxGeometry(w, h, d);
+  const thinnest = Math.min(w, h, d);
+  if (thinnest >= DECAL_THICKNESS) return geometry;
+  // Грани BoxGeometry по порядку: +X, −X, +Y, −Y, +Z, −Z — по 6 индексов на грань.
+  const face = thinnest === w ? 0 : thinnest === h ? 2 : 4;
+  const index = geometry.index!.array.slice(face * 6, face * 6 + 12);
+  geometry.setIndex(Array.from(index));
+  geometry.clearGroups();
+  return geometry;
+}
 
 /** Геометрия блока в мировых координатах, с UV «в метрах» — рисунок одного масштаба на любом предмете. */
 function boxGeometry(box: MapBox): THREE.BufferGeometry {
@@ -114,7 +132,7 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
       const radius = Math.min(box.round ?? 0.05, box.w / 2, box.h / 2, box.d / 2);
       geometry =
         radius < MIN_VISIBLE_ROUND
-          ? new THREE.BoxGeometry(box.w, box.h, box.d)
+          ? plainBox(box.w, box.h, box.d)
           : bevelBoxGeometry(box.w, box.h, box.d, radius, radius < 0.3 ? 1 : 2);
       break;
     }
@@ -134,7 +152,7 @@ function boxGeometry(box: MapBox): THREE.BufferGeometry {
       break;
     }
     default:
-      geometry = new THREE.BoxGeometry(box.w, box.h, box.d);
+      geometry = plainBox(box.w, box.h, box.d);
   }
   // Опорная точка блока — центр нижней грани (как y в MapBox).
   geometry.translate(box.x, (box.y ?? 0) + box.h / 2, box.z);

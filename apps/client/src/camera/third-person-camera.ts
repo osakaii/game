@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp } from '@mecha/shared';
+import { clamp, rayToWorld } from '@mecha/shared';
 import type { WorldGeometry } from '../world/active-map';
 
 const PIVOT_HEIGHT = 1.35; // камера смотрит на уровень плеч, а не на ноги
@@ -29,7 +29,6 @@ export class ThirdPersonCamera {
   private pivotHeight = PIVOT_HEIGHT;
   private readonly pivot = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
-  private readonly raycaster = new THREE.Raycaster();
 
   constructor(
     private readonly camera: THREE.PerspectiveCamera,
@@ -74,11 +73,11 @@ export class ThirdPersonCamera {
       Math.cos(this.yaw) * cosPitch,
     );
 
+    // Стену ищем по коробкам столкновений, а не по треугольникам карты: это каждый кадр (rayToWorld).
     let desired = DISTANCE;
-    this.raycaster.set(this.pivot, this.direction);
-    this.raycaster.far = DISTANCE + WALL_PADDING;
-    const hit = this.raycaster.intersectObjects(this.world.obstacles as THREE.Object3D[], false)[0];
-    if (hit) desired = Math.max(hit.distance - WALL_PADDING, MIN_DISTANCE);
+    const reach = DISTANCE + WALL_PADDING;
+    const free = rayToWorld(this.pivot, this.direction, this.world.colliders, reach);
+    if (free < reach) desired = Math.max(free - WALL_PADDING, MIN_DISTANCE);
 
     if (desired < this.distance) {
       this.distance = desired; // к стене — сразу, иначе камера на кадр окажется внутри

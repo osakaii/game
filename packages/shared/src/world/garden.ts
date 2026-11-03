@@ -12,7 +12,6 @@ export const GARDEN: MapDef = {
   width: WIDTH,
   depth: DEPTH,
   floorColor: '#7cb342',
-  skyColor: '#a7dcff',
   boxes: [
     // Забор: 2 м — не перепрыгнуть
     ...perimeterWalls(WIDTH, DEPTH, 2, '#a1887f'),

@@ -11,7 +11,24 @@ export type Shape = 'box' | 'rounded' | 'cylinder' | 'sphere';
  * Поверхность — процедурная текстура на клиенте (рисунок светлый, цвет блока его тонирует).
  * 'paint' — ровная краска без рисунка. Узор важен для игры: на пёстром прятаться легче, чем на гладком.
  */
-export const SURFACES = ['paint', 'wood', 'parquet', 'tiles', 'stripes', 'dots', 'fabric', 'carpet', 'brick', 'marble'] as const;
+export const SURFACES = [
+  'paint',
+  'wood',
+  'parquet',
+  'tiles',
+  'stripes',
+  'dots',
+  'fabric',
+  'carpet',
+  'brick',
+  'marble',
+  'stone',
+  'plaster',
+  'leaves',
+  'grass',
+  'asphalt',
+  'roof',
+] as const;
 export type SurfaceId = (typeof SURFACES)[number];
 
 /**
@@ -56,7 +73,6 @@ export interface MapDef {
   id: string;
   /** Название для игроков. */
   name: string;
-  skyColor?: string;
   /** Размер пола по X и Z, центр в (0, 0). */
   width: number;
   depth: number;

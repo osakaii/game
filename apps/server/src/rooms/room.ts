@@ -1,11 +1,16 @@
 import {
+  DEFAULT_DAYTIME,
   DEFAULT_SETTINGS,
   MAX_PLAYERS,
   SCORING,
   buildColliders,
+  gazePoints,
   patchSettings,
+  pickDaytime,
   type Aabb,
+  type Daytime,
   type GameResult,
+  type GazeUpdate,
   type MapDef,
   type NetPlayer,
   type PlayerInfo,
@@ -27,7 +32,7 @@ import { PositionHistory } from '../movement/position-history';
 
 /** Игрок внутри комнаты: публичные данные + последнее принятое сервером состояние. */
 // Omit: в room:state уходит лёгкое SkinState без картинки, а на сервере кожа хранит и саму картинку.
-export interface RoomMember extends Omit<PlayerInfo, 'skin'> {
+export interface RoomMember extends Omit<PlayerInfo, 'skin' | 'gazePoints'> {
   state: PlayerState;
   /** Серверное время (мс), когда state последний раз был принят. */
   stateAt: number;
@@ -47,6 +52,13 @@ export interface RoomMember extends Omit<PlayerInfo, 'skin'> {
   moveBudget: MoveBudget;
   /** Недавние позиции — для компенсации задержки при проверке мест. */
   history: PositionHistory;
+  /** Сколько мс за раунд на прячущегося смотрел ищущий (очки за взгляд, gaze.ts). */
+  watchedMs: number;
+  /**
+   * Смотрят ли на него прямо сейчас — шлём событие только при смене. null — что знает клиент, неизвестно
+   * (переподключился, мог перезагрузить страницу): следующий тик пришлёт состояние в любом случае.
+   */
+  watched: boolean | null;
 }
 
 /**
@@ -63,6 +75,8 @@ export class Room {
   phaseEndsAt: number | null = null;
   result: GameResult | null = null;
   round = 0;
+  /** Свет и небо раунда: новое время суток на каждый раунд (у всех одно — маскировка выглядит одинаково). */
+  daytime: Daytime = DEFAULT_DAYTIME;
   /** Когда начался текущий раунд — длительность для статистики. */
   roundStartedAt = 0;
   private _settings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -163,6 +177,8 @@ export class Room {
       stamina: {},
       moveBudget: freshBudget(),
       history: new PositionHistory(),
+      watchedMs: 0,
+      watched: false,
       state: { x: spawn.x, y: spawn.y, z: spawn.z, yaw: Math.PI, grounded: true, crouching: false, pose: 'none', climbing: false, sprinting: false },
       stateAt: now,
     };
@@ -183,8 +199,9 @@ export class Room {
 
   // ---------- Переходы между фазами ----------
 
-  startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number, now = Date.now()): void {
+  startRound(seekerIds: ReadonlySet<string>, hidingEndsAt: number, now = Date.now(), random = Math.random): void {
     this.round++;
+    this.daytime = pickDaytime(this.daytime, random);
     this.roundStartedAt = now;
     for (const m of this.members.values()) {
       m.role = seekerIds.has(m.id) ? 'seeker' : 'hider';
@@ -192,6 +209,8 @@ export class Room {
       m.found = false;
       m.nextShotAt = 0;
       m.roundPoints = 0;
+      m.watchedMs = 0;
+      m.watched = false;
       // Раскраска из лобби не переносится в раунд: все прячутся с нуля за отведённое время.
       this.resetSkin(m, m.role === 'seeker' ? 'seeker' : 'default');
     }
@@ -203,10 +222,14 @@ export class Room {
     this.setPhase('seeking', endsAt);
   }
 
-  /** Конец раунда: дожившие прячущиеся получают очки, всё набранное за раунд идёт в общий счёт. */
+  /**
+   * Конец раунда: дожившие прячущиеся получают очки, всё набранное за раунд идёт в общий счёт.
+   * Очки за взгляд — и найденным: их заработали, пока прятались (до итогов они скрыты, см. toSnapshot).
+   */
   finishRound(result: GameResult, resultsEndAt: number): void {
     for (const m of this.members.values()) {
       if (m.role === 'hider' && !m.found) m.roundPoints += SCORING.hiderSurvived;
+      m.roundPoints += gazePoints(m.watchedMs);
       m.score += m.roundPoints;
     }
     this.result = result;
@@ -225,6 +248,7 @@ export class Room {
 
   setConnected(member: RoomMember, connected: boolean): void {
     member.connected = connected;
+    if (connected) member.watched = null;
   }
 
   /**
@@ -238,6 +262,19 @@ export class Room {
       member.role = 'seeker';
       this.resetSkin(member, 'seeker');
     }
+  }
+
+  /**
+   * Тик очков за взгляд: смотрел ли сейчас на прячущегося кто-то из ищущих (сколько их — неважно).
+   * Возвращает, что сообщить самому прячущемуся, или null, если для него ничего не изменилось.
+   */
+  watch(member: RoomMember, watched: boolean, ms: number): GazeUpdate | null {
+    const before = gazePoints(member.watchedMs);
+    if (watched) member.watchedMs += ms;
+    const points = gazePoints(member.watchedMs);
+    if (watched === member.watched && points === before) return null;
+    member.watched = watched;
+    return { watched, points };
   }
 
   /** Призрак — найденный в режиме ghost. Его не видно другим. */
@@ -290,7 +327,8 @@ export class Room {
       result: this.result,
       settings: { ...this._settings },
       round: this.round,
-      players: this.allMembers().map(({ id, nickname, role, found, skin, connected, score, roundPoints }) => ({
+      daytime: this.daytime,
+      players: this.allMembers().map(({ id, nickname, role, found, skin, connected, score, roundPoints, watchedMs }) => ({
         id,
         nickname,
         role,
@@ -299,6 +337,8 @@ export class Room {
         connected,
         score,
         roundPoints,
+        // До итогов — 0 для всех: растущие очки подсказали бы ищущему, что он смотрит прямо на прячущегося.
+        gazePoints: this.phase === 'results' ? gazePoints(watchedMs) : 0,
       })),
     };
   }
@@ -307,7 +347,8 @@ export class Room {
   netPlayers(): NetPlayer[] {
     return this.allMembers()
       .filter((m) => !this.isGhost(m))
-      .map(({ id, state }) => ({ id, ...state }));
+      // Взгляд ищущего — только для очков на сервере, другим игрокам его не рассылаем.
+      .map(({ id, state: { look: _look, ...state } }) => ({ id, ...state }));
   }
 
   private setPhase(phase: RoomPhase, endsAt: number | null) {

@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConnectionStatus } from '../../src/net/network';
 import { MenuScreen } from '../../src/ui/menu-screen';
+
+const ONLINE: ConnectionStatus = { state: 'online', text: 'в сети', retrying: true };
+const CONNECTING: ConnectionStatus = { state: 'connecting', text: 'подключаемся…', retrying: true };
 
 function setup(initialCode: string | null = null) {
   document.body.innerHTML = `
@@ -8,6 +12,7 @@ function setup(initialCode: string | null = null) {
       <form id="menu-form">
         <button type="button" id="menu-settings"></button>
         <input id="nickname" />
+        <p id="menu-status"><span id="menu-status-text"></span></p>
         <p id="menu-error"></p>
         <button type="button" id="menu-alt">По коду</button>
         <button type="button" id="menu-play"><span id="menu-play-label">Играть</span><small id="menu-play-hint">новая комната</small></button>
@@ -19,7 +24,7 @@ function setup(initialCode: string | null = null) {
     </div>`;
   const handlers = { onCreate: vi.fn(), onJoin: vi.fn(), onSettings: vi.fn() };
   const menu = new MenuScreen(handlers, initialCode);
-  menu.setOnline(true);
+  menu.setConnection(ONLINE);
   return { menu, handlers };
 }
 
@@ -31,6 +36,7 @@ const type = (selector: string, value: string) => {
 
 describe('MenuScreen', () => {
   beforeEach(() => localStorage.clear());
+  afterEach(() => vi.useRealTimers());
 
   it('«Играть» creates a room; an empty nickname is an error next to the buttons', () => {
     const { handlers } = setup();
@@ -71,10 +77,36 @@ describe('MenuScreen', () => {
     expect(handlers.onCreate).toHaveBeenCalledWith('Боря');
   });
 
-  it('buttons wait for the connection; the main screen hides the game controls', () => {
-    const { menu } = setup();
-    menu.setOnline(false);
+  it('buttons wait for the connection and say what they wait for', () => {
+    vi.useFakeTimers();
+    const { menu } = setup('QWER');
+    expect(el('#menu-status').hidden).toBe(true);
+    menu.setConnection(CONNECTING);
     expect(el<HTMLButtonElement>('#menu-play').disabled).toBe(true);
+    expect(el<HTMLButtonElement>('#menu-alt').disabled).toBe(true);
+    expect(el('#menu-status').hidden).toBe(false);
+    expect(el('#menu-status-text').textContent).toBe('Подключаемся к серверу…');
+    expect(el('#menu-play-hint').textContent).toBe('ждём сервер');
+    // Сервер долго молчит — подпись сама сменится, хотя от сети событий нет: Render будит сервер.
+    vi.advanceTimersByTime(6000);
+    expect(el('#menu-status-text').textContent).toContain('просыпается');
+    menu.setConnection(ONLINE);
+    expect(el<HTMLButtonElement>('#menu-play').disabled).toBe(false);
+    expect(el('#menu-status').hidden).toBe(true);
+    // Подсказка кнопки — прежняя, приглашение не потерялось.
+    expect(el('#menu-play-hint').textContent).toBe('в комнату QWER');
+  });
+
+  it('a hopeless wait (other tab) shows the network text, not «waking up»', () => {
+    vi.useFakeTimers();
+    const { menu } = setup();
+    menu.setConnection({ state: 'offline', text: 'игра открыта в другой вкладке', retrying: false });
+    vi.advanceTimersByTime(60_000);
+    expect(el('#menu-status-text').textContent).toBe('Игра открыта в другой вкладке');
+  });
+
+  it('the main screen hides the game controls', () => {
+    const { menu } = setup();
     expect(document.body.classList.contains('menu-open')).toBe(true);
     menu.hide();
     expect(document.body.classList.contains('menu-open')).toBe(false);

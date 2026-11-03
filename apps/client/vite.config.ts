@@ -33,7 +33,8 @@ export default defineConfig({
     proxy: {
       // Клиент подключается к своему же origin, Vite пробрасывает сокет на Nest.
       // Так не нужен CORS и не надо знать IP сервера на телефоне.
-      '/socket.io': { target: 'http://localhost:3000', ws: true },
+      // MECHA_SERVER — если порт 3000 занят чем-то другим и сервер игры запущен на другом.
+      '/socket.io': { target: process.env.MECHA_SERVER ?? 'http://localhost:3000', ws: true },
     },
   },
   build: {

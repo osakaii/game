@@ -4,6 +4,8 @@ export * from './lobby.js';
 export * from './game.js';
 export * from './settings.js';
 export * from './hints.js';
+export * from './gaze.js';
+export * from './daytime.js';
 export * from './net-state.js';
 export * from './math.js';
 export * from './body.js';

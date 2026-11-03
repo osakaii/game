@@ -224,7 +224,6 @@ const APARTMENT_PLAN: MapDef = {
   name: 'Квартира',
   width: WIDTH,
   depth: DEPTH,
-  skyColor: '#cfe8ff',
   floorColor: '#b08968',
   floorSurface: 'parquet',
   ceiling: { height: WALL_H, color: '#fbf7f0' },

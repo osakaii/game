@@ -1,6 +1,6 @@
 import { vec3, type Vec3 } from '../math.js';
-import { perimeterWalls, scaleMap, type MapDef, type Shape } from './map.js';
-import { PALETTE as P, assembly, block, box, place, type Passage } from './procedural.js';
+import { perimeterWalls, scaleMap, type MapDef, type Shape, type SurfaceId } from './map.js';
+import { PALETTE as P, assembly, block, box, dressSurfaces, place, type Passage } from './procedural.js';
 import { PROP_BUILDERS } from './recipe-props/index.js';
 
 /** Во сколько раз мир крупнее плана рецепта: персонаж 1.6 м — «игрушка» среди столов и домиков, как в квартире. */
@@ -20,6 +20,8 @@ export interface RecipeBlock {
   shape?: Shape;
   noClimb?: boolean;
   glow?: boolean;
+  /** Рисунок; без него — по цвету палитры (`dressSurfaces`) или ровная краска. */
+  surface?: SurfaceId;
 }
 
 /** Готовый предмет из `PROP_BUILDERS`: центр основания в (x, z), поворот четвертями. */
@@ -42,6 +44,8 @@ export interface MapRecipe {
   width: number;
   depth: number;
   floor: string;
+  /** Рисунок пола (плитка, паркет…); без него — ровная краска. */
+  floorSurface?: SurfaceId;
   /** indoor — стены до потолка, hedge — живая изгородь, castle — крепостная стена с зубцами. */
   boundary: 'indoor' | 'hedge' | 'castle';
   props: RecipeProp[];
@@ -55,6 +59,7 @@ export interface MapRecipe {
 
 const WALL_HEIGHT = { indoor: 4.2, castle: 2.8, hedge: 1.7 } as const;
 const WALL_COLOR = { indoor: P.cream, castle: P.stone, hedge: P.leaf } as const;
+const WALL_SURFACE: Record<MapRecipe['boundary'], SurfaceId> = { indoor: 'plaster', castle: 'stone', hedge: 'leaves' };
 /** Высота невидимой ограды открытых карт (×3 — 30 м): выше любой крыши, наружу не перелезть. */
 const FENCE_HEIGHT = 10;
 
@@ -71,20 +76,21 @@ export function compileRecipe(recipe: MapRecipe): { map: MapDef; passages: Passa
     [0, -hd + 0.15, recipe.width - 0.6, 0.3],
     [0, hd - 0.15, recipe.width - 0.6, 0.3],
   ] as const) {
-    box(a, x, height / 2, z, w, height, d, color, true, 0.035, true);
+    box(a, x, height / 2, z, w, height, d, color, true, 0.035, true).surface = WALL_SURFACE[recipe.boundary];
   }
   if (recipe.boundary === 'castle') {
     for (let x = -hw + 1; x < hw; x += 1.4) {
-      for (const z of [-hd + 0.26, hd - 0.26]) box(a, x, 3.07, z, 0.72, 0.54, 0.48, P.ivory, true, 0.05);
+      for (const z of [-hd + 0.26, hd - 0.26]) box(a, x, 3.07, z, 0.72, 0.54, 0.48, P.ivory, true, 0.05).surface = 'stone';
     }
     for (let z = -hd + 1; z < hd; z += 1.4) {
-      for (const x of [-hw + 0.26, hw - 0.26]) box(a, x, 3.07, z, 0.48, 0.54, 0.72, P.ivory, true, 0.05);
+      for (const x of [-hw + 0.26, hw - 0.26]) box(a, x, 3.07, z, 0.48, 0.54, 0.72, P.ivory, true, 0.05).surface = 'stone';
     }
   }
   for (const b of recipe.blocks) {
     const shape = b.shape ?? (b.round === 0 ? 'box' : 'rounded');
     const q = block(a, b.x, b.y, b.z, b.w, b.h, b.d, b.color, shape, b.round ?? 0.05, b.solid ?? false, b.noClimb ?? false);
     if (b.glow) q.glow = true;
+    if (b.surface) q.surface = b.surface;
   }
   for (const p of recipe.props) {
     const builder = PROP_BUILDERS[p.kind];
@@ -99,9 +105,10 @@ export function compileRecipe(recipe: MapRecipe): { map: MapDef; passages: Passa
     width: recipe.width,
     depth: recipe.depth,
     floorColor: recipe.floor,
-    ...(indoor ? { skyColor: '#cfe8ff', ceiling: { height, color: P.ivory } } : {}),
+    ...(recipe.floorSurface ? { floorSurface: recipe.floorSurface } : {}),
+    ...(indoor ? { ceiling: { height, color: P.ivory } } : {}),
     boxes: [
-      ...a.boxes,
+      ...dressSurfaces(a.boxes),
       // Помещение: потолок для физики (голова упирается при прыжке и лазании). Открытая карта —
       // невидимая ограда выше крыш: с дерева или домика через изгородь не перепрыгнуть.
       ...(indoor

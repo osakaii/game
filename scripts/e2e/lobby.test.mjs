@@ -38,12 +38,15 @@ test('two players create and join a room on the default map, and a round starts'
   assert.ok((await request(host.socket, 'room:settings', { mapId: 'apartment' })).ok);
   const settled = await changed;
   assert.equal(settled.settings.seekSeconds, 150);
+  // В лобби новой комнаты — день; раунд приносит другое время суток, одно на всех.
+  assert.equal(settled.daytime, 'day');
 
   const hiding = waitFor(guest.socket, 'room:state', (s) => s.phase === 'hiding');
   assert.ok((await request(host.socket, 'game:start')).ok);
   const state = await hiding;
   const roles = state.players.map((p) => p.role).sort();
   assert.deepEqual(roles, ['hider', 'seeker']);
+  assert.ok(['morning', 'sunset', 'dusk'].includes(state.daytime), state.daytime);
 });
 
 test('a room restored after a server restart keeps its code; a late second restorer joins it', async () => {
@@ -81,4 +84,42 @@ test('hints: hiders whistle from the second half of seeking, everyone in the roo
   ]);
   assert.deepEqual(hostPing, guestPing);
   assert.deepEqual(hostPing.players.map((p) => p.id), [hider.id]);
+});
+
+test('gaze: a seeker looking at the hider earns them points, only the hider is told', { timeout: 60_000 }, async () => {
+  const host = await connect('gaze-host');
+  const guest = await connect('gaze-guest');
+  sockets.push(host.socket, guest.socket);
+  const created = await request(host.socket, 'room:create', { nickname: 'Host' });
+  assert.ok(created.ok, JSON.stringify(created));
+  assert.ok((await request(guest.socket, 'room:join', { nickname: 'Guest', code: created.data.code })).ok);
+  // «Детская»: с точек ищущих видны все точки прячущихся. Подсказки выключены — свист тут ни к чему.
+  assert.ok((await request(host.socket, 'room:settings', { mapId: 'playroom', hideSeconds: 10, seekSeconds: 30, hints: false })).ok);
+
+  // Где сервер поставит каждого при старте — подписка ДО запроса.
+  const spawned = (socket) => waitFor(socket, 'player:teleport');
+  const [hostAt, guestAt] = [spawned(host.socket), spawned(guest.socket)];
+  const seeking = waitFor(host.socket, 'room:state', (s) => s.phase === 'seeking', 20_000);
+  assert.ok((await request(host.socket, 'game:start')).ok);
+  const where = { [host.welcome.playerId]: await hostAt, [guest.welcome.playerId]: await guestAt };
+  const room = await seeking;
+  const seekerId = room.players.find((p) => p.role === 'seeker').id;
+  const seeker = seekerId === host.welcome.playerId ? host : guest;
+  const hider = seeker === host ? guest : host;
+  const from = where[seekerId];
+  const to = where[hider.welcome.playerId];
+
+  // Камера ищущего — прямо на прячущегося (как у ThirdPersonCamera: «вперёд» = (−sin yaw, −sin pitch, −cos yaw)).
+  const dx = to.x - from.x;
+  const dy = to.y + 0.8 - (from.y + 1.35);
+  const dz = to.z - from.z;
+  const look = { yaw: Math.atan2(-dx, -dz), pitch: Math.asin(-dy / Math.hypot(dx, dy, dz)) };
+  let seekerTold = false;
+  seeker.socket.on('gaze:update', () => (seekerTold = true));
+  const pointed = waitFor(hider.socket, 'gaze:update', (u) => u.points >= 1, 10_000);
+  seeker.socket.emit('player:state', { ...from, yaw: 0, grounded: true, crouching: false, pose: 'none', climbing: false, sprinting: false, look });
+  const update = await pointed;
+  assert.equal(update.watched, true);
+  // Ищущему о взгляде не сообщают: иначе он узнал бы, что смотрит прямо на прячущегося.
+  assert.equal(seekerTold, false);
 });

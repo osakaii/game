@@ -58,6 +58,7 @@ function recipe(): MapRecipe {
     width: 28,
     depth: 28,
     floor: P.ivory,
+    floorSurface: 'plaster',
     boundary: 'castle',
     props,
     blocks,

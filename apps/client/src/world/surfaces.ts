@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { seededRandom, type SurfaceId } from '@mecha/shared';
 
 /**
- * Процедурные текстуры поверхностей: дерево, паркет, плитка, обои, ткань, ковёр, кирпич.
+ * Процедурные текстуры поверхностей: дерево, паркет, плитка, обои, ткань, ковёр, кирпич, камень, штукатурка,
+ * листва, трава, асфальт, черепица.
  *
  * Рисунок генерируется массивом байтов (а не на canvas): так текстура одинаковая у всех игроков,
  * не нужен DOM (работает в тестах), а пипетка может прочитать любой пиксель напрямую из массива.
@@ -67,7 +68,7 @@ const GENERATORS: Record<Exclude<SurfaceId, 'paint'>, Generator> = {
       const cell = size / 4;
       const gx = x % cell;
       const gy = y % cell;
-      if (gx < 2 || gy < 2) return 0.7;
+      if (gx < 2 || gy < 2) return 0.78;
       return 0.94 + noise(Math.floor(x / cell) * 5.3, Math.floor(y / cell) * 2.1) * 0.05;
     },
   },
@@ -131,7 +132,99 @@ const GENERATORS: Record<Exclude<SurfaceId, 'paint'>, Generator> = {
       return 0.97 - Math.pow(1 - vein, 10) * 0.28 + (noise(x, y) - 0.5) * 0.03;
     },
   },
+  /**
+   * Каменная кладка (стены замка, башни): крупные камни 2:1, тёмный раствор, края камня чуть темнее —
+   * кажется, что они выпуклые. Сдвиг рядов кратен пикселю, ширина камня делит текстуру — повтор без шва.
+   */
+  stone: {
+    size: 128,
+    tile: 1.6,
+    paint: (x, y, size, noise) => {
+      const rowH = size / 4;
+      const row = Math.floor(y / rowH);
+      const stoneW = size / 2;
+      const shifted = (x + [0, 24, 44, 12][row]) % size;
+      const sx = shifted % stoneW;
+      const sy = y % rowH;
+      const edge = Math.min(sx, stoneW - sx, sy, rowH - sy);
+      if (edge < 1.5) return 0.76;
+      const tone = 0.86 + hash(Math.floor(shifted / stoneW), row) * 0.12;
+      return tone - Math.max(0, 4 - edge) * 0.015 + (noise(x * 0.5, y * 0.5) - 0.5) * 0.08;
+    },
+  },
+  /** Штукатурка: почти ровная, лёгкие разводы — стена не выглядит пластиковой. */
+  plaster: {
+    size: 128,
+    tile: 2,
+    paint: (x, y, _size, noise) => 0.94 + (noise(x * 0.125, y * 0.125) - 0.5) * 0.09 + (noise(x, y) - 0.5) * 0.04,
+  },
+  /**
+   * Листва: листья-пятна по ячейкам со сдвигом (у каждой ячейки свой лист), между ними — тень.
+   * Ближайший лист ищем среди соседних ячеек, решётка замкнута — повтор без шва.
+   */
+  leaves: {
+    size: 128,
+    tile: 1.2,
+    paint: (x, y, size, noise) => {
+      const cells = 8;
+      const cell = size / cells;
+      const cx = Math.floor(x / cell);
+      const cy = Math.floor(y / cell);
+      let best = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const ix = (((cx + dx) % cells) + cells) % cells;
+          const iy = (((cy + dy) % cells) + cells) % cells;
+          const lx = (cx + dx + 0.2 + hash(ix, iy) * 0.6) * cell;
+          const ly = (cy + dy + 0.2 + hash(iy + 31, ix) * 0.6) * cell;
+          // Лист вытянут по диагонали: расстояние в повёрнутых осях, вдоль — короче.
+          const ax = x - lx;
+          const ay = y - ly;
+          const along = (ax + ay) * 0.7071;
+          const across = (ax - ay) * 0.7071;
+          const d = Math.hypot(along * 0.7, across * 1.25) / cell;
+          best = Math.max(best, (1 - d / 0.8) * (0.75 + hash(ix + 7, iy + 3) * 0.25));
+        }
+      }
+      return 0.72 + clamp01(best) * 0.24 + (noise(x * 0.125, y * 0.125) - 0.5) * 0.08;
+    },
+  },
+  /** Трава: вытянутые вдоль v пятна — с высоты как стриженый газон. */
+  grass: {
+    size: 64,
+    tile: 0.6,
+    paint: (x, y, _size, noise) => 0.85 + noise(x, y * 0.25) * 0.12 + (noise(x * 0.25, y * 0.25) - 0.5) * 0.06,
+  },
+  /** Асфальт: мелкое зерно и редкие светлые камешки. */
+  asphalt: {
+    size: 64,
+    tile: 0.5,
+    paint: (x, y, _size, noise) => 0.9 + (noise(x, y) - 0.5) * 0.1 + (hash(x, y) > 0.94 ? 0.08 : 0),
+  },
+  /** Черепица: ряды со сдвигом на полплитки, каждая плитка светлеет кверху, нижний край в тени. */
+  roof: {
+    size: 128,
+    tile: 1.2,
+    paint: (x, y, size, noise) => {
+      const rows = 8;
+      const rowH = size / rows;
+      const row = Math.floor(y / rowH);
+      const tileW = size / 4;
+      const sx = (x + (row % 2) * (tileW / 2)) % tileW;
+      const sy = y % rowH;
+      if (sy < 1.5) return 0.72;
+      if (sx < 1.2) return 0.8;
+      const id = Math.floor(((x + (row % 2) * (tileW / 2)) % size) / tileW);
+      return 0.8 + (sy / rowH) * 0.16 + hash(id, row) * 0.05 + (noise(x * 0.5, y * 0.5) - 0.5) * 0.04;
+    },
+  },
 };
+
+/** Детерминированное «случайное» число 0..1 для пары целых (ячейка, ряд): у всех игроков одинаковое. */
+function hash(a: number, b: number): number {
+  const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
 
 /**
  * Гладкий шум: случайные значения в узлах решётки, между ними — плавная интерполяция.

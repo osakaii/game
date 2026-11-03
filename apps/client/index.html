@@ -42,15 +42,46 @@
         letter-spacing: 0.08em;
         text-align: center;
       }
-      #splash .dots {
-        margin-top: 12px;
-        text-align: center;
-        color: rgb(255 255 255 / 0.6);
-        animation: pulse 1.2s ease-in-out infinite;
+      #splash .bar {
+        width: min(240px, 60vw);
+        height: 6px;
+        margin: 16px auto 0;
+        border-radius: 3px;
+        background: rgb(255 255 255 / 0.15);
+        overflow: hidden;
       }
-      @keyframes pulse {
-        50% {
-          opacity: 0.3;
+      #splash-fill {
+        width: 5%;
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #ff6b9a, #ffb648, #5ee0a0);
+        transition: width 0.3s ease-out;
+      }
+      #splash-text {
+        margin-top: 10px;
+        min-height: 1.3em;
+        text-align: center;
+        font-size: 14px;
+        color: rgb(255 255 255 / 0.7);
+      }
+      #splash-reload {
+        display: block;
+        min-height: 44px;
+        margin: 14px auto 0;
+        padding: 0 20px;
+        border: 0;
+        border-radius: 12px;
+        background: #ff6b9a;
+        color: #fff;
+        font: 700 15px system-ui, sans-serif;
+      }
+      #splash-reload[hidden] {
+        display: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash,
+        #splash-fill {
+          transition: none;
         }
       }
     </style>
@@ -59,9 +90,65 @@
     <div id="splash" role="status" aria-label="Загрузка">
       <div>
         <div class="logo">MECHA</div>
-        <div class="dots">загружаем краски…</div>
+        <div class="bar"><div id="splash-fill"></div></div>
+        <div id="splash-text">качаем игру…</div>
+        <button type="button" id="splash-reload" hidden>Обновить страницу</button>
       </div>
     </div>
+    <script>
+      // Полоска до JS-бандла: считаем, сколько файлов игры уже скачано (сам бандл + modulepreload из
+      // сборки). Дальше её ведёт main.ts (src/ui/splash.ts). Обе стороны полоску только двигают вперёд.
+      (function () {
+        var splash = document.getElementById('splash');
+        var fill = document.getElementById('splash-fill');
+        var text = document.getElementById('splash-text');
+        var reload = document.getElementById('splash-reload');
+        var files = Array.prototype.map.call(
+          document.querySelectorAll('script[type="module"][src], link[rel="modulepreload"]'),
+          function (el) { return new URL(el.src || el.href, location.href).href; },
+        );
+        var done = {};
+        function raise(progress) {
+          if (progress > Number(splash.dataset.progress || 0)) {
+            splash.dataset.progress = progress;
+            fill.style.width = Math.round(progress * 100) + '%';
+          }
+        }
+        if (files.length && 'PerformanceObserver' in window) {
+          try {
+            new PerformanceObserver(function (list) {
+              list.getEntries().forEach(function (entry) {
+                if (files.indexOf(entry.name) >= 0) done[entry.name] = true;
+              });
+              raise(0.05 + 0.65 * (Object.keys(done).length / files.length));
+            }).observe({ type: 'resource', buffered: true });
+          } catch (e) {
+            /* старый браузер — полоска просто подождёт main.ts */
+          }
+        }
+        function visible() {
+          return splash.isConnected && !splash.classList.contains('hidden');
+        }
+        function offerReload(message) {
+          if (!visible()) return;
+          text.textContent = message;
+          reload.hidden = false;
+        }
+        reload.addEventListener('click', function () { location.reload(); });
+        // Файл игры не скачался (связь оборвалась, деплой сменил файлы) — без кнопки экран висел бы вечно.
+        addEventListener('error', function (e) {
+          var tag = e.target && e.target.tagName;
+          if (tag === 'SCRIPT' || tag === 'LINK') offerReload('Не удалось скачать игру — проверь интернет');
+        }, true);
+        setTimeout(function () {
+          // Только пока качаем: стройку карты (её подпись ставит main.ts) медленным интернетом не назовёшь.
+          if (visible() && reload.hidden && Number(splash.dataset.progress || 0) < 0.7) {
+            text.textContent = 'медленный интернет — ещё качаем…';
+          }
+        }, 12000);
+        setTimeout(function () { offerReload('Загрузка затянулась — попробуй обновить страницу'); }, 40000);
+      })();
+    </script>
     <canvas id="scene"></canvas>
     <div id="hud">
       <span id="status" data-state="connecting">подключаемся…</span>
@@ -209,6 +296,8 @@
 
     <div id="phase-banner" hidden></div>
     <div id="seek-hint" hidden></div>
+    <!-- Прячущемуся: ищущий смотрит прямо на тебя — копятся очки за взгляд. -->
+    <div id="gaze" hidden role="status"><span class="gaze-eye" aria-hidden="true">👁</span><span id="gaze-count"></span></div>
 
     <div id="blind" class="overlay" hidden>
       <div class="blind-content">
@@ -309,6 +398,8 @@
         </label>
 
         <div class="menu-actions">
+          <!-- Пока нет связи с сервером: кнопки серые, а здесь — чего ждём (Render будит сервер до минуты). -->
+          <p id="menu-status" role="status"><span class="menu-spinner" aria-hidden="true"></span><span id="menu-status-text">Подключаемся к серверу…</span></p>
           <p id="menu-error" role="alert"></p>
           <div class="menu-buttons">
             <button type="button" id="menu-alt" class="menu-alt" disabled>По коду</button>
@@ -356,7 +447,7 @@
           <li style="--tint: #5ee0a0">
             <span class="howto-icon" aria-hidden="true">🧍</span>
             <b>Замри</b>
-            <span>Встань у похожего места и прими позу. Перебегать и перекрашиваться можно весь раунд.</span>
+            <span>Встань у похожего места и прими позу. Ищущий смотрит прямо на тебя и не видит — 👁 очки. Перебегать и перекрашиваться можно весь раунд.</span>
           </li>
           <li style="--tint: #5ab8ff">
             <span class="howto-icon" aria-hidden="true">🎯</span>

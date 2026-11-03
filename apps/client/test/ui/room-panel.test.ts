@@ -25,6 +25,7 @@ const player = (id: string, nickname: string, extra: Partial<PlayerInfo> = {}): 
   connected: true,
   score: 0,
   roundPoints: 0,
+  gazePoints: 0,
   ...extra,
 });
 
@@ -37,6 +38,7 @@ const room = (players: PlayerInfo[]): RoomSnapshot => ({
   result: null,
   settings: DEFAULT_SETTINGS,
   round: 0,
+  daytime: 'day',
   players,
 });
 

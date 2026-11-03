@@ -23,7 +23,7 @@ pnpm hitboxes    # пересчитать хитбоксы поз из моде�
 
 ## Правила проекта
 - **Сервер — источник правды.** Клиенту не доверяем: всё из сети валидируется zod-схемой из shared (`parseInput`) или проверкой байтов. Клиент шлёт намерения (луч, позицию, картинку), сервер решает.
-- **Протокол только в `packages/shared/src/protocol.ts`.** Меняешь формат сообщения — подними `PROTOCOL_VERSION` (сейчас 16). Запрос с ответом = socket.io ack, ответ `Result<T>` (`{ok:true,data} | {ok:false,error:ErrorCode}`).
+- **Протокол только в `packages/shared/src/protocol.ts`.** Меняешь формат сообщения — подними `PROTOCOL_VERSION` (сейчас 18). Запрос с ответом = socket.io ack, ответ `Result<T>` (`{ok:true,data} | {ok:false,error:ErrorCode}`).
 - **Новый `ErrorCode`** → добавить текст в `apps/client/src/ui/error-messages.ts` (`Record` заставит).
 - **Тесты** — в `<пакет>/test/`, зеркально `src/` (`src/skin/atlas.ts` → `test/skin/atlas.test.ts`). DOM-тесты: первой строкой `// @vitest-environment happy-dom`. Сборка (`tsconfig.build.json`) берёт только `src/`.
 - **Комментарии и UI — на русском**, комментарий объясняет «почему», а не «что».
@@ -42,6 +42,7 @@ pnpm hitboxes    # пересчитать хитбоксы поз из моде�
 - Dev-хук: `window.__mecha` (player, lobby, network, studio, skinPainter, remotePlayers, sceneContext, controls…). В prod вырезается.
 - Если панель браузера скрыта — `requestAnimationFrame` не идёт: кадры рисуй вручную (`sceneContext.renderer.render(scene, camera)`), шаги симуляции вызывай сами (`skinPainter.update(1/30)`).
 - Снимок canvas: `canvas.toDataURL()` сразу после `render()` → POST на локальный приёмник (python http.server в scratchpad на :8765) → смотреть jpg.
+- Порт 3000 занят чужим процессом: собранный сервер — `preview_start` «server-3011», клиент — «client-3011» (Vite :5181, прокси сокета по `MECHA_SERVER`).
 - Сокет-e2e: node-скрипт с `socket.io-client` (`apps/client/node_modules/socket.io-client/build/esm-debug/index.js`), `auth: { sessionId }` обязателен (16–64 символа `[A-Za-z0-9_-]`).
 - Dev-сервер Nest перезапускается при правках → комнаты в памяти пропадают. Правки shared (карты, физика) он НЕ подхватывает: после них перезапусти `pnpm dev`, иначе e2e и браузер увидят «inside wall» от старых коллайдеров.
 - `apps/client/src/main.ts` большой и плоский: вставляя код скриптом «после строки X», проверь, что X не внутри обработчика (так уже дважды ломалось). После правки — `grep` на дубли объявлений.

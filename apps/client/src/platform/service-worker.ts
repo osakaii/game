@@ -7,10 +7,14 @@
  */
 export function registerServiceWorker(): void {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
-  // После load: установка качает всю игру (~1 МБ) — не отнимаем сеть у первого запуска.
-  addEventListener('load', () => {
+  const register = () => {
     navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {
       /* приватный режим или старый браузер — играем без кэша, как раньше */
     });
-  });
+  };
+  // После load: установка качает всю игру (~1 МБ) — не отнимаем сеть у первого запуска.
+  // main.ts доходит сюда после top-level await (карта, экран загрузки) — load к этому времени мог пройти,
+  // и подписка на него не сработала бы никогда.
+  if (document.readyState === 'complete') register();
+  else addEventListener('load', register, { once: true });
 }

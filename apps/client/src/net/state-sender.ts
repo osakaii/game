@@ -1,4 +1,4 @@
-import { CLIENT_STATE_RATE, roundCm, type PlayerState } from '@mecha/shared';
+import { CLIENT_STATE_RATE, roundCm, type Look, type PlayerState } from '@mecha/shared';
 import type { LocalPlayer } from '../player/local-player';
 
 const SEND_INTERVAL = 1 / CLIENT_STATE_RATE;
@@ -17,7 +17,8 @@ export class StateSender {
 
   constructor(private readonly send: (state: PlayerState) => void) {}
 
-  update(dt: number, player: LocalPlayer): void {
+  /** look — взгляд камеры; передаёт только ищущий (по нему сервер считает прячущимся очки за взгляд). */
+  update(dt: number, player: LocalPlayer, look?: Look): void {
     this.accumulator += dt;
     this.sinceLastSend += dt;
     if (this.accumulator < SEND_INTERVAL) return;
@@ -34,6 +35,7 @@ export class StateSender {
       pose: player.state.pose,
       climbing: !!player.state.climbing,
       sprinting: !!player.state.sprinting,
+      ...(look ? { look: { yaw: roundCm(look.yaw), pitch: roundCm(look.pitch) } } : {}),
     };
     if (this.sinceLastSend < IDLE_HEARTBEAT && this.last && sameState(state, this.last)) return;
 
@@ -59,6 +61,8 @@ function sameState(a: PlayerState, b: PlayerState): boolean {
     a.crouching === b.crouching &&
     a.pose === b.pose &&
     a.climbing === b.climbing &&
-    a.sprinting === b.sprinting
+    a.sprinting === b.sprinting &&
+    a.look?.yaw === b.look?.yaw &&
+    a.look?.pitch === b.look?.pitch
   );
 }

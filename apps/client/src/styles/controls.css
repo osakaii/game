@@ -336,6 +336,7 @@ body.studio-open #desktop-hint {
   background: #f87171;
 }
 
-body.studio-open #stamina {
+body.studio-open #stamina,
+body.studio-open #gaze {
   display: none;
 }

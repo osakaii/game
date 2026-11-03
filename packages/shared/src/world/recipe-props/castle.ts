@@ -25,11 +25,11 @@ export function buildBarrel(color: string = P.woodLight): Assembly {
 /** Башня — закрытый объём, внутри пусто. По стене влезть можно до карниза: крыша шире стены и не пускает выше. */
 export function buildTower(color: string = P.purple): Assembly {
   const a = assembly();
-  cylinder(a, 0, 2.05, 0, 4.4, 4.1, 4.4, P.cream);
+  cylinder(a, 0, 2.05, 0, 4.4, 4.1, 4.4, P.cream).surface = 'stone';
   collide(a, 0, 2.05, 0, 4.4, 4.1, 4.4);
   // Крыша твёрдая: на неё не попасть, но если попал — стоишь на ней, а не внутри.
   cylinder(a, 0, 4.18, 0, 4.95, 0.28, 4.95, P.ivory, true);
-  for (let i = 0; i < 3; i++) cylinder(a, 0, 4.5 + i * 0.4, 0, 4.7 - i * 1.25, 0.42, 4.7 - i * 1.25, color, true);
+  for (let i = 0; i < 3; i++) cylinder(a, 0, 4.5 + i * 0.4, 0, 4.7 - i * 1.25, 0.42, 4.7 - i * 1.25, color, true).surface = 'roof';
   box(a, 0, 5.6, 0, 0.09, 0.65, 0.09, P.dark, true, 0.02);
   box(a, 0.4, 5.8, 0, 0.8, 0.4, 0.06, color, true, 0.035);
   for (const x of [-1, 1]) {
@@ -43,10 +43,10 @@ export function buildTower(color: string = P.purple): Assembly {
 export function buildHall(color: string = P.purple): Assembly {
   const a = assembly();
   box(a, 0, 0.15, 0, 8.2, 0.3, 5.8, P.ivory, true, 0.06);
-  for (const x of [-3.95, 3.95]) box(a, x, 2.2, 0, 0.3, 3.8, 5.8, P.cream, true, 0.04, true);
+  for (const x of [-3.95, 3.95]) box(a, x, 2.2, 0, 0.3, 3.8, 5.8, P.cream, true, 0.04, true).surface = 'stone';
   for (const sign of [-1, 1]) {
-    for (const x of [-2.6, 2.6]) box(a, x, 2.2, sign * 2.75, 3.0, 3.8, 0.3, P.cream, true, 0.05, true);
-    box(a, 0, 3.2, sign * 2.75, 2.2, 1.8, 0.3, P.cream, true, 0.05, true);
+    for (const x of [-2.6, 2.6]) box(a, x, 2.2, sign * 2.75, 3.0, 3.8, 0.3, P.cream, true, 0.05, true).surface = 'stone';
+    box(a, 0, 3.2, sign * 2.75, 2.2, 1.8, 0.3, P.cream, true, 0.05, true).surface = 'stone';
     for (const x of [-2.65, 2.65]) {
       box(a, x, 1.3, sign * 2.91, 1.1, 2.54, 0.06, color, false, 0.04);
       stepMotif(a, 'front', vec3(x, 1.5, sign * 2.947), P.gold, 0.48);
@@ -57,8 +57,8 @@ export function buildHall(color: string = P.purple): Assembly {
       box(a, 0, h / 2, sign * (3.02 + i * 0.24), 1.9, h, 0.24, P.ivory, true, 0.012);
     }
   }
-  box(a, 0, 4.2, 0, 8.6, 0.24, 6.2, color, true, 0.06, true);
-  box(a, 0, 4.5, 0, 6.9, 0.4, 6.0, color, true, 0.06, true);
+  box(a, 0, 4.2, 0, 8.6, 0.24, 6.2, color, true, 0.06, true).surface = 'roof';
+  box(a, 0, 4.5, 0, 6.9, 0.4, 6.0, color, true, 0.06, true).surface = 'roof';
   for (const x of [-2.45, 2.45]) {
     box(a, x, 0.7, 0, 1.5, 0.8, 1.4, color, true, 0.1);
     box(a, x, 1.65, -0.5, 1.5, 1.2, 0.25, color, true, 0.1);

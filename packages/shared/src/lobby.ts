@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Daytime } from './daytime.js';
 import type { GameResult, Role, RoomPhase } from './game.js';
 import type { RoomSettings } from './settings.js';
 import type { SkinState } from './skin.js';
@@ -55,6 +56,11 @@ export interface PlayerInfo {
   score: number;
   /** Очки за текущий (последний) раунд — показываем «+3» на экране итогов. */
   roundPoints: number;
+  /**
+   * Из них — за взгляды ищущих (gaze.ts). До итогов всегда 0: растущие очки выдали бы ищущему,
+   * что он прямо сейчас смотрит на прячущегося.
+   */
+  gazePoints: number;
 }
 
 /** Снимок комнаты, который сервер рассылает всем её участникам при любом изменении. */
@@ -70,6 +76,8 @@ export interface RoomSnapshot {
   settings: RoomSettings;
   /** Номер раунда, 0 — ещё не играли. */
   round: number;
+  /** Время суток (свет и небо) — сервер выбирает случайно на каждый раунд, у всех одно. */
+  daytime: Daytime;
   players: PlayerInfo[];
 }
 

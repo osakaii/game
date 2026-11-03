@@ -60,6 +60,7 @@ function recipe(): MapRecipe {
     width: 28,
     depth: 26,
     floor: P.grass,
+    floorSurface: 'grass',
     boundary: 'hedge',
     props,
     blocks,

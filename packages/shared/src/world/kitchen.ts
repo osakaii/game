@@ -12,7 +12,6 @@ export const KITCHEN: MapDef = {
   width: WIDTH,
   depth: DEPTH,
   floorColor: '#e9e4d8',
-  skyColor: '#ffe8c2',
   boxes: [
     ...perimeterWalls(WIDTH, DEPTH, 3.5, '#c9d6df'),
 

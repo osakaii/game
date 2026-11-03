@@ -21,6 +21,7 @@ const player = (id: string, nickname: string): PlayerInfo => ({
   connected: true,
   score: 0,
   roundPoints: 0,
+  gazePoints: 0,
 });
 
 const room = (players: PlayerInfo[], phase: RoomSnapshot['phase'] = 'lobby'): RoomSnapshot => ({
@@ -32,6 +33,7 @@ const room = (players: PlayerInfo[], phase: RoomSnapshot['phase'] = 'lobby'): Ro
   result: null,
   settings: DEFAULT_SETTINGS,
   round: 0,
+  daytime: 'day',
   players,
 });
 

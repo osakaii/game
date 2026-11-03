@@ -41,11 +41,18 @@ export class ActiveMap implements WorldGeometry {
     this.obstacles = obstacles;
     this.colliders = buildColliders(def);
     this.def = def;
-    this.scene.background = new THREE.Color(def.skyColor ?? '#9ad1ff');
-    this.fitShadowCamera(def);
-    // Тени запечены: новая карта — новая карта теней (один раз, на следующем кадре).
-    if (this.renderer) refreshShadows({ renderer: this.renderer });
+    this.fitShadows();
     return true;
+  }
+
+  /**
+   * Подогнать тени под карту и направление солнца и пересчитать их. Тени запечены: новая карта или
+   * новое время суток — новая карта теней (один раз, на следующем кадре).
+   */
+  fitShadows(): void {
+    if (!this.def) return;
+    this.fitShadowCamera(this.def);
+    if (this.renderer) refreshShadows({ renderer: this.renderer });
   }
 
   /**

@@ -8,11 +8,12 @@ import { buildWallArt, floorText } from './common.js';
 export function buildHouse(color: string = P.coral, variant = 0): Assembly {
   const a = assembly();
   box(a, 0, 0.004, 0, 5.1, 0.008, 4.4, P.ivory, false, 0);
-  for (const x of [-2.65, 2.65]) box(a, x, 1.65, 0, 0.2, 3.3, 4.8, color, true, 0.04, true);
+  // Стены — кирпич цвета дома, крыша — черепица: двор узнаётся издалека, а не только по цвету.
+  for (const x of [-2.65, 2.65]) box(a, x, 1.65, 0, 0.2, 3.3, 4.8, color, true, 0.04, true).surface = 'brick';
   for (const z of [-2.3, 2.3]) {
     const out = Math.sign(z);
-    for (const x of [-1.75, 1.75]) box(a, x, 1.65, z, 1.8, 3.3, 0.2, color, true, 0.04, true);
-    box(a, 0, 2.7, z, 1.7, 1.2, 0.2, color, true, 0.04, true);
+    for (const x of [-1.75, 1.75]) box(a, x, 1.65, z, 1.8, 3.3, 0.2, color, true, 0.04, true).surface = 'brick';
+    box(a, 0, 2.7, z, 1.7, 1.2, 0.2, color, true, 0.04, true).surface = 'brick';
     for (const x of [-1.75, 1.75]) {
       box(a, x, 1.85, z + out * 0.114, 1.2, 1.25, 0.035, P.glass, false, 0.025);
       box(a, x, 1.85, z + out * 0.14, 0.06, 1.24, 0.05, P.ivory, false, 0.01);
@@ -20,7 +21,7 @@ export function buildHouse(color: string = P.coral, variant = 0): Assembly {
     }
     for (const x of [-0.85, 0.85]) box(a, x, 1.0, z + out * 0.12, 0.1, 2.0, 0.08, P.ivory, false, 0.015);
   }
-  for (let i = 0; i < 3; i++) box(a, 0, 3.43 + i * 0.24, 0, 5.85 - i * 1.35, 0.24, 5.0, P.roof, true, 0.04, true);
+  for (let i = 0; i < 3; i++) box(a, 0, 3.43 + i * 0.24, 0, 5.85 - i * 1.35, 0.24, 5.0, P.roof, true, 0.04, true).surface = 'roof';
   box(a, -1.48, 0.4, -0.65, 1.75, 0.8, 1.65, variant % 2 ? P.mint : P.lavender, true, 0.12);
   box(a, -1.48, 0.91, -1.27, 1.75, 0.55, 0.26, P.ivory, true, 0.07);
   box(a, 1.8, 0.6, 0.7, 0.8, 1.2, 1.1, P.woodLight, true, 0.06);

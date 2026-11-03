@@ -12,6 +12,7 @@ const room = (code: string, playerId: string): RoomSnapshot => ({
   result: null,
   settings: DEFAULT_SETTINGS,
   round: 0,
+  daytime: 'day',
   players: [],
 });
 const ok = (r: RoomSnapshot): RoomResult => ({ ok: true, data: r });

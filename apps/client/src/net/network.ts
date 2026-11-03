@@ -5,6 +5,7 @@ import {
   type ClientToServerEvents,
   type CreateRoomPayload,
   type EmptyResult,
+  type GazeUpdate,
   type HintPing,
   type JoinRoomPayload,
   type PlayerState,
@@ -28,9 +29,15 @@ import { getSessionId } from './session-id';
 
 type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 export type ConnectionState = 'connecting' | 'online' | 'offline';
+/** retrying = false — сами не переподключимся (другая вкладка, несовместимая версия): ждать бесполезно. */
+export interface ConnectionStatus {
+  state: ConnectionState;
+  text: string;
+  retrying: boolean;
+}
 
 interface NetworkEvents {
-  status: { state: ConnectionState; text: string };
+  status: ConnectionStatus;
   ping: number;
   welcome: WelcomePayload;
   roomState: RoomSnapshot;
@@ -38,6 +45,7 @@ interface NetworkEvents {
   teleport: TeleportPayload;
   shot: ShotEvent;
   hint: HintPing;
+  gaze: GazeUpdate;
   skin: SkinImageEvent;
   /** Протокол сервера несовместим с этим клиентом — нужна перезагрузка. */
   outdated: void;
@@ -77,13 +85,14 @@ export class Network extends Emitter<NetworkEvents> {
     this.socket.on('player:teleport', (position) => this.emit('teleport', position));
     this.socket.on('seek:shot', (shot) => this.emit('shot', shot));
     this.socket.on('hint:ping', (ping) => this.emit('hint', ping));
+    this.socket.on('gaze:update', (update) => this.emit('gaze', update));
     this.socket.on('player:skin', (skin) => this.emit('skin', skin));
     this.socket.on('disconnect', (reason) => {
       clearInterval(this.pingTimer);
       // Сервер отключил нас сам — значит, эта же сессия открылась в другой вкладке.
       // socket.io в этом случае не переподключается автоматически, и это правильно.
       if (reason === 'io server disconnect') {
-        this.setStatus('offline', 'игра открыта в другой вкладке');
+        this.setStatus('offline', 'игра открыта в другой вкладке', false);
       } else {
         this.setStatus('offline', 'нет связи, переподключаемся…');
       }
@@ -149,7 +158,7 @@ export class Network extends Emitter<NetworkEvents> {
 
   private onWelcome(welcome: WelcomePayload) {
     if (welcome.protocolVersion !== PROTOCOL_VERSION) {
-      this.setStatus('offline', 'нужно обновить страницу');
+      this.setStatus('offline', 'нужно обновить страницу', false);
       this.socket.disconnect();
       this.emit('outdated', undefined);
       return;
@@ -193,9 +202,9 @@ export class Network extends Emitter<NetworkEvents> {
     });
   }
 
-  private setStatus(state: ConnectionState, text: string) {
+  private setStatus(state: ConnectionState, text: string, retrying = true) {
     this.state = state;
-    this.emit('status', { state, text });
+    this.emit('status', { state, text, retrying });
   }
 }
 

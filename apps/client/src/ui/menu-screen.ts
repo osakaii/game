@@ -1,4 +1,6 @@
 import { JoinRoomSchema, NicknameSchema, ROOM_CODE_LENGTH } from '@mecha/shared';
+import type { ConnectionStatus } from '../net/network';
+import { GIVE_UP_HINT_MS, WAKE_HINT_MS, connectionNotice } from './connection-notice';
 import { $, storage } from './dom';
 
 const NICKNAME_KEY = 'mecha:nickname';
@@ -28,9 +30,15 @@ export class MenuScreen {
   private readonly joinButton = $<HTMLButtonElement>('#join-room');
   private readonly errorEl = $('#menu-error');
   private readonly joinError = $('#join-error');
+  private readonly statusEl = $('#menu-status');
+  private readonly statusText = $('#menu-status-text');
   /** Код из приглашения: пока он есть, «Играть» = войти к другу. */
   private invite: string | null = null;
-  private online = false;
+  private status: ConnectionStatus = { state: 'connecting', text: '', retrying: true };
+  /** С какого момента ждём сервер: сокет начал подключаться вместе со страницей. */
+  private waitingSince = Date.now();
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  private playHintText = 'новая комната';
   private busy = false;
 
   constructor(
@@ -41,6 +49,10 @@ export class MenuScreen {
     this.code.maxLength = ROOM_CODE_LENGTH;
     if (initialCode) this.setCode(initialCode);
     this.showBody(true);
+    this.renderNotice();
+    // Пропал или вернулся интернет на телефоне — подпись сразу говорит, в чём дело.
+    addEventListener('online', () => this.renderNotice());
+    addEventListener('offline', () => this.renderNotice());
 
     this.code.addEventListener('input', () => {
       this.code.value = this.code.value.toUpperCase();
@@ -85,9 +97,12 @@ export class MenuScreen {
     this.showBody(false);
   }
 
-  setOnline(online: boolean): void {
-    this.online = online;
+  /** Пока нет связи, кнопки серые — и подпись над ними объясняет, чего ждём. */
+  setConnection(status: ConnectionStatus): void {
+    if (status.state !== 'online' && this.status.state === 'online') this.waitingSince = Date.now();
+    this.status = status;
     this.updateButtons();
+    this.renderNotice();
   }
 
   setBusy(busy: boolean): void {
@@ -100,8 +115,9 @@ export class MenuScreen {
     this.code.value = code;
     this.invite = code;
     this.playLabel.textContent = 'Войти';
-    this.playHint.textContent = `в комнату ${code}`;
+    this.playHintText = `в комнату ${code}`;
     this.altButton.textContent = 'Своя комната';
+    this.renderNotice();
   }
 
   /** Ошибка — там, куда игрок сейчас смотрит: в шторке кода или пузырём над кнопками. */
@@ -154,8 +170,21 @@ export class MenuScreen {
     return parsed.data;
   }
 
+  private renderNotice() {
+    clearTimeout(this.noticeTimer);
+    const waited = Date.now() - this.waitingSince;
+    const text = connectionNotice(this.status, waited, navigator.onLine);
+    this.statusEl.hidden = text === null;
+    this.statusText.textContent = text ?? '';
+    this.playHint.textContent = text === null ? this.playHintText : 'ждём сервер';
+    if (text === null || !this.status.retrying) return;
+    // Подпись меняется и без событий сети: «подключаемся» → «просыпается» → «не отвечает».
+    const next = [WAKE_HINT_MS, GIVE_UP_HINT_MS].find((at) => at > waited);
+    if (next !== undefined) this.noticeTimer = setTimeout(() => this.renderNotice(), next - waited);
+  }
+
   private updateButtons() {
-    const disabled = !this.online || this.busy;
+    const disabled = this.status.state !== 'online' || this.busy;
     this.playButton.disabled = disabled;
     this.altButton.disabled = disabled;
     this.joinButton.disabled = disabled;

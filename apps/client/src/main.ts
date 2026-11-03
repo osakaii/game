@@ -8,6 +8,7 @@ import './styles/screens.css';
 import './styles/menu.css';
 import {
   PHYSICS_DT,
+  DEFAULT_DAYTIME,
   DEFAULT_SETTINGS,
   bodyHeight,
   cancelsPose,
@@ -43,6 +44,7 @@ import { $ } from './ui/dom';
 import { errorMessage } from './ui/error-messages';
 import { Hud } from './ui/hud';
 import { StaminaBar } from './ui/stamina-bar';
+import { GazeMeter } from './ui/gaze-meter';
 import { PoseWheel } from './ui/pose-wheel';
 import { MenuScreen } from './ui/menu-screen';
 import { HowToPlay, InfoSheet } from './ui/info-sheet';
@@ -59,8 +61,10 @@ import { SettingsDialog } from './ui/settings-dialog';
 import { MapPicker } from './ui/map-picker';
 import { toast } from './ui/toast';
 import { UpdateBanner } from './ui/update-banner';
+import { hideSplash, nextPaint, setSplashStage } from './ui/splash';
 import { registerServiceWorker } from './platform/service-worker';
 import { ActiveMap } from './world/active-map';
+import { Atmosphere } from './world/daytime';
 import { RemotePlayers } from './world/remote-players';
 import { MenuShowcase, showcaseSpot } from './world/menu-showcase';
 import { StudioCamera } from './paint/studio-camera';
@@ -78,9 +82,15 @@ const { renderer, scene, camera, sun } = sceneContext;
 
 // Главный экран — на карте по умолчанию (её же создатель комнаты получит без перестройки мира).
 // В комнате — та, что выбрал хост. Каждая карта — свой файл: ждём только эту, остальные — когда понадобятся.
+// Файлы скачаны — дальше строим мир. Подпись рисуем до стройки: она займёт секунду-другую на слабом телефоне.
+setSplashStage('строим площадь…', 0.75);
+await nextPaint();
 const MENU_MAP = await loadMap(DEFAULT_SETTINGS.mapId);
 const activeMap = new ActiveMap(scene, sun, sceneContext.renderer);
 activeMap.load(MENU_MAP);
+// Небо и свет. Время суток раунда выбирает сервер (room.daytime); главный экран — днём.
+const atmosphere = new Atmosphere(sceneContext, () => activeMap.fitShadows());
+atmosphere.apply(DEFAULT_DAYTIME);
 
 const player = new LocalPlayer(showcaseSpot(MENU_MAP).position, activeMap);
 scene.add(player.model.root);
@@ -99,6 +109,7 @@ new PoseWheel($<HTMLButtonElement>('#pose-button'), $('#pose-wheel'), controls);
 const showcase = new MenuShowcase(new StudioCamera(camera, activeMap), (pose) => controls.setPose(pose));
 function enterShowcase() {
   activeMap.load(MENU_MAP);
+  atmosphere.apply(DEFAULT_DAYTIME);
   const spot = showcaseSpot(MENU_MAP);
   player.teleport(spot.position);
   player.setFacing(spot.facing);
@@ -110,7 +121,11 @@ enterShowcase();
 
 const hud = new Hud();
 const staminaBar = new StaminaBar();
+const gazeMeter = new GazeMeter();
 const network = new Network();
+network.on('gaze', (update) => {
+  if (gazeMeter.onUpdate(update)) toast('Ищущий смотрит прямо на тебя — замри! Пока не нашёл, тебе капают очки 👁');
+});
 const lobby = new Lobby(network);
 
 const menu = new MenuScreen(
@@ -303,10 +318,10 @@ const telemetry = new Telemetry(
 );
 captureErrors(telemetry);
 
-network.on('status', ({ state, text }) => {
-  hud.setStatus(state, text);
-  menu.setOnline(state === 'online');
-  if (state === 'offline' && lobby.room) toast('Связь потеряна, переподключаемся…');
+network.on('status', (status) => {
+  hud.setStatus(status.state, status.text);
+  menu.setConnection(status);
+  if (status.state === 'offline' && lobby.room) toast('Связь потеряна, переподключаемся…');
 });
 network.on('ping', (rtt) => hud.setPing(rtt));
 
@@ -401,6 +416,7 @@ async function runLobbyRequest(request: () => Promise<boolean>) {
 lobby.on('room', (room) => {
   // Вошли в комнату или хост сменил карту — грузим и перестраиваем мир. Позицию на ней пришлёт сервер.
   if (room) showRoomMap(room.settings.mapId);
+  if (room) atmosphere.apply(room.daytime);
   roomPanel.render(room, network.playerId);
   lobbyBar.render(room, network.playerId);
   gameMenu.setAvailable(!!room);
@@ -472,14 +488,11 @@ updateControlsEnabled();
 // Один объект на всё время игры — не создаём новый каждый шаг физики.
 const moveInput: MoveInput = { dirX: 0, dirZ: 0, jump: false, crouch: false, pose: 'none', sprint: false };
 
-// Экран загрузки висит, пока не нарисован первый кадр: бандл скачан, сцена собрана.
+// Экран загрузки висит, пока не нарисован первый кадр: бандл скачан, сцена собрана, шейдеры собраны.
 let firstFrame = true;
-function hideSplash() {
-  const splash = document.getElementById('splash');
-  if (!splash) return;
-  splash.classList.add('hidden');
-  splash.addEventListener('transitionend', () => splash.remove(), { once: true });
-}
+// Первый кадр собирает шейдеры — на телефоне это заметная пауза; пусть подпись успеет показаться.
+setSplashStage('смешиваем краски…', 0.9);
+await nextPaint();
 
 startFixedStepLoop(PHYSICS_DT, {
   fixedUpdate(dt) {
@@ -497,7 +510,8 @@ startFixedStepLoop(PHYSICS_DT, {
     player.fixedUpdate(moveInput, dt);
     // Поза «на месте» снята движением или прыжком — снимаем и выбор, иначе персонаж снова ляжет, едва остановится.
     if (cancelsPose(controls.pose, moveInput)) controls.setPose('none');
-    if (lobby.room) stateSender.update(dt, player);
+    // Ищущий сообщает, куда смотрит камера: сервер начисляет прячущимся очки за взгляд.
+    if (lobby.room) stateSender.update(dt, player, lobby.myRole === 'seeker' ? followCamera : undefined);
   },
   render(alpha, frameDt) {
     const look = controls.consumeLook();
@@ -510,6 +524,7 @@ startFixedStepLoop(PHYSICS_DT, {
     else if (showcase.active) showcase.update(frameDt, player.renderPosition);
     // Присел или лёг — камера опускается следом: видно, что под столом.
     else followCamera.update(player.renderPosition, frameDt, bodyHeight(player.state) < 1.2);
+    atmosphere.update(frameDt);
     renderer.render(scene, camera);
     if (firstFrame) {
       firstFrame = false;
@@ -522,6 +537,7 @@ startFixedStepLoop(PHYSICS_DT, {
     telemetry.tick(frameDt);
     const serverNow = network.clock.now();
     phaseHud.update(lobby.room, lobby.myRole, serverNow, !!lobby.me?.found && lobby.myRole === 'hider');
+    gazeMeter.update(lobby.room?.phase ?? null, lobby.myRole, !!lobby.me?.found);
     seekerControls.update(serverNow);
     gameSounds.update(lobby.room, serverNow);
     splats.update(frameDt);
@@ -551,5 +567,5 @@ if (import.meta.env.DEV) {
     PlayerModel.showHitboxes = !PlayerModel.showHitboxes;
   });
 
-  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, studio, skinPainter, seekerControls, seekerEffects, shotFx, controls, sceneContext, splats, followCamera, auditUi, gameMenu, roomPanel } });
+  Object.assign(window, { __mecha: { player, remotePlayers, lobby, network, phaseHud, gazeMeter, studio, skinPainter, seekerControls, seekerEffects, shotFx, controls, sceneContext, atmosphere, splats, followCamera, auditUi, gameMenu, roomPanel } });
 }

@@ -2,13 +2,16 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import type { Subscription } from 'rxjs';
 import {
   GAME_RULES,
+  GAZE_RULES,
   MAX_SKIN_BYTES,
   PLAYER,
   SKIN_SIZE,
   canPaint,
   detectSkinImage,
   canShoot,
+  gazePoints,
   hintSchedule,
+  isWatching,
   resolveSeekerCount,
   type GameResult,
   type RoomSettings,
@@ -56,6 +59,8 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
   private readonly timers = new Map<Room, ReturnType<typeof setTimeout>>();
   /** Таймеры подсказок — отдельно от таймера фазы: их несколько за раунд, и все снимает конец поиска. */
   private readonly hintTimers = new Map<Room, ReturnType<typeof setTimeout>[]>();
+  /** Тик очков за взгляд — пока идёт поиск. */
+  private readonly gazeTimers = new Map<Room, ReturnType<typeof setInterval>>();
   private subscription: Subscription | undefined;
 
   constructor(
@@ -73,6 +78,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
     for (const room of [...this.hintTimers.keys()]) this.clearHints(room);
+    for (const room of [...this.gazeTimers.keys()]) this.stopGaze(room);
   }
 
   start(room: Room, playerId: string, random: () => number = Math.random): void {
@@ -212,6 +218,38 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
     // Время вышло, а прячущиеся остались — они победили.
     this.schedule(room, seekSeconds, () => this.finish(room, { winner: 'hider', reason: 'time_up' }));
     if (room.settings.hints) this.scheduleHints(room, seekSeconds);
+    this.startGaze(room);
+  }
+
+  private startGaze(room: Room) {
+    this.stopGaze(room);
+    this.gazeTimers.set(
+      room,
+      setInterval(() => this.tickGaze(room, GAZE_RULES.tickMs), GAZE_RULES.tickMs),
+    );
+  }
+
+  private stopGaze(room: Room) {
+    clearInterval(this.gazeTimers.get(room));
+    this.gazeTimers.delete(room);
+  }
+
+  /**
+   * Смотрит ли кто-то из ищущих на каждого ненайденного прячущегося — по последним принятым позициям
+   * и взгляду камеры ищущего. Отключившийся очков не копит: смотрят на пустое тело, а не на игрока.
+   */
+  private tickGaze(room: Room, ms: number) {
+    if (this.rooms.get(room.code) !== room || room.phase !== 'seeking') {
+      this.stopGaze(room);
+      return;
+    }
+    const seekers = room.allMembers().filter((m) => m.role === 'seeker' && m.connected && m.state.look);
+    for (const hider of room.allMembers()) {
+      if (hider.role !== 'hider' || hider.found || !hider.connected) continue;
+      const watched = seekers.some((s) => isWatching(s.state, hider.state, room.colliders));
+      const update = room.watch(hider, watched, ms);
+      if (update) this.events.gaze.next({ playerId: hider.id, update });
+    }
   }
 
   /** Расписание свиста на весь поиск сразу (hintSchedule): раунд кончится раньше — clearHints снимет остаток. */
@@ -242,6 +280,7 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
 
   private finish(room: Room, result: GameResult) {
     this.clearHints(room);
+    this.stopGaze(room);
     room.finishRound(result, Date.now() + GAME_RULES.resultsSeconds * 1000);
     this.logger.log(`room ${room.code}: ${result.winner} won (${result.reason})`);
     const hiders = room.allMembers().filter((m) => m.role === 'hider');
@@ -255,6 +294,8 @@ export class GameService implements OnModuleInit, OnModuleDestroy {
         players: room.size,
         hiders: hiders.length,
         found: hiders.filter((m) => m.found).length,
+        // Сколько очков за взгляд набрали все вместе: видно, работает ли механика и не слишком ли щедра.
+        gaze: room.allMembers().reduce((sum, m) => sum + gazePoints(m.watchedMs), 0),
         seconds: Math.round((Date.now() - room.roundStartedAt) / 1000),
       },
     });

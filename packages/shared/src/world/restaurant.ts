@@ -78,6 +78,7 @@ function recipe(): MapRecipe {
     width: 26,
     depth: 22,
     floor: P.ivory,
+    floorSurface: 'tiles',
     boundary: 'indoor',
     props,
     blocks,

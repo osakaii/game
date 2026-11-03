@@ -21,6 +21,8 @@ export interface SceneContext {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   sun: THREE.DirectionalLight;
+  /** Рассеянный свет неба и земли — его цвет меняет время суток (daytime.ts). */
+  hemisphere: THREE.HemisphereLight;
 }
 
 export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
@@ -44,14 +46,15 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   renderer.shadowMap.autoUpdate = false;
 
   const scene = new THREE.Scene();
-  // Цвет неба задаёт карта (ActiveMap.load).
+  // Небо — купол Sky (sky.ts), цвет и свет — по времени суток (daytime.ts).
 
   // Дальняя плоскость — с запасом на диагональ большой карты (площадь Ала-Тоо 108 × 180 м — 210 м по
   // диагонали, плюс флагшток 43 м). Дальше не стоит: точность глубины падает, и тонкие цветные поля мерцают.
   const camera = new THREE.PerspectiveCamera(BASE_FOV, 1, 0.1, 260);
 
-  // Тёплый рассеянный свет сверху и чуть более холодный снизу: уютно, как днём в квартире.
-  scene.add(new THREE.HemisphereLight('#fff6ea', '#8a7a66', 1.45));
+  // Рассеянный свет сверху и снизу и солнце; цвета, яркость и направление задаёт Atmosphere (daytime.ts).
+  const hemisphere = new THREE.HemisphereLight('#fff6ea', '#8a7a66', 1.45);
+  scene.add(hemisphere);
   const sun = new THREE.DirectionalLight('#fff1dc', 1.55);
   sun.position.set(8, 14, 6);
   sun.castShadow = graphics.shadows;
@@ -79,7 +82,7 @@ export function createSceneContext(canvas: HTMLCanvasElement): SceneContext {
   window.addEventListener('resize', resize);
   resize();
 
-  return { renderer, scene, camera, sun };
+  return { renderer, scene, camera, sun, hemisphere };
 }
 
 /** Рендер в меньшем разрешении (1× вместо 2×) — вчетверо меньше пикселей на кадр. */

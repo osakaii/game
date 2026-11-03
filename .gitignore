@@ -3,3 +3,6 @@ dist
 *.tsbuildinfo
 .env
 .DS_Store
+.env.local
+.env.*.local
+.neon

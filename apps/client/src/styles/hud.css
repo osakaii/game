@@ -56,6 +56,59 @@
   display: none;
 }
 
+/* На месте подсказки ищущего: она у ищущего, значок — у прячущегося, вместе не бывают. */
+#gaze {
+  position: fixed;
+  top: calc(var(--edge-top) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+#gaze[hidden] {
+  display: none;
+}
+
+/* Смотрят прямо сейчас — ярко и с пульсом: замри и не выдай себя. */
+#gaze.watched {
+  opacity: 1;
+  background: rgb(250 204 21 / 0.9);
+  color: #1a1a1a;
+}
+
+#gaze.watched .gaze-eye {
+  animation: gaze-pulse 0.8s ease-in-out infinite;
+}
+
+#gaze.full #gaze-count::after {
+  content: ' макс';
+  font-weight: 400;
+}
+
+@keyframes gaze-pulse {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gaze.watched .gaze-eye {
+    animation: none;
+  }
+}
+
 /* ☰ в левом верхнем углу. Выше затемнения ищущего: и с закрытыми глазами можно выключить звук или выйти. */
 #menu-button {
   position: fixed;

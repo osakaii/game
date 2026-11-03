@@ -20,6 +20,7 @@ const room = (mapId: MapId = 'ala-too', phase: RoomSnapshot['phase'] = 'lobby'):
   result: null,
   settings: { ...DEFAULT_SETTINGS, mapId },
   round: 0,
+  daytime: 'day',
   players: [],
 });
 

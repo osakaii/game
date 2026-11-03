@@ -1,5 +1,5 @@
 import { vec3, type Vec3 } from '../math.js';
-import type { MapBox, Shape } from './map.js';
+import type { MapBox, Shape, SurfaceId } from './map.js';
 
 /**
  * Набор для карт внешнего процедурного генератора (площадь Ала-Тоо, супермаркет, карты-рецепты). Планы перенесены
@@ -44,6 +44,31 @@ export const PALETTE = {
   lavender: '#b59ae2',
   peach: '#f9bb98',
 } as const;
+
+/**
+ * Рисунок по цвету палитры: листва — листьями, газон — травой, дорога — асфальтом, дерево — волокнами.
+ * Так текстуры получают сразу все карты генератора, без правки сотен блоков. Стены, крыши и камень
+ * помечают сами предметы (`surface` у блока): один и тот же кремовый бывает и стеной, и скатертью.
+ */
+const PALETTE_SURFACES: ReadonlyMap<string, SurfaceId> = new Map<string, SurfaceId>([
+  [PALETTE.leaf, 'leaves'],
+  [PALETTE.leafLight, 'leaves'],
+  [PALETTE.grass, 'grass'],
+  [PALETTE.road, 'asphalt'],
+  [PALETTE.wood, 'wood'],
+  [PALETTE.woodLight, 'wood'],
+  [PALETTE.woodDark, 'wood'],
+]);
+
+/** Проставить рисунок блокам без своей поверхности — по их цвету (`PALETTE_SURFACES`). */
+export function dressSurfaces<T extends MapBox>(boxes: T[]): T[] {
+  for (const box of boxes) {
+    if (box.surface || box.hidden || box.glow || box.art !== undefined) continue;
+    const surface = PALETTE_SURFACES.get(box.color);
+    if (surface) box.surface = surface;
+  }
+  return boxes;
+}
 
 /** Проход, который обязан оставаться открытым (под скамейкой, под стеллажом, по колоннаде). Проверяет тест. */
 export interface Passage {

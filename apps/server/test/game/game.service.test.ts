@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS, GAME_RULES, type RoomPhase } from '@mecha/shared';
+import { DEFAULT_SETTINGS, GAME_RULES, GAZE_RULES, gazePoints, type RoomPhase } from '@mecha/shared';
 import { GameError } from '../../src/common/game-error';
 import { AnalyticsService } from '../../src/analytics/analytics.service';
 import { NullSink, type EventSink } from '../../src/analytics/event-sink';
@@ -75,6 +75,20 @@ describe('GameService', () => {
     expect(room.phase).toBe('lobby');
     expect(room.allMembers().every((m) => m.role === null)).toBe(true);
     expect(phases).toEqual(['hiding', 'seeking', 'results', 'lobby']);
+  });
+
+  it('picks a new daytime for every round: everyone sees the same light', () => {
+    const { game, room } = setup();
+    expect(room.toSnapshot().daytime).toBe('day');
+    const seen: string[] = [];
+    for (let round = 0; round < 4; round++) {
+      game.start(room, 'p0');
+      seen.push(room.toSnapshot().daytime);
+      vi.advanceTimersByTime((room.settings.hideSeconds + room.settings.seekSeconds + GAME_RULES.resultsSeconds) * 1000);
+    }
+    // Каждый раунд — не то же время суток, что в прошлом.
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
+    expect(seen[0]).not.toBe('day');
   });
 
   it('reports round start and finish to analytics: map, players, winner, length', async () => {
@@ -429,5 +443,125 @@ describe('GameService hints', () => {
     const { pings, seekSeconds } = seeking(false);
     vi.advanceTimersByTime(seekSeconds * 1000);
     expect(pings).toHaveLength(0);
+  });
+});
+
+describe('GameService gaze points', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  /** Поиск на «Детской»: ищущий в (0, 0, 10), прячущиеся в (0, 0, 4) и (6, 0, 4); updates — личные события. */
+  function seeking(players = 2) {
+    const ctx = setup(players);
+    ctx.game.updateSettings(ctx.room, 'p0', { hints: false });
+    ctx.game.start(ctx.room, 'p0');
+    vi.advanceTimersByTime(ctx.room.settings.hideSeconds * 1000);
+    const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
+    const hiders = ctx.room.allMembers().filter((m) => m.role === 'hider');
+    ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    hiders.forEach((h, i) => ctx.room.teleport(h, { x: i * 6, y: 0, z: 4 }));
+    const updates: { playerId: string; watched: boolean; points: number }[] = [];
+    ctx.events.gaze.subscribe(({ playerId, update }) => updates.push({ playerId, ...update }));
+    /** Камера ищущего: на первого прячущегося или в сторону. */
+    const look = (yaw: number) => (seeker.state = { ...seeker.state, look: { yaw, pitch: 0.1 } });
+    return { ...ctx, seeker, hider: hiders[0]!, hiders, updates, look };
+  }
+
+  it('one point per two seconds under the seeker gaze; the hider hears only about changes', () => {
+    const { hider, updates, look } = seeking();
+    look(0);
+    vi.advanceTimersByTime(4000);
+    expect(updates.filter((u) => u.playerId === hider.id)).toEqual([
+      { playerId: hider.id, watched: true, points: 0 },
+      { playerId: hider.id, watched: true, points: 1 },
+      { playerId: hider.id, watched: true, points: 2 },
+    ]);
+    // Отвернулся — очки не растут, прячущийся узнаёт, что на него больше не смотрят.
+    look(Math.PI);
+    vi.advanceTimersByTime(4000);
+    expect(updates.at(-1)).toEqual({ playerId: hider.id, watched: false, points: 2 });
+    expect(updates).toHaveLength(4);
+  });
+
+  it('only the hider in view earns, and never more than the cap per round', () => {
+    const { hiders, room, look } = seeking(3);
+    look(0);
+    vi.advanceTimersByTime(60_000);
+    expect(gazePoints(hiders[0]!.watchedMs)).toBe(GAZE_RULES.maxPoints);
+    expect(hiders[1]!.watchedMs).toBe(0);
+    expect(room.phase).toBe('seeking');
+  });
+
+  it('points stay hidden until the results, then count for the round — also for a found hider', () => {
+    const { game, room, seeker, hider, look } = seeking(3);
+    look(0);
+    vi.advanceTimersByTime(4000);
+    const snapshot = () => room.toSnapshot().players.find((p) => p.id === hider.id)!;
+    expect(snapshot()).toMatchObject({ gazePoints: 0, roundPoints: 0 });
+    // Нашли — очки за взгляд остаются за ним.
+    game.shoot(room, seeker.id, { x: 0, y: 1.5, z: 13 }, { x: 0, y: 0, z: -1 });
+    expect(hider.found).toBe(true);
+    vi.advanceTimersByTime(room.settings.seekSeconds * 1000);
+    expect(room.phase).toBe('results');
+    expect(snapshot()).toMatchObject({ gazePoints: 2, roundPoints: 2 });
+  });
+
+  it('no points while hiding, from a seeker without a look, or for a disconnected hider', () => {
+    const ctx = setup(3);
+    ctx.game.start(ctx.room, 'p0');
+    const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
+    const [a, b] = ctx.room.allMembers().filter((m) => m.role === 'hider');
+    ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    ctx.room.teleport(a!, { x: 0, y: 0, z: 4 });
+    ctx.room.teleport(b!, { x: 0.8, y: 0, z: 4 });
+    seeker.state = { ...seeker.state, look: { yaw: 0, pitch: 0.1 } };
+    vi.advanceTimersByTime(ctx.room.settings.hideSeconds * 1000 - 100);
+    expect(a!.watchedMs).toBe(0);
+    vi.advanceTimersByTime(100);
+    ctx.room.setConnected(b!, false);
+    vi.advanceTimersByTime(3000);
+    expect(a!.watchedMs).toBeGreaterThan(0);
+    expect(b!.watchedMs).toBe(0);
+    seeker.state = { ...seeker.state, look: undefined };
+    const before = a!.watchedMs;
+    vi.advanceTimersByTime(3000);
+    expect(a!.watchedMs).toBe(before);
+  });
+
+  it('a reconnected hider hears the current state again, even at the cap', () => {
+    const { room, hider, updates, look } = seeking();
+    look(0);
+    vi.advanceTimersByTime(30_000);
+    const told = updates.length;
+    expect(updates.at(-1)).toMatchObject({ watched: true, points: GAZE_RULES.maxPoints });
+    vi.advanceTimersByTime(1000);
+    expect(updates).toHaveLength(told); // на потолке ничего не меняется — молчим
+    // Перезагрузил страницу: клиент всё забыл, напоминаем.
+    room.setConnected(hider, false);
+    room.setConnected(hider, true);
+    vi.advanceTimersByTime(GAZE_RULES.tickMs);
+    expect(updates.slice(told)).toEqual([{ playerId: hider.id, watched: true, points: GAZE_RULES.maxPoints }]);
+  });
+
+  it('the seeker look is not sent to other players in world snapshots', () => {
+    const { room, seeker, look } = seeking();
+    look(0);
+    expect(room.netPlayers().find((p) => p.id === seeker.id)).not.toHaveProperty('look');
+  });
+
+  it('reports the total gaze points of the round to analytics', async () => {
+    const sink = new RecordingSink();
+    const ctx = setup(2, sink);
+    ctx.game.updateSettings(ctx.room, 'p0', { hints: false });
+    ctx.game.start(ctx.room, 'p0');
+    vi.advanceTimersByTime(ctx.room.settings.hideSeconds * 1000);
+    const seeker = ctx.room.allMembers().find((m) => m.role === 'seeker')!;
+    const hider = ctx.room.allMembers().find((m) => m.role === 'hider')!;
+    ctx.room.teleport(seeker, { x: 0, y: 0, z: 10 });
+    ctx.room.teleport(hider, { x: 0, y: 0, z: 4 });
+    seeker.state = { ...seeker.state, look: { yaw: 0, pitch: 0.1 } };
+    vi.advanceTimersByTime(ctx.room.settings.seekSeconds * 1000);
+    await ctx.analytics.flush();
+    expect(sink.events.find((e) => e.type === 'round_finished')?.data).toMatchObject({ gaze: 10 });
   });
 });

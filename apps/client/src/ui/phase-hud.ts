@@ -86,12 +86,19 @@ export class PhaseHud {
       const name = document.createElement('span');
       name.className = 'nickname';
       name.textContent = player.nickname;
+      // Очки за взгляд уже внутри roundPoints — отдельно показываем, сколько из них: так видно, за что.
+      const gaze = document.createElement('span');
+      gaze.className = 'gaze';
+      if (player.gazePoints > 0) {
+        gaze.textContent = `👁 ${player.gazePoints}`;
+        gaze.title = 'Очки за взгляд: ищущий смотрел прямо на игрока и не нашёл';
+      }
       const delta = document.createElement('span');
       delta.className = 'delta';
       delta.textContent = player.roundPoints > 0 ? `+${player.roundPoints}` : '';
       const total = document.createElement('span');
       total.textContent = String(player.score);
-      li.append(name, delta, total);
+      li.append(name, gaze, delta, total);
       return li;
     });
     this.resultsScores.replaceChildren(...rows);

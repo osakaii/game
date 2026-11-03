@@ -1,6 +1,6 @@
 import { vec3 } from '../../math.js';
 import { scaleMap, type MapDef } from '../map.js';
-import { PALETTE as P, assembly, box, floorMosaic, lettering, paintFace, place, type Assembly, type Passage } from '../procedural.js';
+import { PALETTE as P, assembly, box, dressSurfaces, floorMosaic, lettering, paintFace, place, type Assembly, type Passage } from '../procedural.js';
 import { buildBakery, buildCart, buildCheckout, buildFreezer, buildFridge, buildGondola, buildPallet, buildProduce } from './fixtures.js';
 
 /**
@@ -96,10 +96,11 @@ function buildPlan(): Assembly {
   }
 
   // Наружные стены: по ним не лезть (под потолком всё равно некуда, а висеть у потолка — нечестно).
-  box(a, -13.85, 2.1, 0, 0.3, 4.2, 24, P.cream, true, 0.025, true);
-  box(a, 13.85, 2.1, 0, 0.3, 4.2, 24, P.cream, true, 0.025, true);
-  box(a, 0, 2.1, -11.85, 27.4, 4.2, 0.3, P.teal, true, 0.025, true);
-  box(a, 0, 2.1, 11.85, 27.4, 4.2, 0.3, P.waterDark, true, 0.025, true);
+  // Стены зала — штукатурка: огромные гладкие плоскости иначе выглядят пластиком.
+  box(a, -13.85, 2.1, 0, 0.3, 4.2, 24, P.cream, true, 0.025, true).surface = 'plaster';
+  box(a, 13.85, 2.1, 0, 0.3, 4.2, 24, P.cream, true, 0.025, true).surface = 'plaster';
+  box(a, 0, 2.1, -11.85, 27.4, 4.2, 0.3, P.teal, true, 0.025, true).surface = 'plaster';
+  box(a, 0, 2.1, 11.85, 27.4, 4.2, 0.3, P.waterDark, true, 0.025, true).surface = 'plaster';
 
   // Перегородка склада с двумя проёмами 2 м (×3 — 6 м) и балкой над ними.
   for (const [x, w] of [
@@ -107,7 +108,7 @@ function buildPlan(): Assembly {
     [0, 14],
     [11.35, 4.7],
   ] as const) {
-    box(a, x, 1.68, -6.95, w, 3.36, 0.22, P.peach, true, 0.025, true);
+    box(a, x, 1.68, -6.95, w, 3.36, 0.22, P.peach, true, 0.025, true).surface = 'brick';
   }
   box(a, 0, 3.78, -6.95, 27.4, 0.84, 0.22, P.ivory, true, 0.025, true);
   for (const x of [-9, -7, 7, 9]) box(a, x, 1.7, -6.79, 0.075, 3.4, 0.07, P.dark, false, 0.015);
@@ -183,10 +184,10 @@ const PLAN: MapDef = {
   width: WIDTH,
   depth: DEPTH,
   floorColor: P.ivory,
-  skyColor: '#cfe8ff',
+  floorSurface: 'tiles',
   ceiling: { height: CEILING, color: P.white },
   boxes: [
-    ...plan.boxes,
+    ...dressSurfaces(plan.boxes),
     // Потолок для физики: голова упирается в него при прыжке и лазании (виден — отдельная плоскость).
     { x: 0, z: 0, y: CEILING, w: WIDTH + 2, h: 1, d: DEPTH + 2, color: '#000000', hidden: true },
   ],

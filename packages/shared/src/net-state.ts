@@ -11,6 +11,16 @@ export const SNAPSHOT_RATE = 20;
  */
 export const INTERPOLATION_DELAY_MS = 100;
 
+/**
+ * Куда смотрит камера (рад), в тех же углах, что у камеры от третьего лица: yaw — поворот вокруг
+ * вертикали, pitch — наклон (камера выше игрока — смотрит вниз). По нему сервер считает очки за взгляд.
+ */
+export const LookSchema = z.object({
+  yaw: z.number(),
+  pitch: z.number().min(-Math.PI / 2).max(Math.PI / 2),
+});
+export type Look = z.output<typeof LookSchema>;
+
 /** Состояние, которое клиент сообщает о себе. z.number() в zod 4 уже отбрасывает NaN и Infinity. */
 export const PlayerStateSchema = z.object({
   x: z.number(),
@@ -24,6 +34,8 @@ export const PlayerStateSchema = z.object({
   climbing: z.boolean().default(false),
   /** Бежит. Сервер бег не принимает на слово: сам ведёт выносливость игрока (tickStamina). */
   sprinting: z.boolean().default(false),
+  /** Взгляд камеры. Шлёт только ищущий: остальным незачем, а серверу он нужен для очков за взгляд. */
+  look: LookSchema.optional(),
 });
 export type PlayerState = z.output<typeof PlayerStateSchema>;
 

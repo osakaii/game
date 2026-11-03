@@ -48,7 +48,7 @@ function recipe(): MapRecipe {
     for (const c of [...doors].sort((p, q) => p - q)) {
       ranges.push([last, c - doorWidth / 2]);
       last = c + doorWidth / 2;
-      along(c, 3.15, doorWidth, 1.3, 0.14, S.wall, true);
+      along(c, 3.15, doorWidth, 1.3, 0.14, S.wall, true).surface = 'plaster';
       for (const side of [-1, 1]) {
         const x = c + side * (doorWidth / 2 + 0.025);
         if (axis === 'x') add(x, 1.22, fixed, 0.07, 2.44, 0.19, S.wood);
@@ -60,8 +60,9 @@ function recipe(): MapRecipe {
       if (hi - lo <= 0.001) continue;
       const mid = (lo + hi) / 2;
       const len = hi - lo;
-      along(mid, 0.43, len, 0.86, 0.14, color, true);
-      along(mid, 2.33, len, 2.94, 0.14, S.wall, true);
+      // Низ стены — кафель цвета отделки, верх — штукатурка: как в настоящей школе.
+      along(mid, 0.43, len, 0.86, 0.14, color, true).surface = 'tiles';
+      along(mid, 2.33, len, 2.94, 0.14, S.wall, true).surface = 'plaster';
       // Плинтус с обеих сторон.
       for (const sign of [-1, 1]) {
         if (axis === 'x') add(mid, 0.11, fixed + sign * 0.076, len, 0.12, 0.014, S.linen);
@@ -137,7 +138,8 @@ function recipe(): MapRecipe {
   for (const r of ZONES) {
     const [x, z] = r.center;
     const color = r.key === 'garden' ? '#91a873' : r.key === 'gym' ? S.wood : r.key === 'library' ? '#c9c1ab' : '#d9d5c8';
-    floor(x, z, r.size[0] - 0.18, r.size[1] - 0.18, color);
+    floor(x, z, r.size[0] - 0.18, r.size[1] - 0.18, color).surface =
+      r.key === 'garden' ? 'grass' : r.key === 'gym' ? 'wood' : r.key === 'library' ? 'carpet' : 'tiles';
   }
   for (const [x, z, w, d] of [
     [0, -5.5, 40, 3],
@@ -310,6 +312,7 @@ function recipe(): MapRecipe {
     width: 44,
     depth: 36,
     floor: '#b2b7a0',
+    floorSurface: 'plaster',
     boundary: 'hedge',
     props,
     blocks,

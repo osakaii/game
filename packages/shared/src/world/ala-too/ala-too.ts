@@ -6,6 +6,7 @@ import {
   box,
   collide,
   cylinder,
+  dressSurfaces,
   floorMosaic,
   paintFace,
   place,
@@ -369,9 +370,9 @@ const PLAN: MapDef = {
   width: WIDTH,
   depth: DEPTH,
   floorColor: P.grass,
-  skyColor: '#a7dcff',
+  floorSurface: 'grass',
   boxes: [
-    ...plan.boxes.map(shift),
+    ...dressSurfaces(plan.boxes).map(shift),
     // Невидимая стена 30 м (×3): с крыши колоннады (12.6 м) разбег и прыжок перенесли бы через изгородь.
     ...perimeterWalls(WIDTH, DEPTH, 10, '#000000').map((b) => ({ ...b, hidden: true })),
   ],
